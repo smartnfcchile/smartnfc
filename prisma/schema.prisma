@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPERADMIN
+  CLIENT_ADMIN
+  USER
+}
+
+enum PlanType {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum EventType {
+  VIEW
+  NFC_SCAN
+  WHATSAPP_CLICK
+  PHONE_CLICK
+  EMAIL_CLICK
+  LINK_CLICK
+  VCARD_DOWNLOAD
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String?  @unique
+  plan      PlanType @default(FREE)
+  users     User[]
+  cards     Card[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String?
+  role      UserRole @default(CLIENT_ADMIN)
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  cards     Card[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Card {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  isActive    Boolean  @default(true)
+
+  themeColor  String   @default("#2563eb")
+  themeMode   String   @default("dark")
+
+  logoUrl     String?
+  avatarUrl   String?
+  coverUrl    String?
+
+  profileName String?
+  role        String?
+  companyName String?
+  bio         String?
+  location    String?
+
+  videoUrl    String?
+  videoTitle  String?
+
+  email       String?
+  phone       String?
+  whatsapp    String?
+
+  instagram   String?
+  facebook    String?
+  linkedin    String?
+  tiktok      String?
+  youtube     String?
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  events      Event[]
+  leads       Lead[]
+  links       CardLink[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CardLink {
+  id        String  @id @default(cuid())
+  title     String
+  url       String
+  icon      String?
+  order     Int     @default(0)
+  isActive  Boolean @default(true)
+
+  cardId    String
+  card      Card    @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Event {
+  id        String    @id @default(cuid())
+  eventType EventType
+  ipHash    String?
+  userAgent String?
+  referer   String?
+
+  cardId    String
+  card      Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+
+  name      String
+  company   String?
+  position  String?
+  email     String
+  phone     String?
+  message   String?
+
+  cardId    String
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}

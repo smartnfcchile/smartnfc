@@ -28,17 +28,21 @@ export default async function EditorPage() {
     await prisma.card.update({
       where: { id: formData.get("cardId") as string },
       data: {
-        profileName: formData.get("profileName") as string,
-        role: formData.get("role") as string,
-        companyName: formData.get("companyName") as string,
-        bio: formData.get("bio") as string,
-        themeColor: formData.get("themeColor") as string,
-      }
-    });
-
+  profileName: formData.get("profileName") as string,
+  role: formData.get("role") as string,
+  companyName: formData.get("companyName") as string,
+  bio: formData.get("bio") as string,
+  themeColor: formData.get("themeColor") as string,
+  whatsapp: formData.get("whatsapp") as string, 
+  email: formData.get("email") as string, 
+  linkedin: formData.get("linkedin") as string,
+  phone: formData.get("phone") as string,
+},
+});
     // Refrescamos la página para ver los cambios instantáneamente
     revalidatePath("/dashboard/editor");
-  }
+}
+
 
   return (
     <main className="min-h-screen bg-slate-950 text-white p-8">
@@ -66,17 +70,57 @@ export default async function EditorPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Campo: Nombre */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Nombre Público</label>
-              <input 
-                type="text" 
-                name="profileName"
-                defaultValue={card.profileName || ""}
-                placeholder="Ej: Ariel Jara"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-              />
-            </div>
+            {/* Campo: WhatsApp */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">
+    WhatsApp
+  </label>
+
+  <input
+    type="text"
+    name="whatsapp"
+    defaultValue={card.whatsapp || ""}
+    placeholder="56912345678"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div>
+{/* Campo: Email */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">Email</label>
+  <input 
+    type="email" 
+    name="email"
+    defaultValue={card.email || ""}
+    placeholder="agustin@smartnfc.cl"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div>
+{/* Campo: LinkedIn */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">LinkedIn</label>
+  <input 
+    type="url" 
+    name="linkedin"
+    defaultValue={card.linkedin || ""}
+    placeholder="https://www.linkedin.com/in/tu-perfil"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div>
+{/* Campo: Teléfono */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">
+    Teléfono
+  </label>
+
+  <input
+    type="text"
+    name="phone"
+    defaultValue={card.phone || ""}
+    placeholder="56912345678"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div>
+
 
             {/* Campo: Cargo */}
             <div className="space-y-2">

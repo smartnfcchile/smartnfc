@@ -74,180 +74,176 @@ export default async function PublicCardPage({ params }: PageProps) {
     { label: "YouTube", href: card.youtube },
   ].filter((item) => Boolean(item.href));
 
-  return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10">
-        <div
-          className="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full blur-3xl opacity-30"
-          style={{ backgroundColor: themeColor }}
-        />
+ return (
+  <main className="min-h-screen bg-slate-100 text-slate-950">
+    <section className="flex min-h-screen items-center justify-center px-5 py-10">
+      <article className="w-full max-w-md overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl">
+        <div className="px-7 pt-8 text-center">
+          {card.logoUrl && (
+            <div className="mb-6 flex justify-center">
+              <img
+                src={card.logoUrl}
+                alt={card.companyName ?? card.company.name}
+                className="h-10 max-w-40 object-contain"
+              />
+            </div>
+          )}
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),transparent_35%),linear-gradient(to_bottom,rgba(15,23,42,0.35),#020617)]" />
-
-        <article className="relative z-10 w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/80 shadow-2xl backdrop-blur">
-          <div
-            className="relative h-36 border-b border-white/10"
-            style={{
-              background: card.coverUrl
-                ? `url(${card.coverUrl}) center/cover`
-                : `linear-gradient(135deg, ${themeColor}, #020617 70%)`,
-            }}
-          >
-            {card.logoUrl && (
-              <div className="absolute left-5 top-5 rounded-2xl border border-white/10 bg-slate-950/75 px-3 py-2 backdrop-blur">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={card.logoUrl}
-                  alt={card.companyName ?? card.company.name}
-                  className="h-8 max-w-32 object-contain"
-                />
-              </div>
+          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-4xl font-black text-white shadow-lg">
+            {card.avatarUrl ? (
+              <img
+                src={card.avatarUrl}
+                alt={card.profileName ?? card.name}
+                className="h-full w-full rounded-full object-cover"
+              />
+            ) : (
+              <span
+                className="flex h-full w-full items-center justify-center rounded-full"
+                style={{ backgroundColor: themeColor }}
+              >
+                {(card.profileName ?? card.name).slice(0, 1).toUpperCase()}
+              </span>
             )}
           </div>
 
-          <div className="px-6 pb-7">
-            <div className="-mt-12 flex justify-center">
-              <div
-                className="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/20 bg-slate-950 text-3xl font-black shadow-xl"
-                style={{ boxShadow: `0 0 45px ${themeColor}55` }}
+          <p className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
+            Perfil corporativo
+          </p>
+
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+            {card.profileName ?? card.name}
+          </h1>
+
+          {card.role && (
+            <p className="mt-2 text-sm font-semibold text-slate-700">
+              {card.role}
+            </p>
+          )}
+
+          <p className="mt-1 text-sm text-slate-500">
+            {card.companyName ?? card.company.name}
+          </p>
+        </div>
+
+        {card.bio && (
+          <section className="mx-6 mt-7 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-5">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">
+              Presentación
+            </p>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              {card.bio}
+            </p>
+          </section>
+        )}
+
+        <section className="mx-6 mt-5 grid grid-cols-1 gap-3">
+          {whatsapp && (
+            <a
+              href={`https://wa.me/${whatsapp}`}
+              className="rounded-2xl px-4 py-4 text-center text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5"
+              style={{ backgroundColor: themeColor }}
+            >
+              Contactar ahora
+            </a>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            {phone && (
+              <a
+                href={`tel:${phone}`}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
-                {card.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={card.avatarUrl}
-                    alt={card.profileName ?? card.name}
-                    className="h-full w-full rounded-3xl object-cover"
-                  />
-                ) : (
-                  <span>
-                    {(card.profileName ?? card.name).slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-5 text-center">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
-                Tarjeta NFC inteligente
-              </p>
-
-              <h1 className="mt-3 text-3xl font-black tracking-tight">
-                {card.profileName ?? card.name}
-              </h1>
-
-              {card.role && (
-                <p className="mt-2 text-sm font-medium text-slate-300">
-                  {card.role}
-                </p>
-              )}
-
-              <p className="mt-1 text-sm text-slate-500">
-                {card.companyName ?? card.company.name}
-              </p>
-
-              {card.bio && (
-                <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm leading-6 text-slate-300">
-                  {card.bio}
-                </p>
-              )}
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              {whatsapp && (
-                <a
-                  href={`https://wa.me/${whatsapp}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-center text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]"
-                >
-                  WhatsApp
-                </a>
-              )}
-
-              {phone && (
-                <a
-                  href={`tel:${phone}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-center text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]"
-                >
-                  Llamar
-                </a>
-              )}
-
-              {card.email && (
-                <a
-                  href={`mailto:${card.email}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-center text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]"
-                >
-                  Email
-                </a>
-              )}
-            </div>
-
-            {socialLinks.length > 0 && (
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
-                {socialLinks.map((social) => (
-                  <a
-                    key={social.label}
-                    href={social.href ?? "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.08]"
-                  >
-                    {social.label}
-                  </a>
-                ))}
-              </div>
+                Llamar
+              </a>
             )}
 
-            <div className="mt-6 space-y-3">
+            {card.email && (
+              <a
+                href={`mailto:${card.email}`}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                Email
+              </a>
+            )}
+          </div>
+        </section>
+
+        {socialLinks.length > 0 && (
+          <section className="mx-6 mt-5 flex flex-wrap justify-center gap-2">
+            {socialLinks.map((social) => (
+              <a
+                key={social.label}
+                href={social.href ?? "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-100"
+              >
+                {social.label}
+              </a>
+            ))}
+          </section>
+        )}
+
+        {card.links.length > 0 && (
+          <section className="mx-6 mt-7">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-slate-400">
+              Documentos y enlaces
+            </p>
+
+            <div className="space-y-3">
               {card.links.map((link) => (
                 <a
                   key={link.id}
                   href={link.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-900"
+                  className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-bold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <span>{link.title}</span>
                   <span style={{ color: themeColor }}>↗</span>
                 </a>
               ))}
             </div>
+          </section>
+        )}
 
-            {safeVideoUrl && (
-              <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                  Video
-                </p>
+        {safeVideoUrl && (
+          <section className="mx-6 mt-7 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">
+              Video
+            </p>
 
-                <h2 className="mt-2 text-lg font-black">
-                  {card.videoTitle ?? "Video corporativo"}
-                </h2>
+            <h2 className="mt-2 text-lg font-black text-slate-950">
+              {card.videoTitle ?? "Video corporativo"}
+            </h2>
 
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black">
-                  <iframe
-                    src={safeVideoUrl}
-                    title={card.videoTitle ?? "Video corporativo"}
-                    className="aspect-video w-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                </div>
-              </section>
-            )}
-
-            <LeadForm cardId={card.id} themeColor={themeColor} />
-
-            <div className="mt-7 border-t border-white/10 pt-5 text-center">
-              {card.location && (
-                <p className="text-xs text-slate-500">{card.location}</p>
-              )}
-
-              <p className="mt-3 text-[11px] uppercase tracking-[0.3em] text-slate-600">
-                Powered by NFC Smart Cards Pro
-              </p>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-black">
+              <iframe
+                src={safeVideoUrl}
+                title={card.videoTitle ?? "Video corporativo"}
+                className="aspect-video w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
             </div>
-          </div>
-        </article>
-      </section>
-    </main>
-  );
+          </section>
+        )}
+
+        <div className="mx-6 mt-7">
+          <LeadForm cardId={card.id} themeColor={themeColor} />
+        </div>
+
+        <footer className="mt-8 border-t border-slate-200 px-6 py-6 text-center">
+          {card.location && (
+            <p className="text-xs text-slate-500">{card.location}</p>
+          )}
+
+          <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">
+            Powered by SmartNFC Chile
+          </p>
+        </footer>
+      </article>
+    </section>
+  </main>  
+ ); 
 }

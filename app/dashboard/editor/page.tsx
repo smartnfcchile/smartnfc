@@ -37,6 +37,9 @@ export default async function EditorPage() {
   email: formData.get("email") as string, 
   linkedin: formData.get("linkedin") as string,
   phone: formData.get("phone") as string,
+  avatarUrl: formData.get("avatarUrl") as string,
+  logoUrl: formData.get("logoUrl") as string,
+  location: formData.get("location") as string,
 },
 });
     // Refrescamos la página para ver los cambios instantáneamente
@@ -69,7 +72,35 @@ export default async function EditorPage() {
           <input type="hidden" name="cardId" value={card.id} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
+            {/* Campo: Foto de Perfil */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">
+    Foto de Perfil (URL)
+  </label>
+
+  <input
+    type="text"
+    name="avatarUrl"
+    defaultValue={card.avatarUrl || ""}
+    placeholder="https://misitio.cl/foto.jpg"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div> 
+{/* Campo: Logo Empresa */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">
+    Logo Empresa (URL)
+  </label>
+
+  <input
+    type="text"
+    name="logoUrl"
+    defaultValue={card.logoUrl || ""}
+    placeholder="https://misitio.cl/logo.png"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div>
+
             {/* Campo: WhatsApp */}
 <div className="space-y-2">
   <label className="text-sm font-medium text-slate-300">
@@ -81,6 +112,34 @@ export default async function EditorPage() {
     name="whatsapp"
     defaultValue={card.whatsapp || ""}
     placeholder="56912345678"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div>
+{/* Campo: Nombre Público */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">
+    Nombre Público
+  </label>
+
+  <input
+    type="text"
+    name="profileName"
+    defaultValue={card.profileName || ""}
+    placeholder="Agustín Ignacio Jara Pradines"
+    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
+  />
+</div>
+{/* Campo: Ubicación */}
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-300">
+    Ubicación
+  </label>
+
+  <input
+    type="text"
+    name="location"
+    defaultValue={card.location || ""}
+    placeholder="Valdivia, Chile"
     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
   />
 </div>

@@ -14,7 +14,7 @@ export default function LeadForm({ cardId, themeColor }: LeadFormProps) {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus("sending");
+   const form = event.currentTarget;
 
     const formData = new FormData(event.currentTarget);
 
@@ -40,8 +40,7 @@ export default function LeadForm({ cardId, themeColor }: LeadFormProps) {
       setStatus("error");
       return;
     }
-
-    event.currentTarget.reset();
+              form.reset();
     setStatus("success");
   }
 

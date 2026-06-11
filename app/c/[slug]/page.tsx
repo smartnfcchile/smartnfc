@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import LeadForm from "./LeadForm";
-
+import TrackButton from "./TrackButton";
+import { headers } from "next/headers";
+import crypto from "crypto";
 type PageProps = {
   params: Promise<{
     slug: string;
@@ -15,6 +17,7 @@ function formatPhone(phone?: string | null) {
 
 function getSafeVideoEmbedUrl(videoUrl?: string | null) {
   if (!videoUrl) return null;
+
 
   try {
     const url = new URL(videoUrl);
@@ -39,8 +42,11 @@ function getSafeVideoEmbedUrl(videoUrl?: string | null) {
 
     return null;
   } catch {
-    return null;
+    return null;  
   }
+}
+function hashIp(ip: string) {
+  return crypto.createHash("sha256").update(ip).digest("hex");
 }
 
 export default async function PublicCardPage({ params }: PageProps) {
@@ -60,8 +66,35 @@ export default async function PublicCardPage({ params }: PageProps) {
   if (!card || !card.isActive) {
     notFound();
   }
+const headersList = await headers();
 
-  const themeColor = card.themeColor || "#2563eb";
+const ip =
+  headersList.get("x-forwarded-for")?.split(",")[0] ||
+  headersList.get("x-real-ip") ||
+  "local";
+
+const userAgent = headersList.get("user-agent") || "Desconocido";
+const referer = headersList.get("referer") || null;
+
+await prisma.event.create({
+  data: {
+    cardId: card.id,
+    eventType: "VIEW",
+    userAgent,
+    referer,
+    ipHash: hashIp(ip),
+  },
+});
+  const themeColor = card.themeColor || "#2563eb";const vcard = `
+BEGIN:VCARD
+VERSION:3.0
+FN:${card.profileName ?? card.name}
+ORG:${card.companyName ?? card.company.name}
+TITLE:${card.role ?? ""}
+TEL:${card.phone ?? ""}
+EMAIL:${card.email ?? ""}
+END:VCARD
+`;const vcardUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(vcard)}`;
   const whatsapp = formatPhone(card.whatsapp);
   const phone = formatPhone(card.phone);
   const safeVideoUrl = getSafeVideoEmbedUrl(card.videoUrl);
@@ -137,75 +170,89 @@ export default async function PublicCardPage({ params }: PageProps) {
         )}
 
         <section className="mx-6 mt-5 grid grid-cols-1 gap-3">
-          {whatsapp && (
-            <a
-              href={`https://wa.me/${whatsapp}`}
-              className="rounded-2xl px-4 py-4 text-center text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5"
-              style={{ backgroundColor: themeColor }}
-            >
-              Contactar ahora
-            </a>
-          )}
+         {whatsapp && (
+  <TrackButton
+    cardId={card.id}
+    eventType="WHATSAPP_CLICK"
+    href={`https://wa.me/${whatsapp}`}
+    className="rounded-2xl px-4 py-4 text-center text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5"
+    style={{ backgroundColor: themeColor }}
+  >
+    Contactar ahora
+  </TrackButton>
+)}
 
-          <div className="grid grid-cols-2 gap-3">
-            {phone && (
-              <a
-                href={`tel:${phone}`}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-              >
-                Llamar
-              </a>
-            )}
+<TrackButton
+  cardId={card.id}
+  eventType="VCARD_DOWNLOAD"
+  href={vcardUrl}
+  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+>
+  Guardar contacto
+</TrackButton>
 
+<div className="grid grid-cols-2 gap-3">
+  {phone && (
+  <TrackButton
+    cardId={card.id}
+    eventType="PHONE_CLICK"
+    href={`tel:${phone}`}
+    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+  >
+    Llamar
+  </TrackButton>
+)}
             {card.email && (
-              <a
-                href={`mailto:${card.email}`}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-              >
-                Email
-              </a>
-            )}
+  <TrackButton
+    cardId={card.id}
+    eventType="EMAIL_CLICK"
+    href={`mailto:${card.email}`}
+    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+  >
+    Email
+  </TrackButton>
+)}
           </div>
         </section>
 
-        {socialLinks.length > 0 && (
-          <section className="mx-6 mt-5 flex flex-wrap justify-center gap-2">
-            {socialLinks.map((social) => (
-              <a
-                key={social.label}
-                href={social.href ?? "#"}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-100"
-              >
-                {social.label}
-              </a>
-            ))}
-          </section>
-        )}
+       {socialLinks.length > 0 && (
+  <section className="mx-6 mt-5 flex flex-wrap justify-center gap-2">
+    {socialLinks.map((social) => (
+      <TrackButton
+        key={social.label}
+        cardId={card.id}
+        eventType="LINK_CLICK"
+        href={social.href ?? "#"}
+        className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-100"
+      >
+        {social.label}
+      </TrackButton>
+    ))}
+  </section>
+)}
 
-        {card.links.length > 0 && (
-          <section className="mx-6 mt-7">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-slate-400">
-              Documentos y enlaces
-            </p>
+{card.links.length > 0 && (
+  <section className="mx-6 mt-7">
+    <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-slate-400">
+      Documentos y enlaces
+    </p>
 
-            <div className="space-y-3">
-              {card.links.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-bold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <span>{link.title}</span>
-                  <span style={{ color: themeColor }}>↗</span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
+    <div className="space-y-3">
+      {card.links.map((link) => (
+        <TrackButton
+          key={link.id}
+          cardId={card.id}
+          eventType="LINK_CLICK"
+          href={link.url}
+          className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-bold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <span>{link.title}</span>
+          <span style={{ color: themeColor }}>↗</span>
+        </TrackButton>
+      ))}
+    </div>
+  </section>
+)}
 
         {safeVideoUrl && (
           <section className="mx-6 mt-7 rounded-3xl border border-slate-200 bg-slate-50 p-4">

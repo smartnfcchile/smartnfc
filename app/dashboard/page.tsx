@@ -27,24 +27,45 @@ export default async function DashboardPage() {
   let totalWhatsapp = 0;
   let totalContactos = 0;
   let visitantesUnicos = 0;
+  let totalEmails = 0;
+  let totalPhones = 0;
+  let totalLinks = 0;
   const deviceCounts: Record<string, number> = {};
 
   if (card && card.events) {
-    totalVisitas = card.events.filter(e => e.eventType === "page_view").length;
-    totalWhatsapp = card.events.filter(e => e.eventType === "whatsapp_click").length;
-    totalContactos = card.events.filter(e => e.eventType === "vcard_click").length;
+    totalVisitas = card.events.filter(e => e.eventType === "VIEW").length;
+    totalWhatsapp = card.events.filter(e => e.eventType === "WHATSAPP_CLICK").length;
+    totalContactos = card.events.filter(e => e.eventType === "VCARD_DOWNLOAD").length;
+    totalEmails = card.events.filter( e => e.eventType === "EMAIL_CLICK").length;
+    totalPhones = card.events.filter(e => e.eventType === "PHONE_CLICK").length;
+    totalLinks = card.events.filter(e => e.eventType === "LINK_CLICK").length;
     
     const ipsUnicas = new Set(
       card.events
-        .filter(e => e.eventType === "page_view" && e.ipHash)
+        .filter(e => e.eventType === "VIEW" && e.ipHash)
         .map(e => e.ipHash)
     );
     visitantesUnicos = ipsUnicas.size;
 
     card.events.forEach(e => {
-      if (e.eventType === "page_view") {
-        const device = e.userAgent || "Desconocido";
-        deviceCounts[device] = (deviceCounts[device] || 0) + 1;
+      if (e.eventType === "VIEW") {
+       const ua = e.userAgent || "Desconocido";
+
+let device = "Desconocido";
+
+if (ua.includes("server-render")) {
+  device = "Visitas antiguas";
+} else if (ua.includes("Windows")) {
+  device = "Windows / Chrome";
+} else if (ua.includes("Android")) {
+  device = "Android";
+} else if (ua.includes("iPhone")) {
+  device = "iPhone";
+} else if (ua.includes("Macintosh")) {
+  device = "Mac / Safari";
+}
+
+deviceCounts[device] = (deviceCounts[device] || 0) + 1;
       }
     });
   }
@@ -77,16 +98,25 @@ export default async function DashboardPage() {
         </div>
         
         {/* Grilla de Métricas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
+  <div className="flex items-center gap-3 mb-4">
+    <div className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
+      <span className="text-blue-400 text-xl">👁️</span>
+    </div>
+    <h3 className="text-slate-400 font-medium">Visitas Totales</h3>
+  </div>
+  <p className="text-4xl font-extrabold text-white">{totalVisitas}</p>
+</div>
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
-                <span className="text-blue-400 text-xl">👁️</span>
-              </div>
-              <h3 className="text-slate-400 font-medium">Visitas Totales</h3>
-            </div>
-            <p className="text-4xl font-extrabold text-white">{totalVisitas}</p>
-          </div>
+  <div className="flex items-center gap-3 mb-4">
+    <div className="bg-sky-500/10 p-2.5 rounded-xl border border-sky-500/20">
+      <span className="text-sky-400 text-xl">📧</span>
+    </div>
+    <h3 className="text-slate-400 font-medium">Clics Email</h3>
+  </div>
+  <p className="text-4xl font-extrabold text-white">{totalEmails}</p>
+</div>
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
@@ -117,8 +147,8 @@ export default async function DashboardPage() {
         </div>
 
         {/* Tablas Inferiores: Dispositivos y Leads */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
+        <div className="grid grid-cols-1 gap-6">
+
           {/* Dispositivos */}
           <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-800 bg-slate-900/50">
@@ -167,23 +197,55 @@ export default async function DashboardPage() {
             <div className="overflow-y-auto flex-1 max-h-[300px]">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 text-sm uppercase tracking-wider bg-slate-950/50">
-                    <th className="py-4 px-6 font-medium">Correo Electrónico</th>
-                    <th className="py-4 px-6 font-medium text-right">Fecha</th>
-                  </tr>
+             <tr className="border-b border-slate-800 text-slate-400 text-sm uppercase tracking-wider bg-slate-950/50">
+  <th className="py-4 px-6 font-medium">Prospecto</th>
+  <th className="py-4 px-6 font-medium">Empresa</th>
+  <th className="py-4 px-6 font-medium">Cargo</th>
+  <th className="py-4 px-6 font-medium">Teléfono</th>
+  <th className="py-4 px-6 font-medium">Correo</th>
+  <th className="py-4 px-6 font-medium text-right">Fecha</th>
+</tr>
                 </thead>
-                <tbody>
-                  {card?.leads?.map((lead) => (
-                    <tr key={lead.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                      <td className="py-4 px-6 text-slate-300 font-medium">{lead.email}</td>
-                      <td className="py-4 px-6 text-slate-400 text-sm text-right">
-                        {lead.createdAt.toLocaleDateString("es-ES", { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </td>
-                    </tr>
-                  ))}
+            <tbody>
+  {card?.leads?.map((lead) => (
+    <tr
+      key={lead.id}
+      className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
+    >
+      <td className="py-4 px-6 text-slate-300 font-bold">
+        {lead.name}
+      </td>
+
+      <td className="py-4 px-6 text-slate-400">
+        {lead.company || "—"}
+      </td>
+
+      <td className="py-4 px-6 text-slate-400">
+        {lead.position || "—"}
+      </td>
+
+      <td className="py-4 px-6 text-slate-400">
+        {lead.phone || "—"}
+      </td>
+
+      <td className="py-4 px-6 text-blue-400 font-medium">
+        {lead.email}
+      </td>
+
+      <td className="py-4 px-6 text-slate-400 text-sm text-right">
+        {lead.createdAt.toLocaleDateString("es-ES", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })}
+      </td>
+    </tr>
+  ))}
+
+
                   {(!card?.leads || card.leads.length === 0) && (
                     <tr>
-                      <td colSpan={2} className="py-8 text-center text-slate-500">
+                      <td colSpan={6} className="py-8 text-center text-slate-500">
                         <span className="block text-2xl mb-2">📥</span>
                         Aún no has capturado ningún correo.
                       </td>

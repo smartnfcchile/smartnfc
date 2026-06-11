@@ -30,6 +30,9 @@ export default async function DashboardPage() {
   let totalEmails = 0;
   let totalPhones = 0;
   let totalLinks = 0;
+  let totalInteracciones = 0;
+  let tasaConversion = 0;
+ 
   const deviceCounts: Record<string, number> = {};
 
   if (card && card.events) {
@@ -37,9 +40,21 @@ export default async function DashboardPage() {
     totalWhatsapp = card.events.filter(e => e.eventType === "WHATSAPP_CLICK").length;
     totalContactos = card.events.filter(e => e.eventType === "VCARD_DOWNLOAD").length;
     totalEmails = card.events.filter( e => e.eventType === "EMAIL_CLICK").length;
-    totalPhones = card.events.filter(e => e.eventType === "PHONE_CLICK").length;
-    totalLinks = card.events.filter(e => e.eventType === "LINK_CLICK").length;
+  totalPhones = card.events.filter(e => e.eventType === "PHONE_CLICK").length;
+totalLinks = card.events.filter(e => e.eventType === "LINK_CLICK").length;
+
+
+totalInteracciones =
+  totalWhatsapp +
+  totalEmails +
+  totalPhones +
+  totalContactos +
+  totalLinks;
     
+  tasaConversion =
+     totalVisitas > 0
+        ? Math.round((totalInteracciones / totalVisitas) * 100)
+         : 0;
     const ipsUnicas = new Set(
       card.events
         .filter(e => e.eventType === "VIEW" && e.ipHash)
@@ -108,14 +123,17 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
   </div>
   <p className="text-4xl font-extrabold text-white">{totalVisitas}</p>
 </div>
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
+         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
   <div className="flex items-center gap-3 mb-4">
-    <div className="bg-sky-500/10 p-2.5 rounded-xl border border-sky-500/20">
-      <span className="text-sky-400 text-xl">📧</span>
+    <div className="bg-cyan-500/10 p-2.5 rounded-xl border border-cyan-500/20">
+      <span className="text-cyan-400 text-xl">🎯</span>
     </div>
-    <h3 className="text-slate-400 font-medium">Clics Email</h3>
+    <h3 className="text-slate-400 font-medium">Conversión</h3>
   </div>
-  <p className="text-4xl font-extrabold text-white">{totalEmails}</p>
+
+  <p className="text-4xl font-extrabold text-white">
+    {tasaConversion}%
+  </p>
 </div>
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
@@ -145,6 +163,53 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
             <p className="text-4xl font-extrabold text-white">{totalContactos}</p>
           </div>
         </div>
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm overflow-hidden">
+  <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+    <div>
+     <h2 className="text-xl font-bold text-white">
+  Contactos Generados
+</h2>
+
+<p className="text-sm text-slate-400 mt-1">
+  Personas que realizaron acciones de contacto desde tu tarjeta.
+</p>
+    </div>
+
+    <div className="text-right">
+      <p className="text-4xl font-extrabold text-white">{totalInteracciones}</p>
+      <p className="text-xs uppercase tracking-wider text-slate-500">
+  CONTACTOS
+</p>
+    </div>
+  </div>
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-800">
+    <div className="p-5">
+      <p className="text-sm text-slate-400">WhatsApp</p>
+      <p className="mt-2 text-3xl font-black text-white">{totalWhatsapp}</p>
+    </div>
+
+    <div className="p-5">
+      <p className="text-sm text-slate-400">Email</p>
+      <p className="mt-2 text-3xl font-black text-white">{totalEmails}</p>
+    </div>
+
+    <div className="p-5">
+      <p className="text-sm text-slate-400">Llamadas</p>
+      <p className="mt-2 text-3xl font-black text-white">{totalPhones}</p>
+    </div>
+
+    <div className="p-5">
+      <p className="text-sm text-slate-400">Contactos guardados</p>
+      <p className="mt-2 text-3xl font-black text-white">{totalContactos}</p>
+    </div>
+
+    <div className="p-5">
+      <p className="text-sm text-slate-400">Enlaces</p>
+      <p className="mt-2 text-3xl font-black text-white">{totalLinks}</p>
+    </div>
+  </div>
+</div>
 
         {/* Tablas Inferiores: Dispositivos y Leads */}
         <div className="grid grid-cols-1 gap-6">
@@ -185,15 +250,27 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
 
           {/* Leads Capturados */}
           <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-white">Prospectos Capturados</h2>
-                <p className="text-sm text-slate-400 mt-1">Correos descargaron tu guía.</p>
-              </div>
-              <div className="bg-amber-500/10 text-amber-400 font-bold py-1 px-3 rounded-lg border border-amber-500/20 text-sm">
-                {card?.leads?.length || 0} Leads
-              </div>
-            </div>
+           <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  <div>
+    <h2 className="text-xl font-bold text-white">Prospectos Capturados</h2>
+    <p className="text-sm text-slate-400 mt-1">
+      Personas que dejaron sus datos desde tu tarjeta.
+    </p>
+  </div>
+
+  <div className="flex items-center gap-3">
+    <a
+      href={`/api/leads/export?cardId=${card?.id}`}
+      className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-slate-800"
+    >
+      Exportar CSV
+    </a>
+
+    <div className="bg-amber-500/10 text-amber-400 font-bold py-1 px-3 rounded-lg border border-amber-500/20 text-sm">
+      {card?.leads?.length || 0} Leads
+    </div>
+  </div>
+</div>  
             <div className="overflow-y-auto flex-1 max-h-[300px]">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -224,14 +301,31 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
         {lead.position || "—"}
       </td>
 
-      <td className="py-4 px-6 text-slate-400">
-        {lead.phone || "—"}
-      </td>
+     <td className="py-4 px-6">
+  {lead.phone ? (
+    <a
+      href={`tel:${lead.phone}`}
+      className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-emerald-400 font-medium hover:bg-emerald-500/20 transition"
+    >
+      📞 {lead.phone}
+    </a>
+  ) : (
+    <span className="text-slate-400">—</span>
+  )}
+</td>
 
-      <td className="py-4 px-6 text-blue-400 font-medium">
-        {lead.email}
-      </td>
-
+<td className="py-4 px-6">
+  {lead.email ? (
+    <a
+      href={`mailto:${lead.email}`}
+      className="inline-flex items-center gap-2 rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-1 text-sky-400 font-medium hover:bg-sky-500/20 transition"
+    >
+      ✉️ {lead.email}
+    </a>
+  ) : (
+    <span className="text-slate-400">—</span>
+  )}
+</td>
       <td className="py-4 px-6 text-slate-400 text-sm text-right">
         {lead.createdAt.toLocaleDateString("es-ES", {
           day: "2-digit",
@@ -260,4 +354,4 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
       </div>
     </main>
   );
-}
+}  

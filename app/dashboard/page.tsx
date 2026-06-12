@@ -32,7 +32,8 @@ export default async function DashboardPage() {
   let totalLinks = 0;
   let totalInteracciones = 0;
   let tasaConversion = 0;
- 
+  let totalLeads = 0;
+
   const deviceCounts: Record<string, number> = {};
 
   if (card && card.events) {
@@ -50,6 +51,8 @@ totalInteracciones =
   totalPhones +
   totalContactos +
   totalLinks;
+
+  totalLeads = card.leads?.length || 0;
     
   tasaConversion =
      totalVisitas > 0
@@ -113,7 +116,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
         </div>
         
         {/* Grilla de Métricas */}
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
   <div className="flex items-center gap-3 mb-4">
     <div className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
@@ -145,6 +148,15 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
             <p className="text-4xl font-extrabold text-white">{visitantesUnicos}</p>
           </div>
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
+  <div className="flex items-center gap-3 mb-4">
+    <div className="bg-yellow-500/10 p-2.5 rounded-xl border border-yellow-500/20">
+      <span className="text-yellow-400 text-xl">💰</span>
+    </div>
+    <h3 className="text-slate-400 font-medium">Leads Capturados</h3>
+  </div>
+  <p className="text-4xl font-extrabold text-white">{totalLeads}</p>
+</div>
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-green-500/10 p-2.5 rounded-xl border border-green-500/20">
                 <span className="text-green-400 text-xl">💬</span>
@@ -158,7 +170,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
               <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
                 <span className="text-amber-400 text-xl">📥</span>
               </div>
-              <h3 className="text-slate-400 font-medium">Descargas vCard</h3>
+              <h3 className="text-slate-400 font-medium">Contactos Guardados</h3>
             </div>
             <p className="text-4xl font-extrabold text-white">{totalContactos}</p>
           </div>
@@ -281,6 +293,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
   <th className="py-4 px-6 font-medium">Teléfono</th>
   <th className="py-4 px-6 font-medium">Correo</th>
   <th className="py-4 px-6 font-medium text-right">Fecha</th>
+  <th className="py-4 px-6 font-medium text-center">Acciones</th>
 </tr>
                 </thead>
             <tbody>
@@ -333,6 +346,20 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
           year: "numeric",
         })}
       </td>
+      <td className="py-4 px-6 text-center">
+  {lead.phone ? (
+    <a
+      href={`https://wa.me/${lead.phone.replace(/\D/g, "")}`}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-2 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-1 text-green-400 font-medium hover:bg-green-500/20 transition"
+    >
+      🟢 WhatsApp
+    </a>
+  ) : (
+    <span className="text-slate-500">—</span>
+  )}
+</td>
     </tr>
   ))}
 

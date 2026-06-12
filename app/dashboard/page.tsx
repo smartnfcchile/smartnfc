@@ -13,8 +13,8 @@ export default async function DashboardPage() {
 
   const userId = (session.user as any).id;
   
-  const card = await prisma.card.findFirst({
-    where: { userId: userId },
+  const cards = await prisma.card.findMany({
+ where: { userId },
     include: { 
       events: true,
       leads: {
@@ -35,15 +35,15 @@ export default async function DashboardPage() {
   let totalLeads = 0;
 
   const deviceCounts: Record<string, number> = {};
-
-  if (card && card.events) {
-    totalVisitas = card.events.filter(e => e.eventType === "VIEW").length;
-    totalWhatsapp = card.events.filter(e => e.eventType === "WHATSAPP_CLICK").length;
-    totalContactos = card.events.filter(e => e.eventType === "VCARD_DOWNLOAD").length;
-    totalEmails = card.events.filter( e => e.eventType === "EMAIL_CLICK").length;
-  totalPhones = card.events.filter(e => e.eventType === "PHONE_CLICK").length;
-totalLinks = card.events.filter(e => e.eventType === "LINK_CLICK").length;
-
+  
+const allEvents = cards.flatMap((card: any) => card.events);
+const allLeads = cards.flatMap((card: any) => card.leads);
+  totalVisitas = allEvents.filter(e => e.eventType === "VIEW").length;
+  totalWhatsapp = allEvents.filter(e => e.eventType === "WHATSAPP_CLICK").length;
+  totalContactos = allEvents.filter(e => e.eventType === "VCARD_DOWNLOAD").length;
+  totalEmails = allEvents.filter(e => e.eventType === "EMAIL_CLICK").length;
+  totalPhones = allEvents.filter(e => e.eventType === "PHONE_CLICK").length;
+  totalLinks = allEvents.filter(e => e.eventType === "LINK_CLICK").length;
 
 totalInteracciones =
   totalWhatsapp +
@@ -52,20 +52,20 @@ totalInteracciones =
   totalContactos +
   totalLinks;
 
-  totalLeads = card.leads?.length || 0;
+  totalLeads = allLeads.length;
     
   tasaConversion =
      totalVisitas > 0
         ? Math.round((totalInteracciones / totalVisitas) * 100)
          : 0;
     const ipsUnicas = new Set(
-      card.events
-        .filter(e => e.eventType === "VIEW" && e.ipHash)
-        .map(e => e.ipHash)
-    );
+  allEvents
+    .filter(e => e.eventType === "VIEW" && e.ipHash)
+    .map(e => e.ipHash)
+);
     visitantesUnicos = ipsUnicas.size;
 
-    card.events.forEach(e => {
+    allEvents.forEach((e: any) => {
       if (e.eventType === "VIEW") {
        const ua = e.userAgent || "Desconocido";
 
@@ -86,11 +86,34 @@ if (ua.includes("server-render")) {
 deviceCounts[device] = (deviceCounts[device] || 0) + 1;
       }
     });
-  }
+  
 
   const deviceRanking = Object.entries(deviceCounts)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
+    const cardsRanking = cards.map((card: any) => {
+  const visitas = card.events.filter((e: any) => e.eventType === "VIEW").length;
+  const leads = card.leads.length;
+
+  const whatsapp = card.events.filter((e: any) => e.eventType === "WHATSAPP_CLICK").length;
+  const emails = card.events.filter((e: any) => e.eventType === "EMAIL_CLICK").length;
+  const phones = card.events.filter((e: any) => e.eventType === "PHONE_CLICK").length;
+  const contactos = card.events.filter((e: any) => e.eventType === "VCARD_DOWNLOAD").length;
+  const links = card.events.filter((e: any) => e.eventType === "LINK_CLICK").length;
+
+  const interacciones = whatsapp + emails + phones + contactos + links;
+
+  const conversion =
+    visitas > 0 ? Math.round((interacciones / visitas) * 100) : 0;
+
+  return {
+    id: card.id,
+    name: card.name || "Sin nombre",
+    visitas,
+    leads,
+    conversion,
+  };
+});
 
   return (
     <main className="min-h-screen bg-slate-950 text-white p-8">
@@ -103,7 +126,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
               Dashboard de Trazabilidad
             </h1>
             <p className="text-slate-400">
-              Seguimiento de visitas y acciones de la tarjeta: <span className="text-blue-400 font-medium">{card?.name || "Sin tarjeta"}</span>
+              la plataforma: <span className="text-blue-400 font-medium">{cards.length} tarjetas activas</span>
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -176,6 +199,57 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
           </div>
         </div>
         <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm overflow-hidden">
+  <div className="p-6 border-b border-slate-800 bg-slate-900/50">
+    <h2 className="text-xl font-bold text-white">Dashboard Global de Tarjetas</h2>
+    <p className="text-sm text-slate-400 mt-1">
+      Resumen consolidado de todas las tarjetas activas.
+    </p>
+  </div>
+
+  <div className="overflow-x-auto">
+    <table className="w-full text-left text-sm">
+      <thead className="bg-slate-950/60 text-slate-400 uppercase text-xs">
+        <tr>
+          <th className="py-4 px-6 font-medium">Tarjeta</th>
+          <th className="py-4 px-6 font-medium text-center">Visitas</th>
+          <th className="py-4 px-6 font-medium text-center">Leads</th>
+          <th className="py-4 px-6 font-medium text-center">Conversión</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {cardsRanking.map((card: any) => (
+          <tr key={card.id} className="border-b border-slate-800/50">
+            <td className="py-4 px-6 text-slate-200 font-medium">
+              {card.name}
+            </td>
+            <td className="py-4 px-6 text-center text-slate-300">
+              {card.visitas}
+            </td>
+            <td className="py-4 px-6 text-center text-slate-300">
+              {card.leads}
+            </td>
+            <td className="py-4 px-6 text-center">
+              <span className="rounded-lg bg-blue-500/10 text-blue-400 px-3 py-1 font-bold">
+                {card.conversion}%
+              </span>
+            </td>
+          </tr>
+        ))}
+
+        {cardsRanking.length === 0 && (
+          <tr>
+            <td colSpan={4} className="py-8 text-center text-slate-500">
+              Aún no hay tarjetas creadas.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm overflow-hidden">
+
   <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
     <div>
      <h2 className="text-xl font-bold text-white">
@@ -272,14 +346,14 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
 
   <div className="flex items-center gap-3">
     <a
-      href={`/api/leads/export?cardId=${card?.id}`}
+     href="/api/leads/export"
       className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-slate-800"
     >
       Exportar CSV
     </a>
 
     <div className="bg-amber-500/10 text-amber-400 font-bold py-1 px-3 rounded-lg border border-amber-500/20 text-sm">
-      {card?.leads?.length || 0} Leads
+   {totalLeads} Leads
     </div>
   </div>
 </div>  
@@ -297,7 +371,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
 </tr>
                 </thead>
             <tbody>
-  {card?.leads?.map((lead) => (
+{allLeads.map((lead: any) => (
     <tr
       key={lead.id}
       className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
@@ -364,7 +438,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
   ))}
 
 
-                  {(!card?.leads || card.leads.length === 0) && (
+                  {allLeads.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-slate-500">
                         <span className="block text-2xl mb-2">📥</span>

@@ -238,7 +238,7 @@ END:VCARD
     </p>
 
     <div className="space-y-3">
-      {card.links.map((link) => (
+      {card.links.map((link:any) => (
         <TrackButton
           key={link.id}
           cardId={card.id}

@@ -6,12 +6,24 @@ async function main() {
   if (!card) return;
 
   await prisma.lead.createMany({
-    data: [
-      { email: 'contacto@empresa-cliente.cl', cardId: card.id },
-      { email: 'director@inversiones-sur.com', cardId: card.id },
-      { email: 'marketing@agenciadigital.cl', cardId: card.id },
-    ]
-  });
+ data: [
+  {
+    name: "Contacto Empresa Cliente",
+    email: "contacto@empresa-cliente.cl",
+    cardId: card.id,
+  },
+  {
+    name: "Director Inversiones Sur",
+    email: "director@inversiones-sur.com",
+    cardId: card.id,
+  },
+  {
+    name: "Marketing Agencia Digital",
+    email: "marketing@agenciadigital.cl",
+    cardId: card.id,
+   },
+  ],
+});
   console.log('✅ 3 Leads inyectados correctamente');
 }
 main().finally(() => prisma.$disconnect());

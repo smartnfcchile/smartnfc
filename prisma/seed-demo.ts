@@ -45,23 +45,30 @@ async function main() {
   });
 
   // 2. Creamos 50 eventos aleatorios
-  const fakeEvents = [];
-  const eventTypes = ['page_view', 'page_view', 'page_view', 'whatsapp_click', 'vcard_click'];
-  const devices = ['iPhone', 'Android', 'Windows', 'Macintosh'];
+const fakeEvents: any[] = [];
 
-  for (let i = 0; i < 50; i++) {
-    const date = new Date();
-    // Le restamos días aleatorios para simular que entraron durante la semana
-    date.setDate(date.getDate() - Math.floor(Math.random() * 7));
+const eventTypes = [
+  "VIEW",
+  "VIEW",
+  "VIEW",
+  "WHATSAPP_CLICK",
+  "VCARD_DOWNLOAD",
+];
 
-    fakeEvents.push({
-      eventType: eventTypes[Math.floor(Math.random() * eventTypes.length)],
-      ipHash: 'hash-falso-' + Math.floor(Math.random() * 10),
-      userAgent: devices[Math.floor(Math.random() * devices.length)],
-      cardId: card.id,
-      createdAt: date,
-    });
-  }
+const devices = ["iPhone", "Android", "Windows", "Macintosh"];
+
+for (let i = 0; i < 50; i++) {
+  const date = new Date();
+  date.setDate(date.getDate() - Math.floor(Math.random() * 7));
+
+  fakeEvents.push({
+    eventType: eventTypes[Math.floor(Math.random() * eventTypes.length)],
+    ipHash: "hash-falso-" + Math.floor(Math.random() * 10),
+    userAgent: devices[Math.floor(Math.random() * devices.length)],
+    cardId: card.id,
+    createdAt: date,
+  });
+}
 
   // 3. Los enviamos todos de golpe a Neon
   await prisma.event.createMany({

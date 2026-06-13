@@ -33,24 +33,44 @@ export default async function DashboardPage() {
   let totalInteracciones = 0;
   let tasaConversion = 0;
   let totalLeads = 0;
+  let visitasHoy = 0;
+  let visitasAyer = 0;
 
   const deviceCounts: Record<string, number> = {};
   
 const allEvents = cards.flatMap((card: any) => card.events);
 const allLeads = cards.flatMap((card: any) => card.leads);
-  totalVisitas = allEvents.filter(e => e.eventType === "VIEW").length;
-  totalWhatsapp = allEvents.filter(e => e.eventType === "WHATSAPP_CLICK").length;
-  totalContactos = allEvents.filter(e => e.eventType === "VCARD_DOWNLOAD").length;
-  totalEmails = allEvents.filter(e => e.eventType === "EMAIL_CLICK").length;
-  totalPhones = allEvents.filter(e => e.eventType === "PHONE_CLICK").length;
-  totalLinks = allEvents.filter(e => e.eventType === "LINK_CLICK").length;
+  totalVisitas = allEvents.filter((e: any) => e.eventType === "VIEW").length;
+  totalWhatsapp = allEvents.filter((e:any) => e.eventType === "WHATSAPP_CLICK").length;
+  totalContactos = allEvents.filter((e: any) => e.eventType === "VCARD_DOWNLOAD").length;
+  totalEmails = allEvents.filter((e: any) => e.eventType === "EMAIL_CLICK").length;
+  totalPhones = allEvents.filter((e: any) => e.eventType === "PHONE_CLICK").length;
+  totalLinks = allEvents.filter((e: any) => e.eventType === "LINK_CLICK").length;
+const hoy = new Date().toISOString().split("T")[0];
 
+visitasHoy = allEvents.filter((e: any) => {
+  if (e.eventType !== "VIEW") return false;
+
+  const fechaEvento = new Date(e.createdAt)
+    .toISOString()
+    .split("T")[0];
+
+  return fechaEvento === hoy;
+}).length;
 totalInteracciones =
   totalWhatsapp +
   totalEmails +
   totalPhones +
   totalContactos +
   totalLinks;
+
+const conversacionesGeneradas =
+  totalWhatsapp + totalContactos;
+
+const tasaContacto =
+  totalVisitas > 0
+    ? Math.round((conversacionesGeneradas / totalVisitas) * 100)
+    : 0;
 
   totalLeads = allLeads.length;
     
@@ -60,10 +80,32 @@ totalInteracciones =
          : 0;
     const ipsUnicas = new Set(
   allEvents
-    .filter(e => e.eventType === "VIEW" && e.ipHash)
-    .map(e => e.ipHash)
+    .filter((e:any) => e.eventType === "VIEW" && e.ipHash)
+    .map((e:any) => e.ipHash)
 );
     visitantesUnicos = ipsUnicas.size;
+    const inicioHoy = new Date();
+inicioHoy.setHours(0, 0, 0, 0);
+
+const inicioAyer = new Date(inicioHoy);
+inicioAyer.setDate(inicioAyer.getDate() - 1);
+
+visitasHoy = allEvents.filter((e: any) => {
+  const fecha = new Date(e.createdAt);
+  return (
+    e.eventType === "VIEW" &&
+    fecha >= inicioHoy
+  );
+}).length;
+
+visitasAyer = allEvents.filter((e: any) => {
+  const fecha = new Date(e.createdAt);
+  return (
+    e.eventType === "VIEW" &&
+    fecha >= inicioAyer &&
+fecha < inicioHoy
+  );
+}).length;
 
     allEvents.forEach((e: any) => {
       if (e.eventType === "VIEW") {
@@ -91,7 +133,8 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
   const deviceRanking = Object.entries(deviceCounts)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
-    const cardsRanking = cards.map((card: any) => {
+   const cardsRanking = cards.map((card: any) => {
+     
   const visitas = card.events.filter((e: any) => e.eventType === "VIEW").length;
   const leads = card.leads.length;
 
@@ -102,19 +145,39 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
   const links = card.events.filter((e: any) => e.eventType === "LINK_CLICK").length;
 
   const interacciones = whatsapp + emails + phones + contactos + links;
+  const ultimoEvento = card.events
+  .slice()
+  .sort(
+    (a: any, b: any) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )[0];
+
+const ultimaActividad = ultimoEvento
+  ? new Date(ultimoEvento.createdAt).toLocaleDateString("es-CL")
+  : "Sin actividad";
 
   const conversion =
     visitas > 0 ? Math.round((interacciones / visitas) * 100) : 0;
 
-  return {
-    id: card.id,
-    name: card.name || "Sin nombre",
-    visitas,
-    leads,
-    conversion,
-  };
+ return {
+  id: card.id,
+  name: card.name || "Sin nombre",
+  visitas,
+  leads,
+  whatsapp,
+  contactos,
+  conversion,
+  ultimaActividad,
+};
+}).sort((a: any, b: any) => {
+  if (b.contactos !== a.contactos) return b.contactos - a.contactos;
+  if (b.leads !== a.leads) return b.leads - a.leads;
+  if (b.whatsapp !== a.whatsapp) return b.whatsapp - a.whatsapp;
+  if (b.conversion !== a.conversion) return b.conversion - a.conversion;
+  return b.visitas - a.visitas;
 });
-
+const topCards = cardsRanking.slice(0, 5);
+console.log("cardsRanking", cardsRanking.length);
   return (
     <main className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -139,7 +202,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
         </div>
         
         {/* Grilla de Métricas */}
-   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
   <div className="flex items-center gap-3 mb-4">
     <div className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
@@ -197,9 +260,79 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
             </div>
             <p className="text-4xl font-extrabold text-white">{totalContactos}</p>
           </div>
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
+  <div className="flex items-center gap-3 mb-4">
+    <div className="bg-purple-500/10 p-2.5 rounded-xl border border-purple-500/20">
+      <span className="text-purple-400 text-xl">🪪</span>
+    </div>
+    <h3 className="text-slate-400 font-medium">Tarjetas Activas</h3>
+  </div>
+
+  <p className="text-4xl font-extrabold text-white">
+    {cards.length}
+  </p>
+</div>
+
+<div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
+  <div className="flex items-center gap-3 mb-4">
+    <div className="bg-pink-500/10 p-2.5 rounded-xl border border-pink-500/20">
+      <span className="text-pink-400 text-xl">📈</span>
+    </div>
+  <h3 className="text-slate-400 font-medium">
+  Conversaciones
+</h3>
+
+<p className="text-4xl font-extrabold text-white">
+  {conversacionesGeneradas}
+</p>
+
+<p className="text-sm text-green-400 mt-2">
+  {tasaContacto}% contacto
+</p>
+</div>  
+
+
+</div>
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm p-6 mb-6">
+  <h2 className="text-xl font-bold text-white mb-4">
+    🏆 Top 5 Tarjetas
+  </h2>
+
+  <div className="space-y-3">
+    {topCards.map((card: any, index: number) => (
+     <div key={card.id} className="flex items-center justify-between bg-slate-950 rounded-xl p-4 border border-slate-800">
+        <div className="flex items-center gap-4">
+          <div className="text-2xl font-bold text-yellow-400">
+            #{index + 1}
+          </div>
+
+          <div>
+            <div className="font-semibold text-white">
+              {card.name}
+            </div>
+
+            <div className="text-sm text-slate-400">
+           {card.contactos} contactos · {card.leads} leads · {card.whatsapp} WhatsApp
+            </div>
+          </div>
         </div>
+
+        <div className="text-right">
+          <div className="text-green-400 font-bold">
+            {card.leads} leads
+          </div>
+
+          <div className="text-blue-400 text-sm">
+            {card.conversion}%
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
         <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm overflow-hidden">
   <div className="p-6 border-b border-slate-800 bg-slate-900/50">
+
     <h2 className="text-xl font-bold text-white">Dashboard Global de Tarjetas</h2>
     <p className="text-sm text-slate-400 mt-1">
       Resumen consolidado de todas las tarjetas activas.
@@ -210,26 +343,49 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
     <table className="w-full text-left text-sm">
       <thead className="bg-slate-950/60 text-slate-400 uppercase text-xs">
         <tr>
+          <th className="py-4 px-6 font-medium text-center">Rank</th>
           <th className="py-4 px-6 font-medium">Tarjeta</th>
           <th className="py-4 px-6 font-medium text-center">Visitas</th>
-          <th className="py-4 px-6 font-medium text-center">Leads</th>
-          <th className="py-4 px-6 font-medium text-center">Conversión</th>
+        <th className="py-4 px-6 font-medium text-center">Leads</th>
+        <th className="py-4 px-6 font-medium text-center">WhatsApp</th>
+        <th className="py-4 px-6 font-medium text-center">Contactos</th>
+<th className="py-4 px-6 font-medium text-center">Última actividad</th>
+<th className="py-4 px-6 font-medium text-center">Conversión</th>
         </tr>
       </thead>
 
       <tbody>
-        {cardsRanking.map((card: any) => (
+     {cardsRanking.map((card: any, index: number) => (
           <tr key={card.id} className="border-b border-slate-800/50">
+            <td className="py-4 px-6 text-center text-xl">
+  {index === 0 ? "🥇" :
+   index === 1 ? "🥈" :
+   index === 2 ? "🥉" :
+   `${index + 1}°`}
+</td>
             <td className="py-4 px-6 text-slate-200 font-medium">
               {card.name}
             </td>
             <td className="py-4 px-6 text-center text-slate-300">
               {card.visitas}
             </td>
-            <td className="py-4 px-6 text-center text-slate-300">
-              {card.leads}
-            </td>
-            <td className="py-4 px-6 text-center">
+          <td className="py-4 px-6 text-center text-slate-300">
+  {card.leads}
+</td>
+
+<td className="py-4 px-6 text-center text-green-400 font-bold">
+  {card.whatsapp}
+</td>
+
+<td className="py-4 px-6 text-center text-cyan-400 font-bold">
+  {card.contactos}
+</td>
+
+<td className="py-4 px-6 text-center text-slate-300">
+  {card.ultimaActividad}
+</td>
+
+<td className="py-4 px-6 text-center">
               <span className="rounded-lg bg-blue-500/10 text-blue-400 px-3 py-1 font-bold">
                 {card.conversion}%
               </span>
@@ -450,7 +606,7 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
               </table>
             </div>
           </div>
-
+          </div>
         </div>
       </div>
     </main>

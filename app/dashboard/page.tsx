@@ -183,24 +183,35 @@ console.log("cardsRanking", cardsRanking.length);
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Cabecera */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight mb-1">
-              Dashboard de Trazabilidad
-            </h1>
-            <p className="text-slate-400">
-              la plataforma: <span className="text-blue-400 font-medium">{cards.length} tarjetas activas</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-             <div className="text-right hidden sm:block">
-              <span className="text-xs text-slate-500 block uppercase tracking-wider font-semibold">Usuario</span>
-              <span className="font-medium text-slate-300">{session.user?.name}</span>
-            </div>
-            <LogoutButton />
-          </div>
-        </div>
-        
+<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-6">
+  <div>
+    <h1 className="text-3xl font-bold text-white tracking-tight mb-1">
+      Dashboard de Trazabilidad
+    </h1>
+
+    <p className="text-slate-400">
+      la plataforma:{" "}
+      <span className="text-blue-400 font-medium">
+        {cards.length} tarjetas activas
+      </span>
+    </p>
+  </div>
+
+  <div className="flex items-center gap-4">
+    <div className="text-right hidden sm:block">
+      <span className="text-xs text-slate-500 block uppercase tracking-wider font-semibold">
+        Usuario
+      </span>
+
+      <span className="font-medium text-slate-300">
+        {session.user?.name}
+      </span>
+    </div>
+
+    <LogoutButton />
+  </div>
+</div>
+    
         {/* Grilla de Métricas */}
 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
@@ -278,19 +289,20 @@ console.log("cardsRanking", cardsRanking.length);
     <div className="bg-pink-500/10 p-2.5 rounded-xl border border-pink-500/20">
       <span className="text-pink-400 text-xl">📈</span>
     </div>
-  <h3 className="text-slate-400 font-medium">
-  Conversaciones
-</h3>
 
-<p className="text-4xl font-extrabold text-white">
-  {conversacionesGeneradas}
-</p>
+    <h3 className="text-slate-400 font-medium">
+      Conversaciones
+    </h3>
+  </div>
 
-<p className="text-sm text-green-400 mt-2">
-  {tasaContacto}% contacto
-</p>
-</div>  
+  <p className="text-4xl font-extrabold text-white">
+    {conversacionesGeneradas}
+  </p>
 
+  <p className="text-sm text-green-400 mt-2">
+    {tasaContacto}% contacto
+  </p>
+</div>
 
 </div>
         <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm p-6 mb-6">
@@ -409,9 +421,8 @@ console.log("cardsRanking", cardsRanking.length);
   <div className="p-6 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
     <div>
      <h2 className="text-xl font-bold text-white">
-  Contactos Generados
+  🎯 Embudo Comercial
 </h2>
-
 <p className="text-sm text-slate-400 mt-1">
   Personas que realizaron acciones de contacto desde tu tarjeta.
 </p>
@@ -425,36 +436,34 @@ console.log("cardsRanking", cardsRanking.length);
     </div>
   </div>
 
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-800">
-    <div className="p-5">
-      <p className="text-sm text-slate-400">WhatsApp</p>
-      <p className="mt-2 text-3xl font-black text-white">{totalWhatsapp}</p>
-    </div>
+ <div className="space-y-4 p-6">
+  <div className="flex justify-between items-center">
+    <span className="text-slate-400">👀 Visitas</span>
+    <span className="text-2xl font-bold text-white">{totalVisitas}</span>
+  </div>
 
-    <div className="p-5">
-      <p className="text-sm text-slate-400">Email</p>
-      <p className="mt-2 text-3xl font-black text-white">{totalEmails}</p>
-    </div>
+  <div className="flex justify-between items-center">
+    <span className="text-slate-400">💬 Conversaciones</span>
+    <span className="text-2xl font-bold text-cyan-400">{conversacionesGeneradas}</span>
+  </div>
 
-    <div className="p-5">
-      <p className="text-sm text-slate-400">Llamadas</p>
-      <p className="mt-2 text-3xl font-black text-white">{totalPhones}</p>
-    </div>
+  <div className="flex justify-between items-center">
+    <span className="text-slate-400">📇 Contactos guardados</span>
+    <span className="text-2xl font-bold text-blue-400">{totalContactos}</span>
+  </div>
 
-    <div className="p-5">
-      <p className="text-sm text-slate-400">Contactos guardados</p>
-      <p className="mt-2 text-3xl font-black text-white">{totalContactos}</p>
-    </div>
+  <div className="flex justify-between items-center">
+    <span className="text-slate-400">🎯 Leads</span>
+    <span className="text-2xl font-bold text-green-400">{totalLeads}</span>
+  </div>
 
-    <div className="p-5">
-      <p className="text-sm text-slate-400">Enlaces</p>
-      <p className="mt-2 text-3xl font-black text-white">{totalLinks}</p>
-    </div>
+  <div className="flex justify-between items-center border-t border-slate-800 pt-4">
+    <span className="text-slate-400">📈 Conversión</span>
+    <span className="text-2xl font-bold text-yellow-400">{tasaConversion}%</span>
   </div>
 </div>
-
-        {/* Tablas Inferiores: Dispositivos y Leads */}
-        <div className="grid grid-cols-1 gap-6">
+       {/* Tablas Inferiores: Dispositivos y Leads */}
+<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
           {/* Dispositivos */}
           <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-sm overflow-hidden flex flex-col">
@@ -521,7 +530,7 @@ console.log("cardsRanking", cardsRanking.length);
   <th className="py-4 px-6 font-medium">Empresa</th>
   <th className="py-4 px-6 font-medium">Cargo</th>
   <th className="py-4 px-6 font-medium">Teléfono</th>
-  <th className="py-4 px-6 font-medium">Correo</th>
+  
   <th className="py-4 px-6 font-medium text-right">Fecha</th>
   <th className="py-4 px-6 font-medium text-center">Acciones</th>
 </tr>
@@ -557,18 +566,7 @@ console.log("cardsRanking", cardsRanking.length);
   )}
 </td>
 
-<td className="py-4 px-6">
-  {lead.email ? (
-    <a
-      href={`mailto:${lead.email}`}
-      className="inline-flex items-center gap-2 rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-1 text-sky-400 font-medium hover:bg-sky-500/20 transition"
-    >
-      ✉️ {lead.email}
-    </a>
-  ) : (
-    <span className="text-slate-400">—</span>
-  )}
-</td>
+
       <td className="py-4 px-6 text-slate-400 text-sm text-right">
         {lead.createdAt.toLocaleDateString("es-ES", {
           day: "2-digit",
@@ -607,7 +605,7 @@ console.log("cardsRanking", cardsRanking.length);
             </div>
           </div>
           </div>
-        </div>
+    </div>
       </div>
     </main>
   );

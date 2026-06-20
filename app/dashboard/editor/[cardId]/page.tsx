@@ -16,11 +16,11 @@ type EditorPageProps = {
 export default async function EditorPage({ params }: EditorPageProps) {
   const { cardId } = await params;
 
-  // 1. Verificamos quién está conectado (Bypass temporal para diagnóstico de tamaño)
-  // const session = await getServerSession(authOptions);
-  // if (!session) redirect("/login");
+  // 1. Verificamos quién está conectado
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
 
-  const userId = "cmpw3f3850002usyk5gyok6n8";
+  const userId = (session.user as any).id;
   
   // 2. Buscamos la tarjeta específica con sus enlaces
   const card = await prisma.card.findUnique({

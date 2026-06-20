@@ -2,248 +2,40 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
-export default async function EditorPage() {
+export default async function EditorRedirectPage() {
   // 1. Verificamos quién está conectado
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
   const userId = (session.user as any).id;
-  
-  // 2. Buscamos su tarjeta
+
+  // 2. Buscamos su primera tarjeta
   const card = await prisma.card.findFirst({
-    where: { userId: userId }
+    where: { userId: userId },
+    select: { id: true }
   });
 
+  // 3. Si no tiene tarjeta, mostrar aviso
   if (!card) {
-    return <div className="p-8 text-white">No tienes una tarjeta asignada aún.</div>;
-  }
-
-  // 3. EL MOTOR DE GUARDADO (Server Action)
-  async function updateCard(formData: FormData) {
-    "use server";
-    
-    await prisma.card.update({
-      where: { id: formData.get("cardId") as string },
-      data: {
-  profileName: formData.get("profileName") as string,
-  role: formData.get("role") as string,
-  companyName: formData.get("companyName") as string,
-  bio: formData.get("bio") as string,
-  themeColor: formData.get("themeColor") as string,
-  whatsapp: formData.get("whatsapp") as string, 
-  email: formData.get("email") as string, 
-  linkedin: formData.get("linkedin") as string,
-  phone: formData.get("phone") as string,
-  avatarUrl: formData.get("avatarUrl") as string,
-  logoUrl: formData.get("logoUrl") as string,
-  location: formData.get("location") as string,
-},
-});
-    // Refrescamos la página para ver los cambios instantáneamente
-    revalidatePath("/dashboard/editor");
-}
-
-
-  return (
-    <main className="min-h-screen bg-slate-950 text-white p-8">
-      <div className="max-w-3xl mx-auto space-y-8">
-        
-        {/* Cabecera y Navegación */}
-        <div className="flex justify-between items-center border-b border-slate-800 pb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-1">Editor de Tarjeta</h1>
-            <p className="text-slate-400">Personaliza la apariencia pública de tu perfil NFC.</p>
-          </div>
+    return (
+      <main className="min-h-screen bg-slate-950 text-white p-8 flex items-center justify-center">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-6">
+          <div className="text-4xl">🎴</div>
+          <h1 className="text-2xl font-bold text-white">Sin tarjetas asignadas</h1>
+          <p className="text-slate-400">No tienes ninguna tarjeta asignada para editar actualmente.</p>
           <Link 
             href="/dashboard" 
-            className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm transition font-medium"
+            className="inline-block bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold transition w-full"
           >
-            ← Volver a Métricas
+            Volver al Dashboard
           </Link>
         </div>
+      </main>
+    );
+  }
 
-        {/* Formulario de Configuración */}
-        <form action={updateCard} className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl space-y-6">
-          
-          {/* Input oculto por seguridad para saber qué tarjeta editar */}
-          <input type="hidden" name="cardId" value={card.id} />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Campo: Foto de Perfil */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">
-    Foto de Perfil (URL)
-  </label>
-
-  <input
-    type="text"
-    name="avatarUrl"
-    defaultValue={card.avatarUrl || ""}
-    placeholder="https://misitio.cl/foto.jpg"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div> 
-{/* Campo: Logo Empresa */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">
-    Logo Empresa (URL)
-  </label>
-
-  <input
-    type="text"
-    name="logoUrl"
-    defaultValue={card.logoUrl || ""}
-    placeholder="https://misitio.cl/logo.png"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div>
-
-            {/* Campo: WhatsApp */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">
-    WhatsApp
-  </label>
-
-  <input
-    type="text"
-    name="whatsapp"
-    defaultValue={card.whatsapp || ""}
-    placeholder="56912345678"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div>
-{/* Campo: Nombre Público */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">
-    Nombre Público
-  </label>
-
-  <input
-    type="text"
-    name="profileName"
-    defaultValue={card.profileName || ""}
-    placeholder="Agustín Ignacio Jara Pradines"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div>
-{/* Campo: Ubicación */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">
-    Ubicación
-  </label>
-
-  <input
-    type="text"
-    name="location"
-    defaultValue={card.location || ""}
-    placeholder="Valdivia, Chile"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div>
-{/* Campo: Email */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">Email</label>
-  <input 
-    type="email" 
-    name="email"
-    defaultValue={card.email || ""}
-    placeholder="agustin@smartnfc.cl"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div>
-{/* Campo: LinkedIn */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">LinkedIn</label>
-  <input 
-    type="url" 
-    name="linkedin"
-    defaultValue={card.linkedin || ""}
-    placeholder="https://www.linkedin.com/in/tu-perfil"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div>
-{/* Campo: Teléfono */}
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-300">
-    Teléfono
-  </label>
-
-  <input
-    type="text"
-    name="phone"
-    defaultValue={card.phone || ""}
-    placeholder="56912345678"
-    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-  />
-</div>
-
-
-            {/* Campo: Cargo */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Cargo / Posición</label>
-              <input 
-                type="text" 
-                name="role"
-                defaultValue={card.role || ""}
-                placeholder="Ej: Product Manager"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-              />
-            </div>
-
-            {/* Campo: Empresa */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Nombre de la Empresa</label>
-              <input 
-                type="text" 
-                name="companyName"
-                defaultValue={card.companyName || ""}
-                placeholder="Ej: MegaSSO"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition"
-              />
-            </div>
-
-            {/* Campo: Color del Tema */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Color Principal (Marca)</label>
-              <div className="flex items-center gap-4 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2">
-                <input 
-                  type="color" 
-                  name="themeColor"
-                  defaultValue={card.themeColor}
-                  className="w-10 h-10 rounded cursor-pointer bg-transparent border-0 p-0"
-                />
-                <span className="text-slate-400 font-mono">{card.themeColor}</span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Campo: Biografía */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Biografía / Descripción corta</label>
-            <textarea 
-              name="bio"
-              defaultValue={card.bio || ""}
-              placeholder="Ej: Ayudo a las empresas a digitalizar sus procesos..."
-              rows={3}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition resize-none"
-            />
-          </div>
-
-          <div className="pt-4 border-t border-slate-800 flex justify-end">
-            <button 
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-blue-500/20"
-            >
-              Guardar Cambios
-            </button>
-          </div>
-
-        </form>
-      </div>
-    </main>
-  );
+  // 4. Si tiene tarjeta, redirigir al editor dinámico de esa tarjeta
+  redirect(`/dashboard/editor/${card.id}`);
 }

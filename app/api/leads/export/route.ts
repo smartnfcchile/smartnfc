@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 function escapeCsv(value: unknown) {
   const text = String(value ?? "");
@@ -7,20 +9,57 @@ function escapeCsv(value: unknown) {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const cardId = searchParams.get("cardId");
+  const session = await getServerSession(authOptions);
 
-  if (!cardId) {
+  if (!session) {
     return NextResponse.json(
-      { error: "cardId es requerido" },
-      { status: 400 }
+      { error: "No autorizado. Inicie sesión." },
+      { status: 401 }
     );
   }
 
-  const leads = await prisma.lead.findMany({
-    where: { cardId },
-    orderBy: { createdAt: "desc" },
-  });
+  const userId = (session.user as any).id;
+  const { searchParams } = new URL(request.url);
+  const cardId = searchParams.get("cardId");
+
+  let leads;
+
+  if (cardId) {
+    // 1. Si viene cardId, verificamos que la tarjeta exista y pertenezca al usuario
+    const card = await prisma.card.findUnique({
+      where: { id: cardId },
+      select: { userId: true },
+    });
+
+    if (!card) {
+      return NextResponse.json(
+        { error: "Tarjeta no encontrada." },
+        { status: 404 }
+      );
+    }
+
+    if (card.userId !== userId) {
+      return NextResponse.json(
+        { error: "No tiene permisos para ver estos prospectos." },
+        { status: 403 }
+      );
+    }
+
+    leads = await prisma.lead.findMany({
+      where: { cardId },
+      orderBy: { createdAt: "desc" },
+    });
+  } else {
+    // 2. Si no viene cardId, exportamos todos los leads de todas las tarjetas del usuario
+    leads = await prisma.lead.findMany({
+      where: {
+        card: {
+          userId: userId,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
 
   const headers = [
     "Nombre",
@@ -32,7 +71,7 @@ export async function GET(request: NextRequest) {
     "Fecha",
   ];
 
-  const rows = leads.map((lead: (typeof leads)[number]) => [
+  const rows = leads.map((lead: any) => [
     lead.name,
     lead.company,
     lead.position,

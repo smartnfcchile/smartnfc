@@ -24,6 +24,7 @@ export default async function DashboardPage() {
   });
 
   let totalVisitas = 0;
+  let totalNfcScans = 0;
   let totalWhatsapp = 0;
   let totalContactos = 0;
   let visitantesUnicos = 0;
@@ -40,7 +41,9 @@ export default async function DashboardPage() {
   
 const allEvents = cards.flatMap((card: any) => card.events);
 const allLeads = cards.flatMap((card: any) => card.leads);
-  totalVisitas = allEvents.filter((e: any) => e.eventType === "VIEW").length;
+  const totalViews = allEvents.filter((e: any) => e.eventType === "VIEW").length;
+  totalNfcScans = allEvents.filter((e: any) => e.eventType === "NFC_SCAN").length;
+  totalVisitas = totalViews + totalNfcScans;
   totalWhatsapp = allEvents.filter((e:any) => e.eventType === "WHATSAPP_CLICK").length;
   totalContactos = allEvents.filter((e: any) => e.eventType === "VCARD_DOWNLOAD").length;
   totalEmails = allEvents.filter((e: any) => e.eventType === "EMAIL_CLICK").length;
@@ -49,7 +52,7 @@ const allLeads = cards.flatMap((card: any) => card.leads);
 const hoy = new Date().toISOString().split("T")[0];
 
 visitasHoy = allEvents.filter((e: any) => {
-  if (e.eventType !== "VIEW") return false;
+  if (e.eventType !== "VIEW" && e.eventType !== "NFC_SCAN") return false;
 
   const fechaEvento = new Date(e.createdAt)
     .toISOString()
@@ -80,7 +83,7 @@ const tasaContacto =
          : 0;
     const ipsUnicas = new Set(
   allEvents
-    .filter((e:any) => e.eventType === "VIEW" && e.ipHash)
+    .filter((e:any) => (e.eventType === "VIEW" || e.eventType === "NFC_SCAN") && e.ipHash)
     .map((e:any) => e.ipHash)
 );
     visitantesUnicos = ipsUnicas.size;
@@ -93,7 +96,7 @@ inicioAyer.setDate(inicioAyer.getDate() - 1);
 visitasHoy = allEvents.filter((e: any) => {
   const fecha = new Date(e.createdAt);
   return (
-    e.eventType === "VIEW" &&
+    (e.eventType === "VIEW" || e.eventType === "NFC_SCAN") &&
     fecha >= inicioHoy
   );
 }).length;
@@ -101,14 +104,14 @@ visitasHoy = allEvents.filter((e: any) => {
 visitasAyer = allEvents.filter((e: any) => {
   const fecha = new Date(e.createdAt);
   return (
-    e.eventType === "VIEW" &&
+    (e.eventType === "VIEW" || e.eventType === "NFC_SCAN") &&
     fecha >= inicioAyer &&
-fecha < inicioHoy
+    fecha < inicioHoy
   );
 }).length;
 
     allEvents.forEach((e: any) => {
-      if (e.eventType === "VIEW") {
+      if (e.eventType === "VIEW" || e.eventType === "NFC_SCAN") {
        const ua = e.userAgent || "Desconocido";
 
 let device = "Desconocido";
@@ -135,7 +138,9 @@ deviceCounts[device] = (deviceCounts[device] || 0) + 1;
     .sort((a, b) => b.count - a.count);
    const cardsRanking = cards.map((card: any) => {
      
-  const visitas = card.events.filter((e: any) => e.eventType === "VIEW").length;
+  const totalViews = card.events.filter((e: any) => e.eventType === "VIEW").length;
+  const nfcScans = card.events.filter((e: any) => e.eventType === "NFC_SCAN").length;
+  const visitas = totalViews + nfcScans;
   const leads = card.leads.length;
 
   const whatsapp = card.events.filter((e: any) => e.eventType === "WHATSAPP_CLICK").length;
@@ -163,6 +168,7 @@ const ultimaActividad = ultimoEvento
   id: card.id,
   name: card.name || "Sin nombre",
   visitas,
+  nfcScans,
   leads,
   whatsapp,
   contactos,
@@ -222,6 +228,15 @@ console.log("cardsRanking", cardsRanking.length);
     <h3 className="text-slate-400 font-medium">Visitas Totales</h3>
   </div>
   <p className="text-4xl font-extrabold text-white">{totalVisitas}</p>
+</div>
+         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
+  <div className="flex items-center gap-3 mb-4">
+    <div className="bg-orange-500/10 p-2.5 rounded-xl border border-orange-500/20">
+      <span className="text-orange-400 text-xl">⚡</span>
+    </div>
+    <h3 className="text-slate-400 font-medium">Lecturas NFC</h3>
+  </div>
+  <p className="text-4xl font-extrabold text-white">{totalNfcScans}</p>
 </div>
          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-sm">
   <div className="flex items-center gap-3 mb-4">
@@ -324,7 +339,7 @@ console.log("cardsRanking", cardsRanking.length);
             </div>
 
             <div className="text-sm text-slate-400">
-           {card.contactos} contactos · {card.leads} leads · {card.whatsapp} WhatsApp
+           {card.contactos} contactos · {card.leads} leads · {card.whatsapp} WhatsApp · {card.nfcScans} NFC
             </div>
           </div>
         </div>
@@ -363,6 +378,7 @@ console.log("cardsRanking", cardsRanking.length);
         <th className="py-4 px-6 font-medium text-center">Contactos</th>
 <th className="py-4 px-6 font-medium text-center">Última actividad</th>
 <th className="py-4 px-6 font-medium text-center">Conversión</th>
+          <th className="py-4 px-6 font-medium text-center">Acciones</th>
         </tr>
       </thead>
 
@@ -378,8 +394,8 @@ console.log("cardsRanking", cardsRanking.length);
             <td className="py-4 px-6 text-slate-200 font-medium">
               {card.name}
             </td>
-            <td className="py-4 px-6 text-center text-slate-300">
-              {card.visitas}
+             <td className="py-4 px-6 text-center text-slate-300">
+              {card.visitas} <span className="text-xs text-amber-500 font-semibold block sm:inline ml-1" title="Lecturas de tarjetas NFC">(⚡ {card.nfcScans})</span>
             </td>
           <td className="py-4 px-6 text-center text-slate-300">
   {card.leads}
@@ -402,12 +418,28 @@ console.log("cardsRanking", cardsRanking.length);
                 {card.conversion}%
               </span>
             </td>
+            <td className="py-4 px-6 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <a
+                  href={`/dashboard/editor/${card.id}`}
+                  className="inline-flex items-center rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 transition"
+                >
+                  ✏️ Editar
+                </a>
+                <a
+                  href={`/dashboard/qr/${card.id}`}
+                  className="inline-flex items-center rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-bold text-white transition"
+                >
+                  📷 QR
+                </a>
+              </div>
+            </td>
           </tr>
         ))}
 
         {cardsRanking.length === 0 && (
           <tr>
-            <td colSpan={4} className="py-8 text-center text-slate-500">
+            <td colSpan={9} className="py-8 text-center text-slate-500">
               Aún no hay tarjetas creadas.
             </td>
           </tr>

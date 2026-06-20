@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -78,6 +79,15 @@ export default function LoginPage() {
             {loading ? "Verificando..." : "Entrar al Sistema"}
           </button>
         </form>
+
+        <div className="text-center mt-6">
+          <Link
+            href="/"
+            className="text-sm text-slate-400 hover:text-white transition font-medium"
+          >
+            ← Volver al inicio
+          </Link>
+        </div>
 
       </div>
     </main>

@@ -66,6 +66,9 @@ model Card {
 
   themeColor  String   @default("#2563eb")
   themeMode   String   @default("dark")
+  template    String   @default("corporate-1")
+  bannerStyle String   @default("classic")
+  photoStyle  String   @default("circle")
 
   logoUrl     String?
   avatarUrl   String?
@@ -89,6 +92,15 @@ model Card {
   linkedin    String?
   tiktok      String?
   youtube     String?
+
+  showEmail     Boolean  @default(true)
+  showPhone     Boolean  @default(true)
+  showWhatsapp  Boolean  @default(true)
+  showInstagram Boolean  @default(true)
+  showFacebook  Boolean  @default(true)
+  showLinkedin  Boolean  @default(true)
+  showTiktok    Boolean  @default(true)
+  showYoutube   Boolean  @default(true)
 
   userId      String
   user        User     @relation(fields: [userId], references: [id])

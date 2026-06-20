@@ -5,16 +5,28 @@ import { useState } from "react";
 type LeadFormProps = {
   cardId: string;
   themeColor: string;
+  themeMode?: string;
 };
 
-export default function LeadForm({ cardId, themeColor }: LeadFormProps) {
+export default function LeadForm({ cardId, themeColor, themeMode }: LeadFormProps) {
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">(
     "idle"
   );
 
+  const isDark = themeMode === "dark";
+
+  const formStyles = {
+    form: isDark ? "mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5" : "mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5",
+    title: isDark ? "mt-2 text-xl font-black text-white" : "mt-2 text-xl font-black text-slate-950",
+    paragraph: isDark ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-500",
+    input: isDark 
+      ? "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500" 
+      : "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:border-blue-500",
+  };
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-   const form = event.currentTarget;
+    const form = event.currentTarget;
 
     const formData = new FormData(event.currentTarget);
 
@@ -26,6 +38,7 @@ export default function LeadForm({ cardId, themeColor }: LeadFormProps) {
       email: String(formData.get("email") || ""),
       phone: String(formData.get("phone") || ""),
       message: String(formData.get("message") || ""),
+      nickname: String(formData.get("nickname") || ""), // Honeypot
     };
 
     const response = await fetch("/api/public/leads", {
@@ -40,46 +53,55 @@ export default function LeadForm({ cardId, themeColor }: LeadFormProps) {
       setStatus("error");
       return;
     }
-              form.reset();
+    form.reset();
     setStatus("success");
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5"
+      className={formStyles.form}
     >
       <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
         Contacto
       </p>
 
-      <h2 className="mt-2 text-xl font-black text-white">
+      <h2 className={formStyles.title}>
         Déjame tus datos
       </h2>
 
-      <p className="mt-2 text-sm leading-6 text-slate-400">
+      <p className={formStyles.paragraph}>
         Completa este formulario y te contactaremos para mostrarte cómo funciona
         una tarjeta NFC inteligente.
       </p>
 
       <div className="mt-5 space-y-3">
+        {/* Campo trampa Honeypot (Invisible para humanos) */}
+        <input
+          type="text"
+          name="nickname"
+          style={{ display: "none" }}
+          autoComplete="off"
+          tabIndex={-1}
+        />
+
         <input
           name="name"
           required
           placeholder="Nombre"
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+          className={formStyles.input}
         />
 
         <input
           name="company"
           placeholder="Empresa"
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+          className={formStyles.input}
         />
 
         <input
           name="position"
           placeholder="Cargo"
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+          className={formStyles.input}
         />
 
         <input
@@ -87,20 +109,20 @@ export default function LeadForm({ cardId, themeColor }: LeadFormProps) {
           required
           type="email"
           placeholder="Email"
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+          className={formStyles.input}
         />
 
         <input
           name="phone"
           placeholder="Teléfono"
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+          className={formStyles.input}
         />
 
         <textarea
           name="message"
           placeholder="Mensaje opcional"
           rows={3}
-          className="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+          className={`${formStyles.input} resize-none`}
         />
 
         <button

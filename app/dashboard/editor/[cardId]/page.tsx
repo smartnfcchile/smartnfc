@@ -7,6 +7,7 @@ import Link from "next/link";
 import fs from "fs";
 import path from "path";
 import { put } from "@vercel/blob";
+import FileInput from "../../../../components/FileInput";
 
 type EditorPageProps = {
   params: Promise<{
@@ -312,8 +313,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
                   </div>
                 )}
                 <div className="flex-1 space-y-2">
-                  <input
-                    type="file"
+                  <FileInput
                     name="avatarFile"
                     accept="image/*"
                     className="block w-full text-xs text-slate-400
@@ -351,8 +351,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
                   </div>
                 )}
                 <div className="flex-1 space-y-2">
-                  <input
-                    type="file"
+                  <FileInput
                     name="logoFile"
                     accept="image/*"
                     className="block w-full text-xs text-slate-400
@@ -390,8 +389,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
                   </div>
                 )}
                 <div className="flex-1 flex flex-col justify-center space-y-2">
-                  <input
-                    type="file"
+                  <FileInput
                     name="coverFile"
                     accept="image/*"
                     className="block w-full text-xs text-slate-400

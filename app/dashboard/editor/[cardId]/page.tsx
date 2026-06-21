@@ -110,36 +110,14 @@ export default async function EditorPage({ params }: EditorPageProps) {
               <label className="block text-sm font-medium text-slate-300">
                 Foto de Perfil
               </label>
-              <div className="flex items-center gap-4">
-                {showAvatar ? (
-                  <img 
-                    src={card.avatarUrl!} 
-                    alt="Avatar actual" 
-                    className="w-16 h-16 rounded-full object-cover border border-slate-700 bg-slate-850"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs bg-slate-950">
-                    Sin foto
-                  </div>
-                )}
-                <div className="flex-1 space-y-2">
-                  <FileInput
-                    name="avatarFile"
-                    accept="image/*"
-                    className="block w-full text-xs text-slate-400
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-xs file:font-semibold
-                      file:bg-blue-600 file:text-white
-                      file:cursor-pointer hover:file:bg-blue-500
-                      transition-all"
-                  />
-                  <input 
-                    type="hidden" 
-                    name="avatarUrl" 
-                    value={card.avatarUrl || ""} 
-                  />
-                </div>
+              <div className="pt-1">
+                <FileInput
+                  name="avatarFile"
+                  urlName="avatarUrl"
+                  initialUrl={card.avatarUrl}
+                  accept="image/*"
+                  type="avatar"
+                />
               </div>
             </div>
 
@@ -148,36 +126,14 @@ export default async function EditorPage({ params }: EditorPageProps) {
               <label className="block text-sm font-medium text-slate-300">
                 Logo de Empresa
               </label>
-              <div className="flex items-center gap-4">
-                {showLogo ? (
-                  <img 
-                    src={card.logoUrl!} 
-                    alt="Logo actual" 
-                    className="h-16 max-w-28 object-contain border border-slate-700 p-1 bg-slate-850 rounded"
-                  />
-                ) : (
-                  <div className="h-16 w-28 rounded border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs bg-slate-950">
-                    Sin logo
-                  </div>
-                )}
-                <div className="flex-1 space-y-2">
-                  <FileInput
-                    name="logoFile"
-                    accept="image/*"
-                    className="block w-full text-xs text-slate-400
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-xs file:font-semibold
-                      file:bg-blue-600 file:text-white
-                      file:cursor-pointer hover:file:bg-blue-500
-                      transition-all"
-                  />
-                  <input 
-                    type="hidden" 
-                    name="logoUrl" 
-                    value={card.logoUrl || ""} 
-                  />
-                </div>
+              <div className="pt-1">
+                <FileInput
+                  name="logoFile"
+                  urlName="logoUrl"
+                  initialUrl={card.logoUrl}
+                  accept="image/*"
+                  type="logo"
+                />
               </div>
             </div>
 
@@ -186,39 +142,17 @@ export default async function EditorPage({ params }: EditorPageProps) {
               <label className="block text-sm font-medium text-slate-300">
                 Foto de Portada (Banner)
               </label>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                {showCover ? (
-                  <img 
-                    src={card.coverUrl!} 
-                    alt="Portada actual" 
-                    className="h-20 w-full sm:w-44 object-cover border border-slate-700 bg-slate-850 rounded-lg"
-                  />
-                ) : (
-                  <div className="h-20 w-full sm:w-44 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs bg-slate-950">
-                    Sin banner
-                  </div>
-                )}
-                <div className="flex-1 flex flex-col justify-center space-y-2">
-                  <FileInput
-                    name="coverFile"
-                    accept="image/*"
-                    className="block w-full text-xs text-slate-400
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-xs file:font-semibold
-                      file:bg-blue-600 file:text-white
-                      file:cursor-pointer hover:file:bg-blue-500
-                      transition-all"
-                  />
-                  <input 
-                    type="hidden" 
-                    name="coverUrl" 
-                    value={card.coverUrl || ""} 
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    Recomendado: Imagen horizontal (ej. 900x300 px) para un banner óptimo.
-                  </p>
-                </div>
+              <div className="pt-1">
+                <FileInput
+                  name="coverFile"
+                  urlName="coverUrl"
+                  initialUrl={card.coverUrl}
+                  accept="image/*"
+                  type="cover"
+                />
+                <p className="text-[11px] text-slate-500 mt-2">
+                  Recomendado: Imagen horizontal (ej. 900x300 px) para un banner óptimo.
+                </p>
               </div>
             </div>
 

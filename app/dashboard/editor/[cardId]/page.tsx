@@ -69,6 +69,12 @@ export default async function EditorPage({ params }: EditorPageProps) {
     );
   }
 
+  // Determinar si debemos mostrar imágenes (en Vercel producción evitamos mostrar rutas locales rotas /uploads/...)
+  const isProduction = process.env.NODE_ENV === "production";
+  const showAvatar = card.avatarUrl && (!isProduction || card.avatarUrl.startsWith("http") || card.avatarUrl.startsWith("https"));
+  const showLogo = card.logoUrl && (!isProduction || card.logoUrl.startsWith("http") || card.logoUrl.startsWith("https"));
+  const showCover = card.coverUrl && (!isProduction || card.coverUrl.startsWith("http") || card.coverUrl.startsWith("https"));
+
   return (
     <main className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-3xl mx-auto space-y-8">
@@ -105,9 +111,9 @@ export default async function EditorPage({ params }: EditorPageProps) {
                 Foto de Perfil
               </label>
               <div className="flex items-center gap-4">
-                {card.avatarUrl ? (
+                {showAvatar ? (
                   <img 
-                    src={card.avatarUrl} 
+                    src={card.avatarUrl!} 
                     alt="Avatar actual" 
                     className="w-16 h-16 rounded-full object-cover border border-slate-700 bg-slate-850"
                   />
@@ -143,9 +149,9 @@ export default async function EditorPage({ params }: EditorPageProps) {
                 Logo de Empresa
               </label>
               <div className="flex items-center gap-4">
-                {card.logoUrl ? (
+                {showLogo ? (
                   <img 
-                    src={card.logoUrl} 
+                    src={card.logoUrl!} 
                     alt="Logo actual" 
                     className="h-16 max-w-28 object-contain border border-slate-700 p-1 bg-slate-850 rounded"
                   />
@@ -181,9 +187,9 @@ export default async function EditorPage({ params }: EditorPageProps) {
                 Foto de Portada (Banner)
               </label>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                {card.coverUrl ? (
+                {showCover ? (
                   <img 
-                    src={card.coverUrl} 
+                    src={card.coverUrl!} 
                     alt="Portada actual" 
                     className="h-20 w-full sm:w-44 object-cover border border-slate-700 bg-slate-850 rounded-lg"
                   />

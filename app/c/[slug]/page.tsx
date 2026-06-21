@@ -256,8 +256,15 @@ END:VCARD`;
     { label: "Facebook", href: card.showFacebook ? card.facebook : null },
     { label: "TikTok", href: card.showTiktok ? card.tiktok : null },
     { label: "YouTube", href: card.showYoutube ? card.youtube : null },
-  ].filter((item) => Boolean(item.href));  const isDark = card.themeMode === "dark";
+  ].filter((item) => Boolean(item.href));
+  const isDark = card.themeMode === "dark";
   const template = card.template || "corporate-1";
+  
+  // Determinar si debemos mostrar imágenes (en Vercel producción evitamos mostrar rutas locales rotas /uploads/...)
+  const isProduction = process.env.NODE_ENV === "production";
+  const showAvatar = card.avatarUrl && (!isProduction || card.avatarUrl.startsWith("http") || card.avatarUrl.startsWith("https"));
+  const showLogo = card.logoUrl && (!isProduction || card.logoUrl.startsWith("http") || card.logoUrl.startsWith("https"));
+  const showCover = card.coverUrl && (!isProduction || card.coverUrl.startsWith("http") || card.coverUrl.startsWith("https"));
   const isBusiness = template.startsWith("business-");
   const isLightTemplate =
     template === "corporate-4" ||
@@ -940,9 +947,9 @@ END:VCARD`;
               template === "business-4" ? "bg-[#0d162a]" :
               template === "business-5" ? "bg-slate-950" : "bg-[#17110e]"
             }`}>
-              {card.logoUrl && template === "business-2" ? (
+              {showLogo && template === "business-2" ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={card.logoUrl} alt={card.companyName ?? card.company.name} className="max-h-12 max-w-[80%] object-contain" />
+                <img src={card.logoUrl || undefined} alt={card.companyName ?? card.company.name} className="max-h-12 max-w-[80%] object-contain" />
               ) : (
                 <div className="flex flex-col items-center">
                   {template === "business-1" && (
@@ -1017,11 +1024,11 @@ END:VCARD`;
             </div>
 
             {/* Banner Cover Photo */}
-            <div className={`${card.coverUrl ? "h-48" : "h-32"} w-full relative bg-slate-800`}>
-              {card.coverUrl ? (
+            <div className={`${showCover ? "h-48" : "h-32"} w-full relative bg-slate-800`}>
+              {showCover ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={card.coverUrl}
+                  src={card.coverUrl || undefined}
                   alt="Portada de perfil"
                   className="w-full h-full object-cover block"
                 />
@@ -1082,9 +1089,9 @@ END:VCARD`;
                     template === "business-4" ? "border-amber-500 bg-[#0d162a] text-amber-500" :
                     template === "business-5" ? "border-purple-500 bg-white text-purple-650" : "border-slate-500 bg-slate-900"
                   }`}>
-                    {card.logoUrl ? (
+                    {showLogo ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={card.logoUrl} alt="Logo" className="w-full h-full object-contain p-2.5 bg-white" />
+                      <img src={card.logoUrl || undefined} alt="Logo" className="w-full h-full object-contain p-2.5 bg-white" />
                     ) : (
                       <>
                         {template === "business-1" && (
@@ -1116,11 +1123,11 @@ END:VCARD`;
           </div>
         ) : (
           /* TRADICIONAL MOLDES DE PORTADA */
-          <div className={`${card.coverUrl ? "h-auto" : "h-32"} w-full relative bg-slate-800`}>
-            {card.coverUrl ? (
+          <div className={`${showCover ? "h-auto" : "h-32"} w-full relative bg-slate-800`}>
+            {showCover ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={card.coverUrl}
+                src={card.coverUrl || undefined}
                 alt="Portada de perfil"
                 className="w-full h-auto block"
               />
@@ -1193,10 +1200,10 @@ END:VCARD`;
                 className={getPhotoStyleConfig(card.photoStyle).className}
                 style={getPhotoStyleConfig(card.photoStyle).style}
               >
-                {card.avatarUrl ? (
+                {showAvatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={card.avatarUrl}
+                    src={card.avatarUrl || undefined}
                     alt={card.profileName ?? card.name}
                     className="h-full w-full object-cover"
                   />
@@ -1212,11 +1219,11 @@ END:VCARD`;
             </div>
           )}
 
-          {!isBusiness && card.logoUrl && (
+          {!isBusiness && showLogo && (
             <div className="mb-6 flex justify-center px-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={card.logoUrl}
+                src={card.logoUrl || undefined}
                 alt={card.companyName ?? card.company.name}
                 className="max-h-16 max-w-full w-auto h-auto object-contain"
               />
@@ -1271,10 +1278,10 @@ END:VCARD`;
               ? "border-slate-200 bg-slate-50 text-slate-800"
               : "border-slate-800 bg-slate-950/40 text-white"
           }`}>
-            {card.avatarUrl && (
+            {showAvatar && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={card.avatarUrl}
+                src={card.avatarUrl || undefined}
                 alt={card.profileName ?? card.name}
                 className={`h-12 w-12 rounded-full object-cover border ${
                   isLightTemplate ? "border-slate-300" : "border-slate-700"

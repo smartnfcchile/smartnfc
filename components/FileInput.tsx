@@ -52,8 +52,9 @@ export default function FileInput({
       setUrl(newBlob.url);
     } catch (err: any) {
       console.error("Error al subir archivo a Vercel Blob:", err);
-      setError("Error al subir imagen. Revisa la conexión de almacenamiento.");
-      alert("Hubo un error al subir la imagen. Asegúrate de tener Vercel Blob configurado.");
+      const errorMessage = err?.message || String(err);
+      setError(`Error al subir imagen: ${errorMessage}`);
+      alert(`Hubo un error al subir la imagen: ${errorMessage}\n\nAsegúrate de tener Vercel Blob configurado.`);
       e.target.value = ""; // Resetea el input
     } finally {
       setUploading(false);

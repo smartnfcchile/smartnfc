@@ -5,36 +5,27 @@ import bcrypt from "bcryptjs";
 
 export async function GET() {
   try {
-    // 1. Probamos conexión básica
     const userCount = await prisma.user.count();
-    
-    // 2. Buscamos el usuario
     const user = await prisma.user.findUnique({
       where: { email: "agustin@demo.cl" },
     });
 
-    if (!user) {
-      return NextResponse.json({
-        status: "success",
-        connection: "ok",
-        message: "Conexión exitosa, pero el usuario agustin@demo.cl NO existe en la base de datos de Vercel.",
-        totalUsers: userCount,
-      });
-    }
-
-    // 3. Verificamos la contraseña
-    const passwordOk = await bcrypt.compare("Agustin1234", user.password || "");
+    const passwordOk = user ? await bcrypt.compare("Agustin1234", user.password || "") : false;
 
     return NextResponse.json({
       status: "success",
       connection: "ok",
-      userFound: true,
-      email: user.email,
-      name: user.name,
-      role: user.role,
+      userFound: !!user,
       passwordMatchesAgustin1234: passwordOk,
       totalUsers: userCount,
-      databaseUrlConfigured: process.env.DATABASE_URL ? "Configurada (oculta por seguridad)" : "NO CONFIGURADA",
+      env: {
+        DATABASE_URL_set: !!process.env.DATABASE_URL,
+        NEXTAUTH_SECRET_set: !!process.env.NEXTAUTH_SECRET,
+        NEXTAUTH_URL_set: !!process.env.NEXTAUTH_URL,
+        NEXTAUTH_URL_value: process.env.NEXTAUTH_URL || "no configurada",
+        VERCEL_URL_value: process.env.VERCEL_URL || "no configurada",
+        NODE_ENV: process.env.NODE_ENV,
+      }
     });
 
   } catch (error: any) {
@@ -42,7 +33,6 @@ export async function GET() {
       status: "error",
       connection: "failed",
       errorMessage: error.message || String(error),
-      stack: error.stack,
     }, { status: 500 });
   }
 }

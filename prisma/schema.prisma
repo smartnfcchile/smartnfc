@@ -153,6 +153,11 @@ model Lead {
   phone     String?
   message   String?
 
+  // Campos de CRM y Trazabilidad analítica
+  status    String   @default("NUEVO")
+  notes     String?
+  ipHash    String?
+
   cardId    String
   card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
 

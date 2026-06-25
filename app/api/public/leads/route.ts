@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../../../lib/prisma";
+import crypto from "crypto";
+
+function hashIp(ip: string) {
+  return crypto.createHash("sha256").update(ip).digest("hex");
+}
 
 function clean(value: unknown) {
   if (typeof value !== "string") return "";
@@ -83,6 +88,7 @@ export async function POST(request: Request) {
         email,
         phone: phone || null,
         message: message || null,
+        ipHash: hashIp(ip),
       },
     });
 

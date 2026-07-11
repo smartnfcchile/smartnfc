@@ -5,10 +5,16 @@ import { revalidatePath } from "next/cache";
 import { put } from "@vercel/blob";
 import fs from "fs";
 import path from "path";
+import { requireCompanyAdmin, assertCardBelongsToCompany } from "../../../../lib/permissions";
 
 // 1. EL MOTOR DE GUARDADO (Server Action)
 export async function updateCard(formData: FormData) {
   const cardId = formData.get("cardId") as string;
+  
+  const admin = await requireCompanyAdmin();
+  if (admin.role !== "SUPERADMIN") {
+    await assertCardBelongsToCompany(cardId, admin.companyId);
+  }
   
   const profileName = formData.get("profileName") as string;
   const role = formData.get("role") as string;
@@ -170,6 +176,11 @@ export async function deleteLink(formData: FormData) {
   const linkId = formData.get("linkId") as string;
   const cardId = formData.get("cardId") as string;
   
+  const admin = await requireCompanyAdmin();
+  if (admin.role !== "SUPERADMIN") {
+    await assertCardBelongsToCompany(cardId, admin.companyId);
+  }
+
   await prisma.cardLink.delete({
     where: { id: linkId }
   });
@@ -186,6 +197,11 @@ export async function addLink(formData: FormData) {
   const cardId = formData.get("cardId") as string;
 
   if (!title || !url || !cardId) return;
+
+  const admin = await requireCompanyAdmin();
+  if (admin.role !== "SUPERADMIN") {
+    await assertCardBelongsToCompany(cardId, admin.companyId);
+  }
 
   const currentLinksCount = await prisma.cardLink.count({
     where: { cardId },

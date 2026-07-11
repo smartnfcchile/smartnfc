@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   }
 
   const user = session.user as any;
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "CLIENT_ADMIN";
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   const { searchParams } = new URL(request.url);
   const metricType = searchParams.get("type"); // view, nfc, whatsapp, vcard, email, phone

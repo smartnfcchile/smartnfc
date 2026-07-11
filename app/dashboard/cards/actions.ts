@@ -13,7 +13,7 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
   }
 
   const admin = session.user as any;
-  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "CLIENT_ADMIN";
+  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
     throw new Error("Solo los administradores pueden activar/desactivar tarjetas.");
@@ -49,7 +49,7 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
   }
 
   const admin = session.user as any;
-  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "CLIENT_ADMIN";
+  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
     throw new Error("Solo los administradores pueden crear tarjetas.");

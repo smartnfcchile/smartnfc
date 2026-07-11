@@ -23,7 +23,7 @@ async function main() {
       name: "Agustín",
       email: "agustin@demo.cl",
       password: passwordHash,
-      role: UserRole.CLIENT_ADMIN,
+      role: UserRole.COMPANY_OWNER,
       companyId: company.id,
     },
   });

@@ -204,7 +204,7 @@ export default async function PublicCardPage({ params, searchParams }: PageProps
     },
   });
 
-  if (!card || !card.isActive) {
+  if (!card || !card.isActive || !card.company.isActive) {
     notFound();
   }
 

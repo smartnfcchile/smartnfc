@@ -13,7 +13,7 @@ export default async function UsersPage() {
   }
 
   const user = session.user as any;
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "CLIENT_ADMIN";
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
     redirect("/dashboard");

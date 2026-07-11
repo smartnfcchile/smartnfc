@@ -17,7 +17,7 @@ export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "CLIENT_ADMIN";
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   const menuItems = [
     {
@@ -124,7 +124,11 @@ export default function Sidebar({ user }: SidebarProps) {
               {user.name || "Usuario"}
             </span>
             <span className="text-xs text-slate-500 truncate mt-0.5">
-              {user.role === "CLIENT_ADMIN" ? "Administrador" : "Vendedor"}
+              {user.role === "SUPERADMIN"
+                ? "SuperAdmin"
+                : (user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN"
+                  ? "Administrador"
+                  : "Vendedor")}
             </span>
           </div>
           <button

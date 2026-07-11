@@ -9,8 +9,18 @@ datasource db {
 
 enum UserRole {
   SUPERADMIN
-  CLIENT_ADMIN
-  USER
+  COMPANY_OWNER
+  COMPANY_ADMIN
+  COLLABORATOR
+}
+
+enum NfcStatus {
+  PENDIENTE_GRABACION
+  GRABADA
+  ENVIADA
+  ENTREGADA
+  ACTIVA
+  SUSPENDIDA
 }
 
 enum PlanType {
@@ -32,14 +42,16 @@ enum EventType {
 }
 
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String?  @unique
-  plan      PlanType @default(FREE)
-  users     User[]
-  cards     Card[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String            @id @default(cuid())
+  name             String
+  slug             String?           @unique
+  plan             PlanType          @default(FREE)
+  isActive         Boolean           @default(true)
+  users            User[]
+  cards            Card[]
+  physicalNfcCards PhysicalNfcCard[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 model User {
@@ -47,7 +59,8 @@ model User {
   name      String?
   email     String   @unique
   password  String?
-  role      UserRole @default(CLIENT_ADMIN)
+  role      UserRole @default(COLLABORATOR)
+  isActive  Boolean  @default(true)
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
@@ -59,10 +72,11 @@ model User {
 }
 
 model Card {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String
-  isActive    Boolean  @default(true)
+  id            String            @id @default(cuid())
+  slug          String            @unique
+  name          String
+  isActive      Boolean           @default(true)
+  physicalCards PhysicalNfcCard[]
 
   themeColor  String   @default("#2563eb")
   themeMode   String   @default("dark")
@@ -130,17 +144,45 @@ model CardLink {
   createdAt DateTime @default(now())
 }
 
+model PhysicalNfcCard {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  uid         String?   @unique
+  status      NfcStatus @default(PENDIENTE_GRABACION)
+  batchCode   String?
+  
+  printedAt   DateTime?
+  encodedAt   DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  activatedAt DateTime?
+
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  cardId      String?
+  card        Card?     @relation(fields: [cardId], references: [id])
+
+  events      Event[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 model Event {
-  id        String    @id @default(cuid())
-  eventType EventType
-  ipHash    String?
-  userAgent String?
-  referer   String?
+  id             String           @id @default(cuid())
+  eventType      EventType
+  ipHash         String?
+  userAgent      String?
+  referer        String?
 
-  cardId    String
-  card      Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId         String
+  card           Card             @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime  @default(now())
+  physicalCardId String?
+  physicalCard   PhysicalNfcCard? @relation(fields: [physicalCardId], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime         @default(now())
 }
 
 model Lead {

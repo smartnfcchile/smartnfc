@@ -53,7 +53,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
   // 3. Validamos rol de administrador y pertenencia de empresa
   const userRole = (session.user as any).role;
   const companyId = (session.user as any).companyId;
-  const isAdmin = userRole === "SUPERADMIN" || userRole === "CLIENT_ADMIN";
+  const isAdmin = userRole === "SUPERADMIN" || userRole === "COMPANY_OWNER" || userRole === "COMPANY_ADMIN";
 
   if (!isAdmin) {
     return (

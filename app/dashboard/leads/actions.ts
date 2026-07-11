@@ -13,7 +13,7 @@ export async function updateLeadCRM(leadId: string, status: string, notes: strin
   }
 
   const user = session.user as any;
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "CLIENT_ADMIN";
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   // Buscamos el lead y su tarjeta asociada para validar permisos de pertenencia
   const lead = await prisma.lead.findUnique({

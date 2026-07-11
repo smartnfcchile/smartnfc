@@ -20,7 +20,7 @@ export async function createVendorUser(
   }
 
   const admin = session.user as any;
-  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "CLIENT_ADMIN";
+  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
     throw new Error("Solo los administradores pueden crear vendedores.");
@@ -44,7 +44,7 @@ export async function createVendorUser(
       name: name.trim(),
       email: email.trim().toLowerCase(),
       password: passwordHash,
-      role: "USER",
+      role: "COLLABORATOR",
       companyId: admin.companyId,
     },
   });
@@ -113,7 +113,7 @@ export async function deleteVendorUser(userId: string) {
   }
 
   const admin = session.user as any;
-  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "CLIENT_ADMIN";
+  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
     throw new Error("Solo los administradores pueden eliminar vendedores.");

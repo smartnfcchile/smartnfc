@@ -13,7 +13,7 @@ export default async function LeadsPage() {
   }
 
   const user = session.user as any;
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "CLIENT_ADMIN";
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   // 1. Consultar todos los leads de la empresa o del usuario
   const leads = await prisma.lead.findMany({

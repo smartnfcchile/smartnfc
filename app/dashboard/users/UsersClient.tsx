@@ -63,7 +63,7 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
             id: Math.random().toString(), // Temporal para la interfaz, revalidará en el servidor
             name,
             email,
-            role: "USER",
+            role: "COLLABORATOR",
             createdAt: new Date(),
             _count: { cards: 0 },
           };
@@ -139,14 +139,16 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                     <td className="py-4 px-4 text-center">
                       <span
                         className={`inline-block px-2.5 py-0.5 rounded-full border text-[9px] font-bold ${
-                          item.role === "CLIENT_ADMIN" || item.role === "SUPERADMIN"
+                          item.role === "COMPANY_OWNER" || item.role === "COMPANY_ADMIN" || item.role === "SUPERADMIN"
                             ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
                             : "bg-blue-500/10 border-blue-500/30 text-blue-400"
                         }`}
                       >
-                        {item.role === "CLIENT_ADMIN" || item.role === "SUPERADMIN"
-                          ? "Administrador"
-                          : "Vendedor"}
+                        {item.role === "SUPERADMIN"
+                          ? "SuperAdmin"
+                          : (item.role === "COMPANY_OWNER" || item.role === "COMPANY_ADMIN"
+                            ? "Administrador"
+                            : "Vendedor")}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center font-bold text-slate-400">

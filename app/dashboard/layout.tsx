@@ -16,7 +16,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#07101F] text-slate-900 dark:text-white flex flex-col lg:flex-row transition-colors duration-200">
       {/* Barra lateral de navegación con control de roles */}
       <Sidebar user={session.user as any} />
       

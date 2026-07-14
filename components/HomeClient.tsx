@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
@@ -15,12 +14,10 @@ import {
   Shield,
   Activity,
   Layers,
-  ArrowUpRight,
   QrCode,
   User,
   CreditCard,
   Smartphone,
-  Check,
   ClipboardList,
   FileText,
   TrendingUp,
@@ -28,20 +25,18 @@ import {
   Calendar,
   Headphones,
   Folder,
-  Share2,
-  Send,
-  Database,
-  Link,
   LayoutTemplate,
   Eye,
   Palette,
-  Sparkles,
-  Zap
+  Laptop
 } from "lucide-react";
+import NextLink from "next/link";
+import { useTheme } from "next-themes";
+import SmartNFCLogo from "./brand/SmartNFCLogo";
 import DashboardMockup from "./DashboardMockup";
 
 export default function HomeClient() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -81,29 +76,6 @@ export default function HomeClient() {
     return () => clearInterval(interval);
   }, []);
 
-  // Carga inicial del tema respetando localStorage y preferencias del sistema
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
-    }
-  }, []);
-
-  // Sincronizar el tema con la etiqueta HTML y guardarlo en localStorage
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [theme]);
-
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 20) {
@@ -122,10 +94,6 @@ export default function HomeClient() {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [size, setSize] = useState("");
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  };
 
   const handleDemoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,28 +166,11 @@ export default function HomeClient() {
           ? "bg-white/75 dark:bg-slate-950/75 backdrop-blur-xl border-b border-slate-200/30 dark:border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.01)]"
           : "bg-transparent backdrop-blur-sm border-b border-transparent"
       }`}>
-        <div className="max-w-7xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="goldGradLogo" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#F5E3B5" />
-                  <stop offset="30%" stopColor="#D4AF37" />
-                  <stop offset="70%" stopColor="#AA7C11" />
-                  <stop offset="100%" stopColor="#F5E3B5" />
-                </linearGradient>
-              </defs>
-              <circle cx="16" cy="16" r="14" stroke="url(#goldGradLogo)" strokeWidth="2.2" fill="none" />
-              <rect x="10" y="11" width="12" height="10" rx="2" stroke="url(#goldGradLogo)" strokeWidth="1.6" fill="none" />
-              <path d="M14 14.5C14.5 15 14.5 17 14 17.5" stroke="url(#goldGradLogo)" strokeWidth="1.2" strokeLinecap="round" />
-              <path d="M16 13C17 14.5 17 17.5 16 19" stroke="url(#goldGradLogo)" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
-            <span className="font-black text-lg tracking-tight text-blue-600 dark:text-blue-400">
-              SmartNFC
-            </span>
-          </div>
-
+        <div className="max-w-7xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">          {/* Logo */}
+          <NextLink href="/" className="flex items-center gap-2">
+            <SmartNFCLogo size={28} variant="default" className="dark:hidden" />
+            <SmartNFCLogo size={28} variant="dark" className="hidden dark:flex" />
+          </NextLink>
 
           {/* Menú Links Escritorio */}
           <nav className="hidden md:flex items-center gap-8">
@@ -242,14 +193,31 @@ export default function HomeClient() {
 
           {/* Acciones */}
           <div className="hidden md:flex items-center gap-5">
-            {/* Toggle de Tema */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl border border-card-border hover:bg-button-secondary-bg hover:border-button-secondary-border text-muted hover:text-foreground transition-all duration-250 cursor-pointer animate-none"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
+            {/* Selector de Tema Escritorio (Requisito 4) */}
+            <div className="flex items-center bg-slate-100/80 dark:bg-slate-900/60 p-0.5 rounded-xl border border-slate-200/50 dark:border-slate-800/80 shrink-0">
+              {[
+                { id: "light", icon: Sun, label: "Claro" },
+                { id: "dark", icon: Moon, label: "Oscuro" },
+                { id: "system", icon: Laptop, label: "Sistema" }
+              ].map((opt) => {
+                const IconComponent = opt.icon;
+                const isSel = theme === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => setTheme(opt.id)}
+                    className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                      isSel
+                        ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-450 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                    title={opt.label}
+                  >
+                    <IconComponent size={13} />
+                  </button>
+                );
+              })}
+            </div>
 
             <a
               href="/login"
@@ -269,15 +237,8 @@ export default function HomeClient() {
           {/* Hamburguesa Móvil */}
           <div className="flex items-center gap-3 md:hidden">
             <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg border border-card-border text-muted"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
-            <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg border border-card-border text-muted hover:text-foreground"
+              className="p-2 rounded-lg border border-card-border text-muted hover:text-foreground cursor-pointer"
             >
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
@@ -329,6 +290,36 @@ export default function HomeClient() {
                 >
                   Contacto
                 </a>
+
+                {/* Selector de tema móvil (Requisito 4) */}
+                <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-xl items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 pl-3">Apariencia</span>
+                  <div className="flex gap-1">
+                    {[
+                      { id: "light", icon: Sun, label: "Claro" },
+                      { id: "dark", icon: Moon, label: "Oscuro" },
+                      { id: "system", icon: Laptop, label: "Sistema" }
+                    ].map((opt) => {
+                      const IconComponent = opt.icon;
+                      const isSel = theme === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => setTheme(opt.id)}
+                          className={`p-2 rounded-lg transition-all cursor-pointer ${
+                            isSel
+                              ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                              : "text-slate-450 dark:text-slate-550"
+                          }`}
+                          aria-label={opt.label}
+                        >
+                          <IconComponent size={14} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="h-px bg-card-border my-2" />
                 <a
                   href="/login"
@@ -341,7 +332,7 @@ export default function HomeClient() {
                     setMobileMenuOpen(false);
                     setDemoModalOpen(true);
                   }}
-                  className="w-full bg-blue-600 text-white text-base font-bold py-3 rounded-xl"
+                  className="w-full bg-blue-600 text-white text-base font-bold py-3 rounded-xl cursor-pointer"
                 >
                   Solicitar demostración
                 </button>
@@ -364,9 +355,9 @@ export default function HomeClient() {
               transition={{ duration: 0.5 }}
               className="inline-flex"
             >
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 text-[9px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                 <Activity size={10} className="animate-pulse" />
-                Plataforma de Identidad Digital
+                PLATAFORMA DE RELACIONES COMERCIALES
               </span>
             </motion.div>
 
@@ -377,7 +368,7 @@ export default function HomeClient() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-3xl sm:text-4xl lg:text-[40px] xl:text-[48px] font-black text-slate-900 dark:text-white tracking-tight leading-[1.15]"
             >
-              La nueva generación de identidad profesional para empresas<span className="text-blue-600 dark:text-blue-400">.</span>
+              Convierte cada encuentro en una oportunidad<span className="text-blue-600 dark:text-blue-400">.</span>
             </motion.h1>
 
             {/* Subtítulo */}
@@ -387,7 +378,7 @@ export default function HomeClient() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-base sm:text-lg text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-xl"
             >
-              Centraliza la identidad digital de tus colaboradores mediante perfiles inteligentes, tarjetas NFC, códigos QR y analíticas en tiempo real desde una única plataforma.
+              Smart NFC ayuda a los equipos comerciales a compartir su identidad profesional, capturar nuevos contactos, registrar el contexto de cada conversación y realizar seguimiento desde una plataforma centralizada.
             </motion.p>
 
             {/* Botones de acción */}
@@ -406,10 +397,10 @@ export default function HomeClient() {
               </button>
 
               <a
-                href="#como-funciona"
-                className="px-8 py-4 rounded-2xl bg-button-secondary-bg hover:bg-slate-200 dark:hover:bg-white/10 border border-button-secondary-border text-button-secondary-text font-bold text-center transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
+                href="#sobre-nosotros"
+                className="px-8 py-4 rounded-2xl bg-button-secondary-bg hover:bg-slate-200 dark:hover:bg-white/10 border border-button-secondary-border text-button-secondary-text font-bold text-center transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
               >
-                Ver cómo funciona
+                Conocer Smart NFC
               </a>
             </motion.div>
 
@@ -420,17 +411,17 @@ export default function HomeClient() {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-6 border-t border-slate-200/40 dark:border-white/10"
             >
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-300 font-semibold uppercase tracking-wider">
-                <Shield size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                Plataforma desarrollada en Chile
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-300 font-semibold uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-350 font-semibold uppercase tracking-wider">
                 <QrCode size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
                 Compatible con NFC y QR
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-300 font-semibold uppercase tracking-wider">
-                <CheckCircle2 size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                Control total de tu organización
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-350 font-semibold uppercase tracking-wider">
+                <Smartphone size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                Sin instalar aplicaciones
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-350 font-semibold uppercase tracking-wider">
+                <Shield size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                Información centralizada para la empresa
               </div>
             </motion.div>
           </div>
@@ -1456,74 +1447,73 @@ export default function HomeClient() {
           {/* Fila Inferior: Cuatro Beneficios Premium */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-16">
             
-            {/* Tarjeta 1: Tarjeta NFC incluida */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
+            {/* Tarjeta 1: Identidad profesional NFC y QR */}
+            <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
               <div className="space-y-4">
                 <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-500/5 dark:border-white/5 shrink-0 shadow-sm">
                   <CreditCard size={16} />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 tracking-tight leading-snug">
-                    Tarjeta NFC incluida
+                  <h3 className="text-xs font-black text-slate-850 dark:text-slate-100 tracking-tight leading-snug">
+                    Identidad profesional NFC y QR
                   </h3>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                    Solicita tu tarjeta física de presentación inteligente directamente desde la plataforma.
+                    Comparte información profesional desde una tarjeta NFC o un código QR, sin instalar aplicaciones.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Tarjeta 2: QR dinámico */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
+            {/* Tarjeta 2: Captura de contactos */}
+            <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
               <div className="space-y-4">
-                <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-500/5 dark:border-white/5 shrink-0 shadow-sm">
+                <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-650 dark:text-blue-400 border border-blue-500/5 dark:border-white/5 shrink-0 shadow-sm">
                   <QrCode size={16} />
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-xs font-black text-slate-850 dark:text-slate-100 tracking-tight leading-snug">
-                    Código QR dinámico
+                    Captura de contactos
                   </h3>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                    QR inteligente siempre actualizado que nunca expira y no requiere reimpresión.
+                    Permite que cada encuentro genere un contacto organizado dentro de la cuenta de la empresa.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Tarjeta 3: Diseño personalizable */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
+            {/* Tarjeta 3: Contexto comercial */}
+            <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
               <div className="space-y-4">
                 <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-650 dark:text-blue-400 border border-blue-500/5 dark:border-white/5 shrink-0 shadow-sm">
                   <Palette size={16} />
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-xs font-black text-slate-850 dark:text-slate-100 tracking-tight leading-snug">
-                    Diseño a tu medida
+                    Contexto comercial
                   </h3>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                    Personaliza colores, logos corporativos, tipografías, portadas y botones de acción.
+                    Registra dónde ocurrió el encuentro, qué necesitaba el contacto y cuál debe ser el próximo paso.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Tarjeta 4: Analíticas integradas */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
+            {/* Tarjeta 4: Seguimiento y estadísticas */}
+            <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-slate-350 dark:hover:border-slate-850 transition-colors flex flex-col justify-between text-left">
               <div className="space-y-4">
                 <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-650 dark:text-blue-400 border border-blue-500/5 dark:border-white/5 shrink-0 shadow-sm">
                   <BarChart3 size={16} />
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-xs font-black text-slate-850 dark:text-slate-100 tracking-tight leading-snug">
-                    Estadísticas integradas
+                    Seguimiento y estadísticas
                   </h3>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                    Mide visitas, clics en enlaces, nuevos contactos guardados y escaneos de QR.
+                    Conoce qué oportunidades se generaron, cuáles recibieron seguimiento y qué acciones siguen pendientes.
                   </p>
                 </div>
               </div>
             </div>
-
           </div>
         </section>
 
@@ -1801,25 +1791,51 @@ export default function HomeClient() {
           </div>
         </section>
 
+        {/* 2.6.9. SOBRE SMART NFC SECTION */}
+        <section id="sobre-nosotros" className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-slate-200/40 dark:border-white/10 text-left scroll-mt-24">
+          <div className="max-w-3xl space-y-4">
+            <h3 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest leading-none">
+              Sobre Smart NFC
+            </h3>
+            <p className="text-sm sm:text-base text-slate-800 dark:text-slate-250 leading-relaxed font-bold tracking-tight">
+              Smart NFC Chile es una plataforma desarrollada en Valdivia para ayudar a empresas y equipos comerciales a gestionar sus identidades profesionales, capturar nuevos contactos y conservar el contexto de sus relaciones comerciales.
+            </p>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-450 leading-relaxed font-medium">
+              La tecnología NFC y QR permite iniciar cada interacción, mientras la plataforma centraliza la información para que las oportunidades no dependan únicamente del teléfono o la memoria de una persona.
+            </p>
+          </div>
+        </section>
+
         {/* 2.7. CONTACTO / FOOTER SECTION */}
         <section id="contacto" className="w-full max-w-7xl mx-auto px-6 py-12 border-t border-slate-200/40 dark:border-white/10 text-left scroll-mt-24">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
             
             {/* Columna Izquierda: Brand & Info */}
             <div className="md:col-span-6 space-y-4">
-              <div className="flex items-center gap-2 font-black text-sm text-slate-850 dark:text-white">
-                <div className="h-6 w-6 rounded bg-blue-600 flex items-center justify-center text-white font-extrabold text-xs shadow-sm">
-                  S
-                </div>
-                <span className="text-blue-600 dark:text-blue-400">SmartNFC</span>
+              <div className="flex items-center gap-2">
+                <SmartNFCLogo size={24} variant="default" className="dark:hidden" />
+                <SmartNFCLogo size={24} variant="dark" className="hidden dark:flex" />
               </div>
-              <p className="text-xs text-slate-505 dark:text-slate-400 max-w-sm leading-relaxed font-medium">
-                La plataforma de identidad profesional inteligente líder en Chile. Conectando equipos de TI, RR.HH. y ventas mediante tecnología NFC y perfiles digitales avanzados.
+              <p className="text-xs text-slate-500 dark:text-slate-450 max-w-sm leading-relaxed font-medium">
+                La plataforma de relaciones comerciales y gestión de identidades corporativas desarrollada en Valdivia, Chile. Conectando oportunidades mediante tecnología NFC y QR.
               </p>
-              <div className="text-[10px] text-slate-400 dark:text-slate-550 font-bold space-y-1">
-                <div>✉️ contacto@smartnfc.cl</div>
-                <div>📞 +56 2 2345 6789</div>
-                <div>📍 Santiago, Chile</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span>✉️</span>
+                  <a href="mailto:smartnfcchile@gmail.com" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    smartnfcchile@gmail.com
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>📞</span>
+                  <a href="https://wa.me/56944891518?text=Hola,%20me%20interesa%20conocer%20Smart%20NFC%20para%20mi%20empresa%20y%20quisiera%20solicitar%20una%20demostración." target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    +56 9 4489 1518
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>📍</span>
+                  <span>Valdivia, Chile</span>
+                </div>
               </div>
             </div>
 
@@ -2008,12 +2024,23 @@ export default function HomeClient() {
                       Muchas gracias, <strong>{name}</strong>. Hemos registrado la solicitud para <strong>{company}</strong>. Uno de nuestros asesores comerciales se pondrá en contacto contigo a la brevedad para coordinar la videollamada.
                     </p>
                   </div>
-                  <button
-                    onClick={handleCloseModal}
-                    className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-all cursor-pointer"
-                  >
-                    Entendido
-                  </button>
+                   <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                    <a
+                      href="https://wa.me/56944891518?text=Hola,%20me%20interesa%20conocer%20Smart%20NFC%20para%20mi%20empresa%20y%20quisiera%20solicitar%20una%20demostración."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold px-6 py-3 rounded-xl transition-all shadow-md shadow-blue-600/10 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      Hablar por WhatsApp de inmediato
+                      <ArrowRight size={14} />
+                    </a>
+                    <button
+                      onClick={handleCloseModal}
+                      className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold px-6 py-3 rounded-xl transition-all cursor-pointer"
+                    >
+                      Entendido
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </motion.div>

@@ -18,18 +18,18 @@
 }
 
 .dark {
-  --background: #030712;
-  --foreground: #f9fafb;
-  --card-bg: rgba(17, 24, 39, 0.6);
-  --card-border: rgba(255, 255, 255, 0.05);
-  --text-muted: #9ca3af;
-  --nav-bg: rgba(3, 7, 18, 0.75);
-  --accent-blue: #3b82f6;
+  --background: #07101F;
+  --foreground: #F8FAFC;
+  --card-bg: #0F172A;
+  --card-border: #263247;
+  --text-muted: #94A3B8;
+  --nav-bg: rgba(7, 16, 31, 0.75);
+  --accent-blue: #2563EB;
   --accent-green: #10b981;
-  --button-secondary-bg: rgba(255, 255, 255, 0.05);
-  --button-secondary-border: rgba(255, 255, 255, 0.08);
-  --button-secondary-text: #f9fafb;
-  --glow-shadow: rgba(59, 130, 246, 0.2);
+  --button-secondary-bg: #162033;
+  --button-secondary-border: #263247;
+  --button-secondary-text: #F8FAFC;
+  --glow-shadow: rgba(37, 99, 235, 0.2);
 }
 
 @theme inline {

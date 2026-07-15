@@ -27,6 +27,7 @@ export default async function UsersPage() {
       name: true,
       email: true,
       role: true,
+      status: true,
       createdAt: true,
       _count: {
         select: { cards: true },

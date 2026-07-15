@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { createVendorUser, deleteVendorUser } from "./actions";
+import { createVendorUser, deleteVendorUser, resendInvitationFromDashboardAction } from "./actions";
 
 type UserRecord = {
   id: string;
@@ -9,6 +9,7 @@ type UserRecord = {
   email: string;
   role: string;
   createdAt: Date;
+  status: string;
   _count: {
     cards: number;
   };
@@ -26,62 +27,72 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [sendEmail, setSendEmail] = useState(true);
   
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-
-  // Función para generar contraseñas seguras aleatorias
-  const handleGeneratePassword = () => {
-    const length = 12;
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
-    let retVal = "";
-    for (let i = 0, n = charset.length; i < length; ++i) {
-      retVal += charset.charAt(Math.floor(Math.random() * n));
-    }
-    setPassword(retVal);
-  };
+  const [warningMsg, setWarningMsg] = useState("");
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccessMsg("");
+    setWarningMsg("");
 
-    if (!name || !email || !password) {
+    if (!name || !email) {
       setError("Por favor, rellene todos los campos requeridos.");
       return;
     }
 
     startTransition(async () => {
       try {
-        const res = await createVendorUser(name, email, password, sendEmail);
+        const res = await createVendorUser(name, email);
         if (res.success) {
           // Actualizamos la lista local
           const newUser: UserRecord = {
-            id: Math.random().toString(), // Temporal para la interfaz, revalidará en el servidor
+            id: Math.random().toString(), // Temporal para la interfaz
             name,
             email,
             role: "COLLABORATOR",
             createdAt: new Date(),
+            status: "PENDING",
             _count: { cards: 0 },
           };
           setUsers([newUser, ...users]);
-          setSuccessMsg("¡Vendedor creado con éxito!");
           
-          // Limpiamos los campos
-          setName("");
-          setEmail("");
-          setPassword("");
-          
-          setTimeout(() => {
-            setModalOpen(false);
-            setSuccessMsg("");
-          }, 1500);
+          if (res.emailWarning) {
+            setWarningMsg(res.emailWarning);
+            setName("");
+            setEmail("");
+            // No cerramos inmediatamente para que puedan ver la advertencia
+          } else {
+            setSuccessMsg("¡Vendedor invitado con éxito! Se ha enviado el correo.");
+            setName("");
+            setEmail("");
+            setTimeout(() => {
+              setModalOpen(false);
+              setSuccessMsg("");
+            }, 2000);
+          }
         }
-      } catch (err: any) {
-        setError(err.message || "No se pudo crear el usuario.");
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : "No se pudo invitar al usuario.";
+        setError(errorMsg);
+      }
+    });
+  };
+
+  const handleResend = async (userId: string, userEmail: string) => {
+    setError("");
+    setSuccessMsg("");
+    setWarningMsg("");
+    startTransition(async () => {
+      try {
+        await resendInvitationFromDashboardAction(userId);
+        alert(`Invitación reenviada con éxito a ${userEmail}`);
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : "Error al reenviar invitación.";
+        alert(errorMsg);
       }
     });
   };
@@ -96,35 +107,46 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
     try {
       await deleteVendorUser(userId);
       setUsers(users.filter((u) => u.id !== userId));
-    } catch (err: any) {
-      alert("Error al eliminar vendedor: " + err.message);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Error al eliminar vendedor.";
+      alert("Error al eliminar vendedor: " + errorMsg);
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Cabecera de Control */}
-      <div className="flex justify-end bg-slate-900/40 border border-slate-900 p-4 rounded-2xl shadow-sm">
+    <div className="space-y-6">
+      
+      {/* Barra de Acciones */}
+      <div className="flex justify-between items-center bg-slate-900/40 border border-slate-800 p-4 rounded-2xl">
+        <div>
+          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Total Integrantes</span>
+          <span className="text-2xl font-black text-white">{users.length}</span>
+        </div>
         <button
-          onClick={() => setModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-blue-600/10 active:scale-95 cursor-pointer"
+          onClick={() => {
+            setError("");
+            setSuccessMsg("");
+            setWarningMsg("");
+            setModalOpen(true);
+          }}
+          className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition active:scale-95 shadow-md shadow-blue-600/10 hover:shadow-blue-600/20 cursor-pointer"
         >
-          ➕ Crear Vendedor
+          ➕ Registrar Vendedor
         </button>
       </div>
 
-      {/* Tabla de Usuarios */}
-      <div className="bg-slate-900/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
+      {/* LISTADO DE USUARIOS */}
+      <div className="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-slate-950/40 text-slate-400 uppercase text-[9px] tracking-widest border-b border-slate-850">
-              <tr>
-                <th className="py-3 px-4">Vendedor</th>
-                <th className="py-3 px-4">Correo Electrónico</th>
-                <th className="py-3 px-4 text-center">Rol</th>
-                <th className="py-3 px-4 text-center">Tarjetas</th>
-                <th className="py-3 px-4 text-right">Creado</th>
-                <th className="py-3 px-4 text-center">Acciones</th>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-450 bg-slate-950/20 font-black">
+                <th className="py-3.5 px-4">Vendedor</th>
+                <th className="py-3.5 px-4">Correo</th>
+                <th className="py-3.5 px-4 text-center">Rol</th>
+                <th className="py-3.5 px-4 text-center">Tarjetas</th>
+                <th className="py-3.5 px-4 text-right">Creado el</th>
+                <th className="py-3.5 px-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-850/30">
@@ -161,12 +183,24 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                       {isSelf ? (
                         <span className="text-xs text-slate-500 font-bold italic">Tú (Admin)</span>
                       ) : (
-                        <button
-                          onClick={() => handleDeleteUser(item.id, item.name || "")}
-                          className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold py-1.5 px-3 rounded-lg border border-red-500/20 hover:border-red-500/30 transition active:scale-95 cursor-pointer"
-                        >
-                          🗑️ Eliminar
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          {item.status === "PENDING" && (
+                            <button
+                              disabled={isPending}
+                              onClick={() => handleResend(item.id, item.email)}
+                              className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold py-1.5 px-3 rounded-lg border border-amber-500/20 hover:border-amber-500/30 transition cursor-pointer"
+                            >
+                              ✉️ Reenviar
+                            </button>
+                          )}
+                          <button
+                            disabled={isPending}
+                            onClick={() => handleDeleteUser(item.id, item.name || "")}
+                            className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 text-xs font-semibold py-1.5 px-3 rounded-lg border border-rose-500/20 hover:border-rose-500/30 transition active:scale-95 cursor-pointer"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -190,7 +224,7 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
             <div className="p-6 border-b border-slate-850 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-extrabold text-white">Nuevo Perfil de Vendedor</h3>
-                <p className="text-xs text-slate-500">Crea credenciales de acceso para tu equipo.</p>
+                <p className="text-xs text-slate-500">Registra sus datos y le enviaremos un correo de activación.</p>
               </div>
               <button
                 type="button"
@@ -206,12 +240,17 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
             <div className="p-6 space-y-4">
               {error && (
                 <div className="bg-red-500/10 border border-red-500 text-red-400 p-3 rounded-xl text-xs text-center font-semibold">
-                  {error}
+                  ⚠️ {error}
                 </div>
               )}
               {successMsg && (
-                <div className="bg-emerald-500/10 border border-emerald-500 text-emerald-400 p-3 rounded-xl text-xs text-center font-semibold animate-bounce">
-                  {successMsg}
+                <div className="bg-emerald-500/10 border border-emerald-500 text-emerald-400 p-3 rounded-xl text-xs text-center font-semibold">
+                  🎉 {successMsg}
+                </div>
+              )}
+              {warningMsg && (
+                <div className="bg-amber-500/10 border border-amber-500 text-amber-500 p-3 rounded-xl text-xs font-semibold text-center leading-relaxed">
+                  ⚠️ {warningMsg}
                 </div>
               )}
 
@@ -247,50 +286,6 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                 />
               </div>
 
-              {/* Contraseña */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Contraseña de Acceso
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contraseña del vendedor"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isPending}
-                    className="flex-1 p-3 rounded-xl bg-slate-950 border border-slate-850 focus:border-blue-500 focus:outline-none text-xs text-slate-200 font-mono transition-all disabled:opacity-50"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleGeneratePassword}
-                    disabled={isPending}
-                    className="bg-slate-800 hover:bg-slate-750 text-white font-bold py-2 px-3 rounded-xl text-xs transition border border-slate-750 active:scale-95 shrink-0 disabled:opacity-50 cursor-pointer"
-                  >
-                    ⚡ Generar
-                  </button>
-                </div>
-              </div>
-
-              {/* Enviar Correo */}
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="sendEmail"
-                  checked={sendEmail}
-                  onChange={(e) => setSendEmail(e.target.checked)}
-                  disabled={isPending}
-                  className="rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500 h-4 w-4 disabled:opacity-50 cursor-pointer"
-                />
-                <label
-                  htmlFor="sendEmail"
-                  className="text-xs text-slate-400 font-medium cursor-pointer select-none"
-                >
-                  Enviar credenciales automáticamente por correo (Resend)
-                </label>
-              </div>
-
             </div>
 
             {/* Pie del modal */}
@@ -301,15 +296,17 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                 disabled={isPending}
                 className="bg-slate-800 hover:bg-slate-750 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition disabled:opacity-50 cursor-pointer"
               >
-                Cancelar
+                Cerrar
               </button>
-              <button
-                type="submit"
-                disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition shadow-md shadow-blue-600/10 disabled:opacity-50 cursor-pointer"
-              >
-                {isPending ? "Creando..." : "Crear Perfil"}
-              </button>
+              {!successMsg && !warningMsg && (
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition shadow-md shadow-blue-600/10 disabled:opacity-50 cursor-pointer"
+                >
+                  {isPending ? "Invitando..." : "Invitar Vendedor"}
+                </button>
+              )}
             </div>
 
           </form>

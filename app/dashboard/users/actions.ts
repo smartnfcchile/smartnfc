@@ -5,21 +5,21 @@ import { prisma } from "../../../lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { revalidatePath } from "next/cache";
-import bcrypt from "bcryptjs";
-import { Resend } from "resend";
+import crypto from "crypto";
+import React from "react";
+import { sendEmail } from "../../../lib/email/send-email";
+import UserInvitationEmail from "../../../emails/UserInvitationEmail";
 
 export async function createVendorUser(
   name: string,
-  email: string,
-  passwordPlain: string,
-  sendEmail: boolean
+  email: string
 ) {
   const session = await getServerSession(authOptions);
   if (!session) {
     throw new Error("No autorizado");
   }
 
-  const admin = session.user as any;
+  const admin = session.user as { id: string; role: string; companyId: string };
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -27,82 +27,180 @@ export async function createVendorUser(
   }
 
   // 1. Validar que el correo no esté registrado
+  const emailNorm = email.trim().toLowerCase();
   const existingUser = await prisma.user.findUnique({
-    where: { email: email.trim().toLowerCase() },
+    where: { email: emailNorm },
   });
 
   if (existingUser) {
     throw new Error("Este correo electrónico ya está registrado en la plataforma.");
   }
 
-  // 2. Encriptar contraseña
-  const passwordHash = await bcrypt.hash(passwordPlain, 10);
-
-  // 3. Crear usuario
+  // 2. Crear usuario en estado PENDING y con isActive = false (Requisito 1)
   const newUser = await prisma.user.create({
     data: {
       name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password: passwordHash,
-      role: "COLLABORATOR",
-      companyId: admin.companyId,
+      email: emailNorm,
+      role: "COLLABORATOR", // Requisito 7: Solo vendedores
+      companyId: admin.companyId, // Requisito 6: Solo dentro de su empresa
+      isActive: false,
+      status: "PENDING"
     },
+    include: { company: true }
   });
 
-  // 4. Envío de Correo (Resend)
-  if (sendEmail) {
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const loginUrl = `${process.env.NEXTAUTH_URL || "https://smartnfc-one.vercel.app"}/login`;
-
-    if (resendApiKey) {
-      try {
-        const resend = new Resend(resendApiKey);
-        await resend.emails.send({
-          from: "onboarding@resend.dev", // Reemplazar con dominio verificado cuando compren el dominio
-          to: newUser.email,
-          subject: "Bienvenido a SmartNFC - Tus Credenciales de Acceso",
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 12px;">
-              <h2 style="color: #2563eb;">¡Bienvenido a SmartNFC, ${newUser.name}!</h2>
-              <p>El administrador de tu empresa ha creado tu cuenta de vendedor. Aquí tienes tus credenciales de acceso:</p>
-              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                <tr>
-                  <td style="padding: 8px 0; font-weight: bold; color: #475569;">Enlace de Acceso:</td>
-                  <td style="padding: 8px 0;"><a href="${loginUrl}">${loginUrl}</a></td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; font-weight: bold; color: #475569;">Correo Electrónico:</td>
-                  <td style="padding: 8px 0;">${newUser.email}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; font-weight: bold; color: #475569;">Contraseña Temporal:</td>
-                  <td style="padding: 8px 0; font-family: monospace; font-size: 14px; font-weight: bold; background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">${passwordPlain}</td>
-                </tr>
-              </table>
-              <p style="color: #64748b; font-size: 12px; margin-top: 30px;">
-                Por seguridad, te recomendamos iniciar sesión y no compartir estas credenciales con nadie.
-              </p>
-            </div>
-          `,
-        });
-        console.log(`[RESEND] Correo de bienvenida enviado a: ${newUser.email}`);
-      } catch (err: any) {
-        console.error("Error enviando correo con Resend:", err);
-      }
-    } else {
-      // MOCK DEV MODE: Si no hay API Key de Resend, imprimimos en consola
-      console.log("\n--------------------------------------------------");
-      console.log("📢 [MODO DESARROLLO - CORREO SIMULADO]");
-      console.log(`Para: ${newUser.email}`);
-      console.log("Asunto: Bienvenido a SmartNFC - Tus Credenciales de Acceso");
-      console.log(`Enlace de Acceso: ${loginUrl}`);
-      console.log(`Usuario: ${newUser.email}`);
-      console.log(`Contraseña: ${passwordPlain}`);
-      console.log("--------------------------------------------------\n");
+  // Registrar auditoría de invitación (Requisito 9)
+  await prisma.adminAuditLog.create({
+    data: {
+      actorUserId: admin.id,
+      action: "USER_INVITATION_CREATED",
+      entityType: "USER",
+      entityId: newUser.id,
+      companyId: admin.companyId,
+      metadata: JSON.stringify({ email: newUser.email, role: newUser.role })
     }
+  });
+
+  // 3. Generar token de activación (Requisito 2)
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+
+  await prisma.userActivationToken.create({
+    data: {
+      userId: newUser.id,
+      tokenHash,
+      expiresAt,
+    }
+  });
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const activationUrl = `${appUrl}/activar-cuenta?token=${token}`;
+
+  // 4. Envío de Correo mediante Resend (Requisito 3)
+  const emailRes = await sendEmail({
+    to: newUser.email,
+    subject: "Activa tu cuenta de Smart NFC",
+    react: React.createElement(UserInvitationEmail, {
+      name: newUser.name || "Vendedor",
+      companyName: newUser.company.name,
+      role: newUser.role,
+      activationUrl,
+    }),
+  });
+
+  let emailWarning = null;
+  if (!emailRes.success) {
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "EMAIL_SEND_FAILED",
+        entityType: "USER",
+        entityId: newUser.id,
+        companyId: admin.companyId,
+        metadata: JSON.stringify({ email: newUser.email, error: emailRes.error })
+      }
+    });
+    // Requisito 8: No revertir, devolver warning amigable
+    emailWarning = "El vendedor fue registrado correctamente, pero no fue posible enviar el correo de activación de cuenta. Puedes reenviar el enlace utilizando el botón correspondiente.";
   }
 
   revalidatePath("/dashboard/users");
+  return { success: true, emailWarning };
+}
+
+// 5. Reenviar invitación desde el Dashboard (Requisito 5)
+export async function resendInvitationFromDashboardAction(userId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    throw new Error("No autorizado");
+  }
+
+  const admin = session.user as { id: string; role: string; companyId: string };
+  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
+
+  if (!isAdmin) {
+    throw new Error("Solo los administradores pueden reenviar invitaciones.");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { company: true }
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado.");
+  }
+
+  // Validar aislamiento multiempresa (Requisito 6)
+  if (user.companyId !== admin.companyId) {
+    throw new Error("No autorizado. El usuario pertenece a otra empresa.");
+  }
+
+  if (user.status !== "PENDING") {
+    throw new Error("El usuario ya se encuentra activo.");
+  }
+
+  // Invalidar tokens anteriores
+  await prisma.userActivationToken.updateMany({
+    where: { userId: user.id, usedAt: null },
+    data: { expiresAt: new Date() }
+  });
+
+  // Generar nuevo token
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+
+  await prisma.userActivationToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt
+    }
+  });
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const activationUrl = `${appUrl}/activar-cuenta?token=${token}`;
+
+  const emailRes = await sendEmail({
+    to: user.email,
+    subject: "Activa tu cuenta de Smart NFC",
+    react: React.createElement(UserInvitationEmail, {
+      name: user.name || "Vendedor",
+      companyName: user.company.name,
+      role: user.role,
+      activationUrl,
+    }),
+  });
+
+  if (!emailRes.success) {
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "EMAIL_SEND_FAILED",
+        entityType: "USER",
+        entityId: user.id,
+        companyId: user.companyId,
+        metadata: JSON.stringify({ email: user.email, error: emailRes.error })
+      }
+    });
+    throw new Error(`Fallo en el reenvío de correo: ${emailRes.error}`);
+  }
+
+  await prisma.adminAuditLog.create({
+    data: {
+      actorUserId: admin.id,
+      action: "USER_INVITATION_RESENT",
+      entityType: "USER",
+      entityId: user.id,
+      companyId: user.companyId,
+      metadata: JSON.stringify({ email: user.email })
+    }
+  });
+
   return { success: true };
 }
 
@@ -112,14 +210,14 @@ export async function deleteVendorUser(userId: string) {
     throw new Error("No autorizado");
   }
 
-  const admin = session.user as any;
+  const admin = session.user as { id: string; role: string; companyId: string };
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
     throw new Error("Solo los administradores pueden eliminar vendedores.");
   }
 
-  // 1. Validar que el usuario a eliminar pertenezca a la misma empresa
+  // 1. Validar que el usuario a eliminar pertenezca a la misma empresa (Requisito 6)
   const userToDelete = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, companyId: true },

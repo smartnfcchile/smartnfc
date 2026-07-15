@@ -24,7 +24,6 @@ export default function NuevaCompanyPage() {
   const [createAdmin, setCreateAdmin] = useState(false);
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
 
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
@@ -51,7 +50,6 @@ export default function NuevaCompanyPage() {
         internalNotes: internalNotes || undefined,
         adminName: createAdmin ? adminName : undefined,
         adminEmail: createAdmin ? adminEmail : undefined,
-        adminPassword: createAdmin ? adminPassword : undefined,
       });
 
       setSuccess(true);
@@ -223,7 +221,7 @@ export default function NuevaCompanyPage() {
           </div>
 
           {createAdmin && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider block">
                   Nombre Completo
@@ -248,20 +246,6 @@ export default function NuevaCompanyPage() {
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
                   placeholder="ejemplo@sidep.cl"
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-1 focus:ring-blue-600 dark:text-white"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 dark:text-slate-555 uppercase tracking-wider block">
-                  Contraseña Inicial
-                </label>
-                <input
-                  type="password"
-                  required={createAdmin}
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="••••••••"
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-1 focus:ring-blue-600 dark:text-white"
                 />
               </div>

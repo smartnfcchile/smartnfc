@@ -50,6 +50,7 @@ export default async function EmpresaDetailPage({ params }: PageProps) {
       email: u.email,
       role: u.role,
       isActive: u.isActive,
+      status: u.status,
     })),
   };
 

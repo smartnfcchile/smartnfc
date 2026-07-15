@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { updateCompanyAction, createAdminUserAction } from "../../actions";
+import { updateCompanyAction, createAdminUserAction, resendInvitationAction } from "../../actions";
 import { PlanType } from "@prisma/client";
 
 interface CompanyDetailClientProps {
@@ -24,6 +24,7 @@ interface CompanyDetailClientProps {
       email: string;
       role: string;
       isActive: boolean;
+      status: string;
     }>;
   };
 }
@@ -338,17 +339,44 @@ export default function CompanyDetailClient({ company }: CompanyDetailClientProp
                       <div className="font-bold text-slate-900 dark:text-slate-100">{u.name || "Usuario"}</div>
                       <span className="text-[10px] text-slate-400 block">{u.email}</span>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-1">
                       <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400">
                         {u.role}
                       </span>
-                      <span
-                        className={`block text-[9px] font-semibold mt-1 ${
-                          u.isActive ? "text-emerald-500" : "text-rose-500"
-                        }`}
-                      >
-                        {u.isActive ? "Activo" : "Suspendido"}
-                      </span>
+                      {u.status === "PENDING" ? (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[8px] text-amber-600 dark:text-amber-400 font-extrabold uppercase leading-none bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/10">Pendiente</span>
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={async () => {
+                              setLoading(true);
+                              setError(null);
+                              setSuccess(null);
+                              try {
+                                await resendInvitationAction(u.id);
+                                setSuccess(`Invitación reenviada con éxito a ${u.email}`);
+                              } catch (err: unknown) {
+                                const errorMsg = err instanceof Error ? err.message : "Error al reenviar invitación.";
+                                setError(errorMsg);
+                              } finally {
+                                setLoading(false);
+                              }
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-[8px] font-black uppercase leading-none cursor-pointer transition-all"
+                          >
+                            Reenviar
+                          </button>
+                        </div>
+                      ) : (
+                        <span
+                          className={`block text-[9px] font-semibold mt-1 ${
+                            u.isActive ? "text-emerald-500" : "text-rose-500"
+                          }`}
+                        >
+                          {u.isActive ? "Activo" : "Suspendido"}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))

@@ -10,13 +10,36 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("error") === "suspended") {
+        return "Tu cuenta o empresa asociada ha sido suspendida. Contacta a soporte.";
+      }
+    }
+    return "";
+  });
+
+  const [successMessage, setSuccessMessage] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("activated") === "true") {
+        return "¡Cuenta activada con éxito! Ya puedes iniciar sesión.";
+      }
+      if (params.get("reset") === "true") {
+        return "¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.";
+      }
+    }
+    return "";
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccessMessage("");
 
     const res = await signIn("credentials", {
       email,
@@ -51,6 +74,12 @@ export default function LoginPage() {
           </div>
         )}
 
+        {successMessage && (
+          <div className="bg-emerald-500/10 border border-emerald-500 text-emerald-600 dark:text-emerald-400 p-3 rounded-xl mb-6 text-xs text-center font-semibold">
+            {successMessage}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-350 mb-1.5">Correo Electrónico</label>
@@ -65,7 +94,12 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-350 mb-1.5">Contraseña</label>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-350">Contraseña</label>
+              <Link href="/olvide-mi-contrasena" className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-bold">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
             <input
               type="password"
               value={password}

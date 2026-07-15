@@ -2,9 +2,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import bcrypt from "bcryptjs";
+import { requireSuperAdmin } from "../../../lib/permissions";
 
 export async function GET() {
   try {
+    // Proteger con SuperAdmin para evitar acceso no autorizado en producción
+    await requireSuperAdmin();
+
     const userCount = await prisma.user.count();
     const user = await prisma.user.findUnique({
       where: { email: "agustin@demo.cl" },

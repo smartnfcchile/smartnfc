@@ -378,7 +378,7 @@ export default function HomeClient() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-base sm:text-lg text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-xl"
             >
-              Smart NFC ayuda a los equipos comerciales a compartir su identidad profesional, capturar nuevos contactos, registrar el contexto de cada conversación y realizar seguimiento desde una plataforma centralizada.
+              Comparte tu identidad profesional, captura contactos y conserva el contexto de cada relación comercial en una sola plataforma.
             </motion.p>
 
             {/* Botones de acción */}
@@ -836,6 +836,113 @@ export default function HomeClient() {
 
           </div>
 
+        </section>
+
+        {/* 2.5.5. EL MÉTODO SMART NFC SECTION */}
+        <section id="metodo" className="w-full max-w-7xl mx-auto px-6 py-12 sm:py-16 border-t border-slate-200/40 dark:border-white/10 text-left scroll-mt-24">
+          <div className="space-y-8">
+            <div className="space-y-3">
+              <div className="inline-flex">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-blue-500/20 bg-blue-500/5 text-[9px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                  <Activity size={10} className="shrink-0" />
+                  El método Smart NFC
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-850 dark:text-slate-100 tracking-tight leading-tight">
+                El flujo que transforma tus encuentros comerciales<span className="text-blue-600 dark:text-blue-400">.</span>
+              </h2>
+            </div>
+
+            {/* Cadena Horizontal de 4 Etapas */}
+            <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 select-none">
+              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 text-xs font-black">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+                  <span className="text-blue-600">1</span> Compartes
+                </div>
+                <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">➔</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+                  <span className="text-blue-600">2</span> Capturas
+                </div>
+                <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">➔</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+                  <span className="text-blue-600">3</span> Agregas contexto
+                </div>
+                <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">➔</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+                  <span className="text-blue-600">4</span> Das seguimiento
+                </div>
+              </div>
+              <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider">
+                La empresa conserva el conocimiento
+              </div>
+            </div>
+
+            {/* Grid de 4 Bloques */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+              {/* Bloque 1 */}
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 hover:border-slate-350 dark:hover:border-slate-850 transition-colors space-y-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-500/5">
+                  <QrCode size={16} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-slate-850 dark:text-slate-100 uppercase tracking-wider">Encuentro</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    Comparte tu identidad profesional mediante NFC o QR.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bloque 2 */}
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 hover:border-slate-350 dark:hover:border-slate-850 transition-colors space-y-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-500/5">
+                  <User size={16} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-slate-850 dark:text-slate-100 uppercase tracking-wider">Captura</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    El contacto entrega sus datos en pocos segundos y queda registrado en la cuenta de la empresa.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bloque 3 */}
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 hover:border-slate-350 dark:hover:border-slate-850 transition-colors space-y-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-500/5">
+                  <FileText size={16} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-slate-850 dark:text-slate-100 uppercase tracking-wider">Contexto</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    Registra dónde se conocieron, qué necesitaba y cuál fue el acuerdo o próximo paso.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bloque 4 */}
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/10 rounded-2xl p-5 hover:border-slate-350 dark:hover:border-slate-850 transition-colors space-y-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-slate-950 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-500/5">
+                  <CheckCircle2 size={16} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-slate-850 dark:text-slate-100 uppercase tracking-wider">Seguimiento</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    Organiza las acciones pendientes y conserva el historial de la relación comercial.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Frase de Impacto y Explicación */}
+            <div className="mt-12 text-center py-10 px-6 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/30 dark:border-white/5 rounded-3xl space-y-3 max-w-4xl mx-auto">
+              <h3 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight text-slate-850 dark:text-white leading-tight">
+                &quot;El conocimiento comercial permanece en la empresa, incluso cuando cambian las personas.&quot;
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-450 dark:text-slate-400 font-bold max-w-xl mx-auto leading-relaxed">
+                Las relaciones comerciales dejan de depender únicamente de la memoria o el teléfono de una persona.
+              </p>
+            </div>
+
+          </div>
         </section>
 
         {/* 2.6. SOLUCIONES SECTION */}
@@ -1648,7 +1755,7 @@ export default function HomeClient() {
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[9.5px] text-slate-600 dark:text-slate-350 font-bold text-left pt-2">
                       <div className="flex items-center gap-1.5"><span className="text-blue-500">✔</span> Dashboard</div>
                       <div className="flex items-center gap-1.5"><span className="text-blue-500">✔</span> Administración</div>
-                      <div className="flex items-center gap-1.5"><span className="text-blue-500">✔</span> CRM</div>
+                      <div className="flex items-center gap-1.5"><span className="text-blue-500">✔</span> Relaciones</div>
                       <div className="flex items-center gap-1.5"><span className="text-blue-500">✔</span> Analíticas</div>
                       <div className="flex items-center gap-1.5"><span className="text-blue-500">✔</span> Formularios</div>
                       <div className="flex items-center gap-1.5"><span className="text-blue-500">✔</span> Documentos</div>

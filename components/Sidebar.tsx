@@ -52,6 +52,12 @@ export default function Sidebar({ user }: SidebarProps) {
       show: true,
     },
     {
+      title: "Superadministración",
+      href: "/superadmin",
+      icon: "🛠️",
+      show: user.role === "SUPERADMIN",
+    },
+    {
       title: "Configuración",
       href: "/dashboard/configuracion",
       icon: "⚙️",

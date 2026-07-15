@@ -28,6 +28,29 @@ async function main() {
     },
   });
 
+  // Promocionar al superadministrador si está configurado en el env
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+  if (superAdminEmail) {
+    console.log(`Verificando/Creando superadministrador con email: ${superAdminEmail}`);
+    const superAdminPasswordHash = await bcrypt.hash("SuperAdmin1234", 10);
+    await prisma.user.upsert({
+      where: { email: superAdminEmail.trim().toLowerCase() },
+      update: {
+        role: UserRole.SUPERADMIN,
+        isActive: true,
+      },
+      create: {
+        name: "Super Administrador",
+        email: superAdminEmail.trim().toLowerCase(),
+        password: superAdminPasswordHash,
+        role: UserRole.SUPERADMIN,
+        isActive: true,
+        companyId: company.id,
+      },
+    });
+    console.log(`✅ Superadministrador configurado con éxito.`);
+  }
+
   await prisma.card.upsert({
     where: { slug: "agustin-dev" },
     update: {

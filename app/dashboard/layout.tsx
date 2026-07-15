@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
+import { prisma } from "../../lib/prisma";
 
 export default async function DashboardLayout({
   children,
@@ -13,6 +14,16 @@ export default async function DashboardLayout({
 
   if (!session) {
     redirect("/login");
+  }
+
+  // Verificar estado activo del usuario y empresa en la BD (Requisito 6 y 10)
+  const dbUser = await prisma.user.findUnique({
+    where: { id: (session.user as any).id },
+    include: { company: true },
+  });
+
+  if (!dbUser || !dbUser.isActive || (!dbUser.company.isActive && dbUser.role !== "SUPERADMIN")) {
+    redirect("/login?error=suspended");
   }
 
   return (

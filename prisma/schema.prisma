@@ -50,6 +50,14 @@ model Company {
   users            User[]
   cards            Card[]
   physicalNfcCards PhysicalNfcCard[]
+
+  // Control de licencias y capacidades (Requisito 9)
+  maxIdentities    Int               @default(5)
+  licenseStatus    String            @default("ACTIVE") // ACTIVE, SUSPENDED, TRIAL, CANCELLED
+  licenseStart     DateTime?
+  licenseEnd       DateTime?
+  internalNotes    String?
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -204,4 +212,15 @@ model Lead {
   card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  entityType  String
+  entityId    String
+  companyId   String?
+  metadata    String?
+  createdAt   DateTime @default(now())
 }

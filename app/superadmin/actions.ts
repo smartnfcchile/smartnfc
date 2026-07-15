@@ -123,6 +123,7 @@ export async function createCompanyAction(data: {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const activationUrl = `${appUrl}/activar-cuenta?token=${token}`;
 
+    let emailWarning = null;
     const emailRes = await sendEmail({
       to: result.adminUser.email,
       subject: "Activa tu cuenta de Smart NFC",
@@ -145,13 +146,23 @@ export async function createCompanyAction(data: {
           metadata: JSON.stringify({ email: result.adminUser.email, error: emailRes.error })
         }
       });
-      // Devolver error amigable en UI pero la empresa queda creada
-      throw new Error(`Empresa creada, pero falló el envío del correo de invitación: ${emailRes.error}`);
+      emailWarning = "La empresa fue creada correctamente, pero no fue posible enviar la invitación por correo. Puedes reenviar la invitación desde el detalle de la empresa.";
     }
+
+    revalidatePath("/superadmin/empresas");
+    return {
+      company: result.company,
+      adminUser: result.adminUser,
+      emailWarning
+    };
   }
 
   revalidatePath("/superadmin/empresas");
-  return result;
+  return {
+    company: result.company,
+    adminUser: null,
+    emailWarning: null
+  };
 }
 
 // 2. Reenviar Invitación de un Usuario (Requisito 5)

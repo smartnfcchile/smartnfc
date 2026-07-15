@@ -10,6 +10,7 @@ export default function NuevaCompanyPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
+  const [warning, setWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   // Form State
@@ -41,7 +42,7 @@ export default function NuevaCompanyPage() {
     setError(null);
 
     try {
-      await createCompanyAction({
+      const res = await createCompanyAction({
         name,
         slug,
         plan,
@@ -52,10 +53,14 @@ export default function NuevaCompanyPage() {
         adminEmail: createAdmin ? adminEmail : undefined,
       });
 
-      setSuccess(true);
-      setTimeout(() => {
-        router.push("/superadmin/empresas");
-      }, 1500);
+      if (res.emailWarning) {
+        setWarning(res.emailWarning);
+      } else {
+        setSuccess(true);
+        setTimeout(() => {
+          router.push("/superadmin/empresas");
+        }, 1500);
+      }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Ocurrió un error inesperado al registrar la empresa.";
       setError(errorMsg);
@@ -91,6 +96,18 @@ export default function NuevaCompanyPage() {
         {success && (
           <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-xl">
             🎉 ¡Empresa creada con éxito! Redireccionando...
+          </div>
+        )}
+
+        {warning && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold rounded-xl space-y-2">
+            <p>⚠️ {warning}</p>
+            <Link
+              href="/superadmin/empresas"
+              className="inline-block px-3 py-1.5 bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-lg text-[10px] font-black uppercase transition-all"
+            >
+              Ir al listado de empresas
+            </Link>
           </div>
         )}
 

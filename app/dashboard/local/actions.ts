@@ -12,6 +12,7 @@ import {
   publicSubscriptionSchema,
   normalizeChileanWhatsApp
 } from "../../../lib/validations/local";
+import { LocalCampaignStatus, LocalSubscriberStatus, LocalEventType } from "@prisma/client";
 
 // 1. Crear Campaña Local (Requisito 5)
 export async function createLocalCampaignAction(payload: { name: string; slug: string }) {
@@ -168,8 +169,7 @@ export async function publishLocalCampaignAction(campaignId: string) {
   const updated = await prisma.localCampaign.update({
     where: { id: campaign.id },
     data: {
-      status: "PUBLISHED",
-      isPublished: true,
+      status: LocalCampaignStatus.PUBLISHED,
       publishedSnapshot: snapshot,
       publishedVersion: { increment: 1 },
       publishedAt: new Date()
@@ -203,8 +203,7 @@ export async function archiveLocalCampaignAction(campaignId: string) {
       companyId: admin.companyId
     },
     data: {
-      status: "ARCHIVED",
-      isActive: false
+      status: LocalCampaignStatus.ARCHIVED
     }
   });
 
@@ -233,12 +232,12 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
     return { success: false, error: "Inscripción no autorizada." };
   }
 
-  // Buscar campaña y comprobar que esté publicada y activa
+  // Buscar campaña
   const campaign = await prisma.localCampaign.findUnique({
     where: { slug }
   });
 
-  if (!campaign || campaign.status !== "PUBLISHED" || !campaign.isActive) {
+  if (!campaign || campaign.status !== LocalCampaignStatus.PUBLISHED) {
     return { success: false, error: "La campaña no está disponible." };
   }
 
@@ -289,7 +288,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
         data: {
           name: validated.name.trim(),
           lastInteractionAt: new Date(),
-          status: "ACTIVE" // Reactivar por si estaba cancelado
+          status: LocalSubscriberStatus.ACTIVE // Reactivar por si estaba cancelado
         }
       });
 
@@ -315,7 +314,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
           campaignId: campaign.id,
           name: validated.name.trim(),
           whatsapp: validated.whatsapp,
-          status: "ACTIVE",
+          status: LocalSubscriberStatus.ACTIVE,
           consentRecords: {
             create: {
               campaignId: campaign.id,
@@ -337,7 +336,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
         campaignId: campaign.id,
         touchpointId,
         subscriberId,
-        eventType: "SUBSCRIPTION",
+        eventType: LocalEventType.SUBSCRIPTION,
         ipHash,
         userAgent,
         referer

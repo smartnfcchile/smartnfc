@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import SmartNFCLogo from "./brand/SmartNFCLogo";
 
+import { Store } from "lucide-react";
+
 type SidebarProps = {
   user: {
     name?: string | null;
@@ -43,6 +45,12 @@ export default function Sidebar({ user }: SidebarProps) {
       title: "Tarjetas Virtuales",
       href: "/dashboard/cards",
       icon: "🎴",
+      show: isAdmin,
+    },
+    {
+      title: "Smart NFC Local",
+      href: "/dashboard/local",
+      icon: <Store className="h-4.5 w-4.5" />,
       show: isAdmin,
     },
     {

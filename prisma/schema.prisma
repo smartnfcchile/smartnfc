@@ -263,16 +263,28 @@ enum LocalCampaignTemplate {
   URBAN
 }
 
+enum LocalSubscriberStatus {
+  ACTIVE
+  OPTED_OUT
+  BLOCKED
+}
+
+enum LocalEventType {
+  VIEW
+  NFC_SCAN
+  QR_SCAN
+  SUBSCRIPTION
+  WHATSAPP_REDIRECT
+}
+
 model LocalCampaign {
-  id          String                @id @default(cuid())
-  companyId   String
-  company     Company               @relation(fields: [companyId], references: [id])
-  name        String
-  slug        String                @unique
-  status      LocalCampaignStatus   @default(DRAFT)
-  template    LocalCampaignTemplate @default(URBAN)
-  isPublished Boolean               @default(false)
-  isActive    Boolean               @default(true)
+  id        String                @id @default(cuid())
+  companyId String
+  company   Company               @relation(fields: [companyId], references: [id])
+  name      String
+  slug      String                @unique
+  status    LocalCampaignStatus   @default(DRAFT)
+  template  LocalCampaignTemplate @default(URBAN)
 
   // Configuración de borrador
   logoUrl            String?
@@ -306,6 +318,8 @@ model LocalCampaign {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   localConsentRecords LocalConsentRecord[]
+
+  @@index([companyId, status])
 }
 
 model LocalTouchpoint {
@@ -320,17 +334,19 @@ model LocalTouchpoint {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   localEvents LocalEvent[]
+
+  @@index([campaignId, isActive])
 }
 
 model LocalSubscriber {
-  id                String               @id @default(cuid())
+  id                String                @id @default(cuid())
   campaignId        String
-  campaign          LocalCampaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign          LocalCampaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   name              String
   whatsapp          String
-  status            String               @default("ACTIVE") // ACTIVE, OPTED_OUT, BLOCKED
-  firstSubscribedAt DateTime             @default(now())
-  lastInteractionAt DateTime             @default(now())
+  status            LocalSubscriberStatus @default(ACTIVE)
+  firstSubscribedAt DateTime              @default(now())
+  lastInteractionAt DateTime              @default(now())
   consentRecords    LocalConsentRecord[]
   events            LocalEvent[]
 
@@ -338,6 +354,8 @@ model LocalSubscriber {
   updatedAt DateTime @updatedAt
 
   @@unique([campaignId, whatsapp])
+  @@index([campaignId, status])
+  @@index([createdAt])
 }
 
 model LocalConsentRecord {
@@ -356,6 +374,9 @@ model LocalConsentRecord {
   metadata       Json?
 
   createdAt DateTime @default(now())
+
+  @@index([campaignId, acceptedAt])
+  @@index([subscriberId, acceptedAt])
 }
 
 model LocalEvent {
@@ -366,9 +387,13 @@ model LocalEvent {
   touchpoint   LocalTouchpoint? @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
   subscriberId String?
   subscriber   LocalSubscriber? @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
-  eventType    String // VIEW, NFC_SCAN, QR_SCAN, SUBSCRIPTION, WHATSAPP_REDIRECT
+  eventType    LocalEventType
   ipHash       String?
   userAgent    String?
   referer      String?
   createdAt    DateTime         @default(now())
+
+  @@index([campaignId, eventType, createdAt])
+  @@index([touchpointId, createdAt])
+  @@index([subscriberId, createdAt])
 }

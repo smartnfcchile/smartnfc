@@ -167,13 +167,18 @@ export default function CompanyDetailClient({ company }: CompanyDetailClientProp
             }
           : undefined;
 
-      await updateCompanyAction(company.id, {
+      const res = await updateCompanyAction(company.id, {
         name,
         internalNotes: internalNotes || undefined,
         isActive,
         empresasLicense,
         localLicense,
       });
+
+      if (!res.success) {
+        setError(res.error || "Error al actualizar la empresa.");
+        return;
+      }
 
       setSuccess("Organización y licencias actualizadas con éxito.");
       router.refresh();
@@ -197,12 +202,17 @@ export default function CompanyDetailClient({ company }: CompanyDetailClientProp
     setSuccess(null);
 
     try {
-      await createAdminUserAction({
+      const res = await createAdminUserAction({
         companyId: company.id,
         name: newAdminName,
         email: newAdminEmail,
         passwordPlain: newAdminPassword,
       });
+
+      if (!res.success) {
+        setError(res.error || "Error al registrar al administrador.");
+        return;
+      }
 
       setSuccess("Administrador principal creado con éxito.");
       setNewAdminName("");
@@ -305,7 +315,7 @@ export default function CompanyDetailClient({ company }: CompanyDetailClientProp
                     onChange={(e) => setHasEmpresas(e.target.checked)}
                     className="rounded border-slate-350 dark:border-slate-800 text-blue-600 focus:ring-blue-600 h-4 w-4"
                   />
-                  Smart NFC Empresas (B2B)
+                  Smart NFC Empresas
                 </label>
                 <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
                   <input
@@ -314,7 +324,7 @@ export default function CompanyDetailClient({ company }: CompanyDetailClientProp
                     onChange={(e) => setHasLocal(e.target.checked)}
                     className="rounded border-slate-350 dark:border-slate-800 text-blue-600 focus:ring-blue-600 h-4 w-4"
                   />
-                  Smart NFC Local (B2C)
+                  Smart NFC Local
                 </label>
               </div>
             </div>

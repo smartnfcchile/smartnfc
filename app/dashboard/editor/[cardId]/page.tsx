@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import FileInput from "../../../../components/FileInput";
 import { updateCard, deleteLink, addLink } from "./actions";
+import { getProductLicense, isLicenseValid } from "../../../../lib/product-access";
 
 type EditorPageProps = {
   params: Promise<{
@@ -19,6 +20,15 @@ export default async function EditorPage({ params }: EditorPageProps) {
   // 1. Verificamos quién está conectado
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+
+  const user = session.user as any;
+
+  if (user.role !== "SUPERADMIN") {
+    const license = await getProductLicense(user.companyId, "EMPRESAS");
+    if (!isLicenseValid(license)) {
+      redirect("/dashboard/local");
+    }
+  }
 
   const userId = (session.user as any).id;
   

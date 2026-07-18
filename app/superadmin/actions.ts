@@ -58,185 +58,188 @@ export async function createCompanyAction(data: {
     expiresAt?: string;
   };
 }) {
-  const superadmin = await requireSuperAdmin();
+  try {
+    const superadmin = await requireSuperAdmin();
 
-  // Normalizar y validar slug
-  const normalizedSlug = data.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-  if (!normalizedSlug) {
-    throw new Error("El identificador URL (slug) es inválido.");
-  }
-
-  const reserved = ["superadmin", "dashboard", "login", "api", "t", "c", "configuracion", "editor", "leads", "metrics", "users", "cards", "qr"];
-  if (reserved.includes(normalizedSlug)) {
-    throw new Error("El identificador URL (slug) ingresado está reservado por el sistema.");
-  }
-
-  const existing = await prisma.company.findUnique({
-    where: { slug: normalizedSlug }
-  });
-  if (existing) {
-    throw new Error("El identificador URL (slug) ya está en uso por otra empresa.");
-  }
-
-  // Ejecutar creación en BD
-  const result = await prisma.$transaction(async (tx) => {
-    // Sincronizar legacy
-    const legacyPlan = data.empresasLicense ? mapPlanCodeToLegacyPlan(data.empresasLicense.planCode) : PlanType.FREE;
-    const legacyMaxId = data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : 5;
-    const legacyStatus = data.empresasLicense ? mapLicenseStatusToLegacyStatus(data.empresasLicense.status) : "ACTIVE";
-
-    const company = await tx.company.create({
-      data: {
-        name: data.name.trim(),
-        slug: normalizedSlug,
-        plan: legacyPlan,
-        maxIdentities: legacyMaxId,
-        licenseStatus: legacyStatus,
-        internalNotes: data.internalNotes,
-        isActive: (data.empresasLicense?.status === "ACTIVE") || (data.localLicense?.status === "ACTIVE"),
-      }
-    });
-
-    // Crear licencia de Empresas
-    if (data.empresasLicense) {
-      await tx.companyProductLicense.create({
-        data: {
-          companyId: company.id,
-          product: "EMPRESAS",
-          planCode: data.empresasLicense.planCode,
-          status: data.empresasLicense.status,
-          includedIdentities: Number(data.empresasLicense.includedIdentities),
-          authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
-          startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
-          expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
-          notes: data.internalNotes
-        }
-      });
+    // Normalizar y validar slug
+    const normalizedSlug = data.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+    if (!normalizedSlug) {
+      return { success: false, error: "El identificador URL (slug) es inválido." };
     }
 
-    // Crear licencia Local
-    if (data.localLicense) {
-      await tx.companyProductLicense.create({
-        data: {
-          companyId: company.id,
-          product: "LOCAL",
-          planCode: data.localLicense.planCode,
-          status: data.localLicense.status,
-          includedCampaigns: Number(data.localLicense.includedCampaigns),
-          includedBranches: Number(data.localLicense.includedBranches),
-          includedTouchpoints: Number(data.localLicense.includedTouchpoints),
-          startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
-          expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
-          notes: data.internalNotes
-        }
-      });
+    const reserved = ["superadmin", "dashboard", "login", "api", "t", "c", "configuracion", "editor", "leads", "metrics", "users", "cards", "qr"];
+    if (reserved.includes(normalizedSlug)) {
+      return { success: false, error: "El identificador URL (slug) ingresado está reservado por el sistema." };
     }
 
-    await tx.adminAuditLog.create({
-      data: {
-        actorUserId: superadmin.id,
-        action: "COMPANY_CREATE",
-        entityType: "COMPANY",
-        entityId: company.id,
-        companyId: company.id,
-        metadata: JSON.stringify({ name: company.name, slug: company.slug })
-      }
+    const existing = await prisma.company.findUnique({
+      where: { slug: normalizedSlug }
     });
+    if (existing) {
+      return { success: false, error: "El identificador URL (slug) ya está en uso por otra empresa." };
+    }
 
-    let adminUser = null;
-    if (data.adminEmail && data.adminName) {
-      const emailNorm = data.adminEmail.trim().toLowerCase();
-      const existingUser = await tx.user.findUnique({
-        where: { email: emailNorm }
-      });
-      if (existingUser) {
-        throw new Error("El correo electrónico del administrador ya está registrado.");
-      }
+    // Ejecutar creación en BD
+    const result = await prisma.$transaction(async (tx) => {
+      // Sincronizar legacy
+      const legacyPlan = data.empresasLicense ? mapPlanCodeToLegacyPlan(data.empresasLicense.planCode) : PlanType.FREE;
+      const legacyMaxId = data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : 0;
+      const legacyStatus = data.empresasLicense ? mapLicenseStatusToLegacyStatus(data.empresasLicense.status) : "CANCELLED";
 
-      adminUser = await tx.user.create({
+      const company = await tx.company.create({
         data: {
-          name: data.adminName.trim(),
-          email: emailNorm,
-          role: UserRole.COMPANY_OWNER,
-          companyId: company.id,
-          isActive: false,
-          status: "PENDING"
+          name: data.name.trim(),
+          slug: normalizedSlug,
+          plan: legacyPlan,
+          maxIdentities: legacyMaxId,
+          licenseStatus: legacyStatus,
+          internalNotes: data.internalNotes,
+          isActive: (data.empresasLicense?.status === "ACTIVE") || (data.localLicense?.status === "ACTIVE"),
         }
       });
+
+      // Crear licencia de Empresas
+      if (data.empresasLicense) {
+        await tx.companyProductLicense.create({
+          data: {
+            companyId: company.id,
+            product: "EMPRESAS",
+            planCode: data.empresasLicense.planCode,
+            status: data.empresasLicense.status,
+            includedIdentities: Number(data.empresasLicense.includedIdentities),
+            authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
+            startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
+            expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
+            notes: data.internalNotes
+          }
+        });
+      }
+
+      // Crear licencia Local
+      if (data.localLicense) {
+        await tx.companyProductLicense.create({
+          data: {
+            companyId: company.id,
+            product: "LOCAL",
+            planCode: data.localLicense.planCode,
+            status: data.localLicense.status,
+            includedCampaigns: Number(data.localLicense.includedCampaigns),
+            includedBranches: Number(data.localLicense.includedBranches),
+            includedTouchpoints: Number(data.localLicense.includedTouchpoints),
+            startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
+            expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
+            notes: data.internalNotes
+          }
+        });
+      }
 
       await tx.adminAuditLog.create({
         data: {
           actorUserId: superadmin.id,
-          action: "USER_INVITATION_CREATED",
-          entityType: "USER",
-          entityId: adminUser.id,
+          action: "COMPANY_CREATE",
+          entityType: "COMPANY",
+          entityId: company.id,
           companyId: company.id,
-          metadata: JSON.stringify({ email: adminUser.email, role: adminUser.role })
+          metadata: JSON.stringify({ name: company.name, slug: company.slug })
         }
       });
-    }
 
-    return { company, adminUser };
-  });
+      let adminUser = null;
+      if (data.adminEmail && data.adminName) {
+        const emailNorm = data.adminEmail.trim().toLowerCase();
+        const existingUser = await tx.user.findUnique({
+          where: { email: emailNorm }
+        });
+        if (existingUser) {
+          throw new Error("El correo electrónico del administrador ya está registrado.");
+        }
 
-  // Enviar invitación por correo electrónico fuera de la transacción (Requisito 5)
-  if (result.adminUser) {
-    const token = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+        adminUser = await tx.user.create({
+          data: {
+            name: data.adminName.trim(),
+            email: emailNorm,
+            role: UserRole.COMPANY_OWNER,
+            companyId: company.id,
+            isActive: false,
+            status: "PENDING"
+          }
+        });
 
-    await prisma.userActivationToken.create({
-      data: {
-        userId: result.adminUser.id,
-        tokenHash,
-        expiresAt,
+        await tx.adminAuditLog.create({
+          data: {
+            actorUserId: superadmin.id,
+            action: "USER_INVITATION_CREATED",
+            entityType: "USER",
+            entityId: adminUser.id,
+            companyId: company.id,
+            metadata: JSON.stringify({ email: adminUser.email, role: adminUser.role })
+          }
+        });
       }
-    });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const activationUrl = `${appUrl}/activar-cuenta?token=${token}`;
+      return { company, adminUser };
+    });
 
     let emailWarning = null;
-    const emailRes = await sendEmail({
-      to: result.adminUser.email,
-      subject: "Activa tu cuenta de Smart NFC",
-      react: React.createElement(UserInvitationEmail, {
-        name: result.adminUser.name || "Administrador",
-        companyName: result.company.name,
-        role: result.adminUser.role,
-        activationUrl,
-      }),
-    });
 
-    if (!emailRes.success) {
-      await prisma.adminAuditLog.create({
+    // Enviar invitación por correo electrónico fuera de la transacción (Requisito 5)
+    if (result.adminUser) {
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      await prisma.userActivationToken.create({
         data: {
-          actorUserId: superadmin.id,
-          action: "EMAIL_SEND_FAILED",
-          entityType: "USER",
-          entityId: result.adminUser.id,
-          companyId: result.company.id,
-          metadata: JSON.stringify({ email: result.adminUser.email, error: emailRes.error })
+          userId: result.adminUser.id,
+          tokenHash,
+          expiresAt,
         }
       });
-      emailWarning = "La empresa fue creada correctamente, pero no fue posible enviar la invitación por correo. Puedes reenviar la invitación desde el detalle de la empresa.";
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const activationUrl = `${appUrl}/activar-cuenta?token=${token}`;
+
+      const emailRes = await sendEmail({
+        to: result.adminUser.email,
+        subject: "Activa tu cuenta de Smart NFC",
+        react: React.createElement(UserInvitationEmail, {
+          name: result.adminUser.name || "Administrador",
+          companyName: result.company.name,
+          role: result.adminUser.role,
+          activationUrl,
+        }),
+      });
+
+      if (!emailRes.success) {
+        await prisma.adminAuditLog.create({
+          data: {
+            actorUserId: superadmin.id,
+            action: "EMAIL_SEND_FAILED",
+            entityType: "USER",
+            entityId: result.adminUser.id,
+            companyId: result.company.id,
+            metadata: JSON.stringify({ email: result.adminUser.email, error: emailRes.error })
+          }
+        });
+        emailWarning = "La empresa fue creada correctamente, pero no fue posible enviar la invitación por correo. Puedes reenviar la invitación desde el detalle de la empresa.";
+      }
     }
 
     revalidatePath("/superadmin/empresas");
     return {
-      company: result.company,
-      adminUser: result.adminUser,
-      emailWarning
+      success: true,
+      companyId: result.company.id,
+      companyName: result.company.name,
+      emailWarning: emailWarning || null
+    };
+  } catch (err: any) {
+    console.error("Error al registrar empresa:", err);
+    return {
+      success: false,
+      error: err.message || "No pudimos registrar la empresa. No se realizaron cambios. Inténtalo nuevamente o revisa los registros del sistema."
     };
   }
-
-  revalidatePath("/superadmin/empresas");
-  return {
-    company: result.company,
-    adminUser: null,
-    emailWarning: null
-  };
 }
 
 // 2. Reenviar Invitación de un Usuario (Requisito 5)
@@ -341,121 +344,133 @@ export async function updateCompanyAction(companyId: string, data: {
     expiresAt?: string;
   };
 }) {
-  const superadmin = await requireSuperAdmin();
+  try {
+    const superadmin = await requireSuperAdmin();
 
-  const company = await prisma.company.findUnique({
-    where: { id: companyId }
-  });
-  if (!company) {
-    throw new Error("Empresa no encontrada.");
+    const company = await prisma.company.findUnique({
+      where: { id: companyId }
+    });
+    if (!company) {
+      return { success: false, error: "Empresa no encontrada." };
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      // Sincronizar legacy si se provee Empresas, de lo contrario desactivada/cero si es local-only
+      const legacyPlan = data.empresasLicense ? mapPlanCodeToLegacyPlan(data.empresasLicense.planCode) : company.plan;
+      const legacyMaxId = data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : 0;
+      const legacyStatus = data.empresasLicense ? mapLicenseStatusToLegacyStatus(data.empresasLicense.status) : "CANCELLED";
+
+      // 1. Actualizar empresa
+      const comp = await tx.company.update({
+        where: { id: companyId },
+        data: {
+          name: data.name.trim(),
+          plan: legacyPlan,
+          maxIdentities: legacyMaxId,
+          licenseStatus: legacyStatus,
+          internalNotes: data.internalNotes,
+          isActive: data.isActive,
+        }
+      });
+
+      // 2. Upsert licencia de Empresas
+      if (data.empresasLicense) {
+        await tx.companyProductLicense.upsert({
+          where: {
+            companyId_product: {
+              companyId,
+              product: "EMPRESAS"
+            }
+          },
+          update: {
+            planCode: data.empresasLicense.planCode,
+            status: data.empresasLicense.status,
+            includedIdentities: Number(data.empresasLicense.includedIdentities),
+            authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
+            startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
+            expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
+            notes: data.internalNotes
+          },
+          create: {
+            companyId,
+            product: "EMPRESAS",
+            planCode: data.empresasLicense.planCode,
+            status: data.empresasLicense.status,
+            includedIdentities: Number(data.empresasLicense.includedIdentities),
+            authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
+            startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
+            expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
+            notes: data.internalNotes
+          }
+        });
+      }
+
+      // 3. Upsert licencia Local
+      if (data.localLicense) {
+        await tx.companyProductLicense.upsert({
+          where: {
+            companyId_product: {
+              companyId,
+              product: "LOCAL"
+            }
+          },
+          update: {
+            planCode: data.localLicense.planCode,
+            status: data.localLicense.status,
+            includedCampaigns: Number(data.localLicense.includedCampaigns),
+            includedBranches: Number(data.localLicense.includedBranches),
+            includedTouchpoints: Number(data.localLicense.includedTouchpoints),
+            startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
+            expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
+            notes: data.internalNotes
+          },
+          create: {
+            companyId,
+            product: "LOCAL",
+            planCode: data.localLicense.planCode,
+            status: data.localLicense.status,
+            includedCampaigns: Number(data.localLicense.includedCampaigns),
+            includedBranches: Number(data.localLicense.includedBranches),
+            includedTouchpoints: Number(data.localLicense.includedTouchpoints),
+            startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
+            expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
+            notes: data.internalNotes
+          }
+        });
+      }
+
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "COMPANY_UPDATE",
+          entityType: "COMPANY",
+          entityId: company.id,
+          companyId: company.id,
+          metadata: JSON.stringify({
+            isActiveBefore: company.isActive,
+            isActiveAfter: data.isActive,
+            licenseBefore: company.licenseStatus
+          })
+        }
+      });
+
+      return comp;
+    });
+
+    revalidatePath("/superadmin/empresas");
+    revalidatePath(`/superadmin/empresas/${companyId}`);
+    return {
+      success: true,
+      companyId: updated.id,
+      companyName: updated.name
+    };
+  } catch (err: any) {
+    console.error("Error al actualizar empresa:", err);
+    return {
+      success: false,
+      error: err.message || "Error al actualizar la organización."
+    };
   }
-
-  const updated = await prisma.$transaction(async (tx) => {
-    // Sincronizar legacy si se provee Empresas
-    const legacyPlan = data.empresasLicense ? mapPlanCodeToLegacyPlan(data.empresasLicense.planCode) : company.plan;
-    const legacyMaxId = data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : company.maxIdentities;
-    const legacyStatus = data.empresasLicense ? mapLicenseStatusToLegacyStatus(data.empresasLicense.status) : company.licenseStatus;
-
-    // 1. Actualizar empresa
-    const comp = await tx.company.update({
-      where: { id: companyId },
-      data: {
-        name: data.name.trim(),
-        plan: legacyPlan,
-        maxIdentities: legacyMaxId,
-        licenseStatus: legacyStatus,
-        internalNotes: data.internalNotes,
-        isActive: data.isActive,
-      }
-    });
-
-    // 2. Upsert licencia de Empresas
-    if (data.empresasLicense) {
-      await tx.companyProductLicense.upsert({
-        where: {
-          companyId_product: {
-            companyId,
-            product: "EMPRESAS"
-          }
-        },
-        update: {
-          planCode: data.empresasLicense.planCode,
-          status: data.empresasLicense.status,
-          includedIdentities: Number(data.empresasLicense.includedIdentities),
-          authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
-          startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
-          expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
-          notes: data.internalNotes
-        },
-        create: {
-          companyId,
-          product: "EMPRESAS",
-          planCode: data.empresasLicense.planCode,
-          status: data.empresasLicense.status,
-          includedIdentities: Number(data.empresasLicense.includedIdentities),
-          authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
-          startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
-          expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
-          notes: data.internalNotes
-        }
-      });
-    }
-
-    // 3. Upsert licencia Local
-    if (data.localLicense) {
-      await tx.companyProductLicense.upsert({
-        where: {
-          companyId_product: {
-            companyId,
-            product: "LOCAL"
-          }
-        },
-        update: {
-          planCode: data.localLicense.planCode,
-          status: data.localLicense.status,
-          includedCampaigns: Number(data.localLicense.includedCampaigns),
-          includedBranches: Number(data.localLicense.includedBranches),
-          includedTouchpoints: Number(data.localLicense.includedTouchpoints),
-          startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
-          expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
-          notes: data.internalNotes
-        },
-        create: {
-          companyId,
-          product: "LOCAL",
-          planCode: data.localLicense.planCode,
-          status: data.localLicense.status,
-          includedCampaigns: Number(data.localLicense.includedCampaigns),
-          includedBranches: Number(data.localLicense.includedBranches),
-          includedTouchpoints: Number(data.localLicense.includedTouchpoints),
-          startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
-          expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
-          notes: data.internalNotes
-        }
-      });
-    }
-
-    await tx.adminAuditLog.create({
-      data: {
-        actorUserId: superadmin.id,
-        action: "COMPANY_UPDATE",
-        entityType: "COMPANY",
-        entityId: company.id,
-        companyId: company.id,
-        metadata: JSON.stringify({
-          isActiveBefore: company.isActive,
-          isActiveAfter: data.isActive,
-          licenseBefore: company.licenseStatus
-        })
-      }
-    });
-
-    return comp;
-  });
-
-  revalidatePath("/superadmin/empresas");
-  revalidatePath(`/superadmin/empresas/${companyId}`);
-  return updated;
 }
 
 // 4. Registrar Integrante Administrativo Adicional
@@ -465,43 +480,55 @@ export async function createAdminUserAction(data: {
   email: string;
   passwordPlain: string;
 }) {
-  const superadmin = await requireSuperAdmin();
+  try {
+    const superadmin = await requireSuperAdmin();
 
-  const emailNorm = data.email.trim().toLowerCase();
-  const existingUser = await prisma.user.findUnique({
-    where: { email: emailNorm }
-  });
-  if (existingUser) {
-    throw new Error("El correo electrónico ya está registrado.");
+    const emailNorm = data.email.trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({
+      where: { email: emailNorm }
+    });
+    if (existingUser) {
+      return { success: false, error: "El correo electrónico ya está registrado." };
+    }
+
+    const hash = await bcrypt.hash(data.passwordPlain, 10);
+    const newUser = await prisma.user.create({
+      data: {
+        name: data.name.trim(),
+        email: emailNorm,
+        password: hash,
+        role: UserRole.COMPANY_OWNER,
+        companyId: data.companyId,
+        isActive: true,
+        status: "ACTIVE"
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: superadmin.id,
+        action: "USER_CREATE_ADMIN",
+        entityType: "USER",
+        entityId: newUser.id,
+        companyId: data.companyId,
+        metadata: JSON.stringify({ email: newUser.email, role: newUser.role })
+      }
+    });
+
+    revalidatePath(`/superadmin/empresas/${data.companyId}`);
+    revalidatePath("/superadmin/usuarios");
+    return {
+      success: true,
+      userId: newUser.id,
+      email: newUser.email
+    };
+  } catch (err: any) {
+    console.error("Error al registrar administrador:", err);
+    return {
+      success: false,
+      error: err.message || "Error al registrar al administrador."
+    };
   }
-
-  const hash = await bcrypt.hash(data.passwordPlain, 10);
-  const newUser = await prisma.user.create({
-    data: {
-      name: data.name.trim(),
-      email: emailNorm,
-      password: hash,
-      role: UserRole.COMPANY_OWNER,
-      companyId: data.companyId,
-      isActive: true,
-      status: "ACTIVE"
-    }
-  });
-
-  await prisma.adminAuditLog.create({
-    data: {
-      actorUserId: superadmin.id,
-      action: "USER_CREATE_ADMIN",
-      entityType: "USER",
-      entityId: newUser.id,
-      companyId: data.companyId,
-      metadata: JSON.stringify({ email: newUser.email, role: newUser.role })
-    }
-  });
-
-  revalidatePath(`/superadmin/empresas/${data.companyId}`);
-  revalidatePath("/superadmin/usuarios");
-  return newUser;
 }
 
 // 5. Modificar Rol y Estado de Usuario (Requisito 7)
@@ -510,48 +537,60 @@ export async function updateUserRoleAndStatusAction(userId: string, data: {
   role: UserRole;
   companyId: string;
 }) {
-  const superadmin = await requireSuperAdmin();
+  try {
+    const superadmin = await requireSuperAdmin();
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: userId }
-  });
-  if (!targetUser) {
-    throw new Error("Usuario no encontrado.");
-  }
-
-  if (data.role === UserRole.SUPERADMIN && targetUser.role !== UserRole.SUPERADMIN) {
-    throw new Error("No es posible asignar el rol SUPERADMIN desde este formulario.");
-  }
-
-  const newStatus = !data.isActive ? "SUSPENDED" : "ACTIVE";
-
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      isActive: data.isActive,
-      role: data.role,
-      companyId: data.companyId,
-      status: newStatus
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    if (!targetUser) {
+      return { success: false, error: "Usuario no encontrado." };
     }
-  });
 
-  await prisma.adminAuditLog.create({
-    data: {
-      actorUserId: superadmin.id,
-      action: "USER_ROLE_STATUS_UPDATE",
-      entityType: "USER",
-      entityId: updated.id,
-      companyId: updated.companyId,
-      metadata: JSON.stringify({
-        before: { role: targetUser.role, isActive: targetUser.isActive, companyId: targetUser.companyId },
-        after: { role: updated.role, isActive: updated.isActive, companyId: updated.companyId }
-      })
+    if (data.role === UserRole.SUPERADMIN && targetUser.role !== UserRole.SUPERADMIN) {
+      return { success: false, error: "No es posible asignar el rol SUPERADMIN desde este formulario." };
     }
-  });
 
-  revalidatePath("/superadmin/usuarios");
-  revalidatePath(`/superadmin/empresas/${data.companyId}`);
-  return updated;
+    const newStatus = !data.isActive ? "SUSPENDED" : "ACTIVE";
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: data.isActive,
+        role: data.role,
+        companyId: data.companyId,
+        status: newStatus
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: superadmin.id,
+        action: "USER_ROLE_STATUS_UPDATE",
+        entityType: "USER",
+        entityId: updated.id,
+        companyId: updated.companyId,
+        metadata: JSON.stringify({
+          before: { role: targetUser.role, isActive: targetUser.isActive, companyId: targetUser.companyId },
+          after: { role: updated.role, isActive: updated.isActive, companyId: updated.companyId }
+        })
+      }
+    });
+
+    revalidatePath("/superadmin/usuarios");
+    revalidatePath(`/superadmin/empresas/${data.companyId}`);
+    return {
+      success: true,
+      userId: updated.id,
+      email: updated.email
+    };
+  } catch (err: any) {
+    console.error("Error al modificar usuario:", err);
+    return {
+      success: false,
+      error: err.message || "Error al modificar el usuario."
+    };
+  }
 }
 
 // 6. Validar Token de Activación en el Servidor (Requisito 6)

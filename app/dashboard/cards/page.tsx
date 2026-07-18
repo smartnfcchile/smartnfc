@@ -1,9 +1,9 @@
-// app/dashboard/cards/page.tsx
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import CardsClient from "./CardsClient";
+import { getProductLicense, isLicenseValid } from "../../../lib/product-access";
 
 export default async function CardsPage() {
   const session = await getServerSession(authOptions);
@@ -13,6 +13,14 @@ export default async function CardsPage() {
   }
 
   const user = session.user as any;
+
+  if (user.role !== "SUPERADMIN") {
+    const license = await getProductLicense(user.companyId, "EMPRESAS");
+    if (!isLicenseValid(license)) {
+      redirect("/dashboard/local");
+    }
+  }
+
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {

@@ -5,6 +5,7 @@ import { prisma } from "../../../../lib/prisma";
 import { headers } from "next/headers";
 import DownloadButton from "./DownloadButton";
 import Link from "next/link";
+import { getProductLicense, isLicenseValid } from "../../../../lib/product-access";
 
 interface PageProps {
   params: Promise<{
@@ -18,6 +19,15 @@ export default async function QrPage({ params }: PageProps) {
 
   if (!session) {
     redirect("/login");
+  }
+
+  const user = session.user as any;
+
+  if (user.role !== "SUPERADMIN") {
+    const license = await getProductLicense(user.companyId, "EMPRESAS");
+    if (!isLicenseValid(license)) {
+      redirect("/dashboard/local");
+    }
   }
 
   const userId = (session.user as any).id;

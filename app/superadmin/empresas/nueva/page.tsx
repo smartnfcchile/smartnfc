@@ -132,6 +132,11 @@ export default function NuevaCompanyPage() {
         localLicense,
       });
 
+      if (!res.success) {
+        setError(res.error || "Ocurrió un error al registrar la empresa.");
+        return;
+      }
+
       if (res.emailWarning) {
         setWarning(res.emailWarning);
       } else {
@@ -223,9 +228,21 @@ export default function NuevaCompanyPage() {
                 placeholder="ej-sidep-chile"
                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-1 focus:ring-blue-600 dark:text-white font-mono"
               />
-              <span className="text-[9px] text-slate-400 dark:text-slate-500 block mt-0.5">
-                Dirección final: smartnfc.cl/c/<strong>{slug || "..."}</strong>
-              </span>
+              {hasEmpresas && !hasLocal && (
+                <span className="text-[9px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                  Dirección final corporativa: smartnfc.cl/c/<strong>{slug || "..."}</strong>
+                </span>
+              )}
+              {!hasEmpresas && hasLocal && (
+                <span className="text-[9px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                  El administrador configurará sus campañas y direcciones desde Smart NFC Local.
+                </span>
+              )}
+              {hasEmpresas && hasLocal && (
+                <span className="text-[9px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                  Las identidades corporativas (smartnfc.cl/c/<strong>{slug || "..."}</strong>) y las campañas locales tendrán direcciones independientes.
+                </span>
+              )}
             </div>
           </div>
 
@@ -241,7 +258,7 @@ export default function NuevaCompanyPage() {
                   onChange={(e) => setHasEmpresas(e.target.checked)}
                   className="rounded border-slate-350 dark:border-slate-800 text-blue-600 focus:ring-blue-600 h-4 w-4"
                 />
-                Smart NFC Empresas (B2B)
+                Smart NFC Empresas
               </label>
               <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
                 <input
@@ -250,7 +267,7 @@ export default function NuevaCompanyPage() {
                   onChange={(e) => setHasLocal(e.target.checked)}
                   className="rounded border-slate-350 dark:border-slate-800 text-blue-600 focus:ring-blue-600 h-4 w-4"
                 />
-                Smart NFC Local (B2C)
+                Smart NFC Local
               </label>
             </div>
           </div>

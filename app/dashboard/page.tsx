@@ -3,6 +3,7 @@ import { authOptions } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../lib/prisma";
 import Link from "next/link";
+import { getProductLicense, isLicenseValid } from "../../lib/product-access";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -12,6 +13,19 @@ export default async function DashboardPage() {
   }
 
   const user = session.user as any;
+
+  if (user.role !== "SUPERADMIN") {
+    const empresasLicense = await getProductLicense(user.companyId, "EMPRESAS");
+    const localLicense = await getProductLicense(user.companyId, "LOCAL");
+    
+    const hasEmpresas = isLicenseValid(empresasLicense);
+    const hasLocal = isLicenseValid(localLicense);
+    
+    if (!hasEmpresas && hasLocal) {
+      redirect("/dashboard/local");
+    }
+  }
+
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   // Consultar tarjetas del usuario o de toda la empresa según rol

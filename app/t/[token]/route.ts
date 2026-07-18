@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
-import { EventType } from "@prisma/client";
+import { EventType, LocalEventType } from "@prisma/client";
+import { hashIp } from "../../../lib/security";
+import { checkRateLimit } from "../../../lib/rateLimit";
 
 type Params = {
   params: Promise<{
@@ -26,6 +28,11 @@ export async function GET(request: Request, { params }: Params) {
             isActive: true,
           },
         },
+        localTouchpoint: {
+          include: {
+            campaign: true
+          }
+        }
       },
     });
 
@@ -208,33 +215,76 @@ export async function GET(request: Request, { params }: Params) {
       });
     }
 
-    // 5. Si no tiene tarjeta virtual asignada, no podemos redirigir
-    if (!physicalCard.cardId || !physicalCard.card?.slug) {
-      return new NextResponse("Esta tarjeta física no tiene una tarjeta virtual asignada.", { status: 400 });
+    // 5. Verificar anomalía de doble asignación (Requisito E-5)
+    if (physicalCard.cardId && physicalCard.localTouchpointId) {
+      console.error(`Anomalía de asignación en tarjeta física ${physicalCard.id}: Tiene B2B y Local asignados simultáneamente.`);
+      return new NextResponse("Error de asignación de tarjeta: destino ambiguo.", { status: 400 });
     }
 
-    // 6. Registrar evento NFC_SCAN
-    const userAgent = request.headers.get("user-agent");
-    const referer = request.headers.get("referer");
-    
-    // Obtenemos ipHash de los headers de proxy si existen
-    const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
-    const ipHash = ip.split(",")[0].trim();
+    // 6. Ruta Local
+    if (physicalCard.localTouchpointId) {
+      const tp = physicalCard.localTouchpoint;
+      if (!tp || !tp.isActive) {
+        return new NextResponse("Punto de contacto inactivo", { status: 403 });
+      }
+      if (tp.campaign.status !== "PUBLISHED") {
+        return new NextResponse("Campaña no disponible", { status: 403 });
+      }
+      if (!tp.campaign.publishedSnapshot) {
+        return new NextResponse("Campaña no publicada", { status: 403 });
+      }
 
-    await prisma.event.create({
-      data: {
-        eventType: EventType.NFC_SCAN,
-        cardId: physicalCard.cardId,
-        physicalCardId: physicalCard.id,
-        ipHash,
-        userAgent,
-        referer,
-      },
-    });
+      const userAgent = request.headers.get("user-agent");
+      const referer = request.headers.get("referer");
+      const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+      const clientIp = ip.split(",")[0].trim();
 
-    // 7. Redirigir a /c/[slug]
-    const redirectUrl = new URL(`/c/${physicalCard.card.slug}`, request.url);
-    return NextResponse.redirect(redirectUrl.toString(), 302);
+      // Rate Limiting (Requisito Parte C)
+      const limitCheck = await checkRateLimit(clientIp, "LOCAL_VIEW", tp.campaign.id);
+      if (!limitCheck.allowed) {
+        return new NextResponse("Límite de peticiones excedido", { status: 429 });
+      }
+
+      // Registrar Evento Local NFC_SCAN
+      await prisma.localEvent.create({
+        data: {
+          campaignId: tp.campaignId,
+          touchpointId: tp.id,
+          eventType: LocalEventType.NFC_SCAN,
+          ipHash: hashIp(clientIp),
+          userAgent: userAgent ? userAgent.substring(0, 255) : null,
+          referer: referer ? referer.substring(0, 255) : null
+        }
+      });
+
+      const redirectUrl = new URL(`/club/${tp.campaign.slug}?ref=${tp.code}`, request.url);
+      return NextResponse.redirect(redirectUrl.toString(), 302);
+    }
+
+    // 7. Ruta B2B
+    if (physicalCard.cardId && physicalCard.card?.slug) {
+      const userAgent = request.headers.get("user-agent");
+      const referer = request.headers.get("referer");
+      const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+      const ipHash = ip.split(",")[0].trim();
+
+      await prisma.event.create({
+        data: {
+          eventType: EventType.NFC_SCAN,
+          cardId: physicalCard.cardId,
+          physicalCardId: physicalCard.id,
+          ipHash,
+          userAgent,
+          referer,
+        },
+      });
+
+      const redirectUrl = new URL(`/c/${physicalCard.card.slug}`, request.url);
+      return NextResponse.redirect(redirectUrl.toString(), 302);
+    }
+
+    // 8. Tarjeta no asignada
+    return new NextResponse("Esta tarjeta física no tiene un destino asignado.", { status: 400 });
 
   } catch (error: any) {
     console.error("Error en redirección NFC:", error);

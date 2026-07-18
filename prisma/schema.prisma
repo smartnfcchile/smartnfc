@@ -397,3 +397,16 @@ model LocalEvent {
   @@index([touchpointId, createdAt])
   @@index([subscriberId, createdAt])
 }
+
+model PublicRateLimit {
+  id          String   @id @default(cuid())
+  keyHash     String
+  action      String
+  windowStart DateTime
+  count       Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([keyHash, action, windowStart])
+  @@index([windowStart])
+}

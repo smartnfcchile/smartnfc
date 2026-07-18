@@ -14,6 +14,7 @@ import {
 } from "../../../lib/validations/local";
 import { LocalCampaignStatus, LocalSubscriberStatus, LocalEventType } from "@prisma/client";
 import { hashIp } from "../../../lib/security";
+import { checkRateLimit } from "../../../lib/rateLimit";
 
 // 1. Crear Campaña Local (Requisito 5)
 export async function createLocalCampaignAction(payload: { name: string; slug: string }) {
@@ -285,7 +286,18 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
   const ip = headersList.get("x-forwarded-for") || "127.0.0.1";
   const userAgent = headersList.get("user-agent") || "";
   const referer = headersList.get("referer") || "";
-  const ipHash = hashIp(ip.split(",")[0].trim());
+  const clientIp = ip.split(",")[0].trim();
+
+  // 1. Rate Limiting persistente (Requisito Parte C)
+  const limitCheck = await checkRateLimit(clientIp, "LOCAL_SUBSCRIBE", campaign.id);
+  if (!limitCheck.allowed) {
+    return {
+      success: false,
+      error: "Has superado el límite de intentos de suscripción. Por favor, inténtalo más tarde."
+    };
+  }
+
+  const ipHash = hashIp(clientIp);
 
   // Transacción segura para evitar registros parciales sin consentimiento (Requisito F-12)
   await prisma.$transaction(async (tx) => {
@@ -405,4 +417,117 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
     success: true,
     whatsappLink
   };
+}
+
+// 8. Obtener tarjetas NFC físicas disponibles para la empresa (Requisito Parte D)
+export async function getCompanyAvailableNfcCardsAction() {
+  const user = await requireCompanyAdmin();
+  try {
+    const cards = await prisma.physicalNfcCard.findMany({
+      where: {
+        companyId: user.companyId,
+        cardId: null,
+        localTouchpointId: null
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    return { success: true, cards };
+  } catch (err: any) {
+    console.error("Error al obtener tarjetas NFC disponibles:", err);
+    return { success: false, error: "Error al cargar el inventario de tarjetas." };
+  }
+}
+
+// 9. Asociar una tarjeta NFC a un Touchpoint Local de forma segura y transaccional (Requisito Parte D)
+export async function associateNfcCardAction(payload: { cardPhysicalId: string; touchpointId: string }) {
+  const user = await requireCompanyAdmin();
+  const { cardPhysicalId, touchpointId } = payload;
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Obtener la tarjeta física y validar que pertenezca a la empresa (Requisito D-5)
+      const physicalCard = await tx.physicalNfcCard.findUnique({
+        where: { id: cardPhysicalId }
+      });
+      if (!physicalCard) {
+        throw new Error("La tarjeta física no existe.");
+      }
+      if (physicalCard.companyId !== user.companyId) {
+        throw new Error("La tarjeta física no pertenece a su empresa.");
+      }
+
+      // 2. Verificar que no esté ya asociada a B2B o a otro Touchpoint (Requisito D-1 y D-2)
+      if (physicalCard.cardId) {
+        throw new Error("Esta tarjeta ya está asignada a una tarjeta comercial B2B.");
+      }
+      if (physicalCard.localTouchpointId) {
+        throw new Error("Esta tarjeta ya está asignada a otro punto de contacto local.");
+      }
+
+      // 3. Obtener el touchpoint y validar que pertenezca a una campaña de la misma empresa (Requisito D-4)
+      const touchpoint = await tx.localTouchpoint.findUnique({
+        where: { id: touchpointId },
+        include: {
+          campaign: true
+        }
+      });
+      if (!touchpoint) {
+        throw new Error("El punto de contacto local no existe.");
+      }
+      if (touchpoint.campaign.companyId !== user.companyId) {
+        throw new Error("El punto de contacto no pertenece a su empresa.");
+      }
+
+      // 4. Verificar que el touchpoint no tenga ya otra tarjeta asociada (Requisito D-3)
+      const existingAssignedCard = await tx.physicalNfcCard.findUnique({
+        where: { localTouchpointId: touchpointId }
+      });
+      if (existingAssignedCard) {
+        throw new Error("Este punto de contacto ya tiene una tarjeta NFC asociada.");
+      }
+
+      // 5. Realizar la asignación
+      const updatedCard = await tx.physicalNfcCard.update({
+        where: { id: cardPhysicalId },
+        data: { localTouchpointId: touchpointId }
+      });
+
+      return updatedCard;
+    });
+
+    revalidatePath(`/dashboard/local/campanas`);
+    return { success: true, card: result };
+  } catch (err: any) {
+    console.error("Error al asociar tarjeta NFC:", err);
+    return { success: false, error: err.message || "Error al realizar la asignación." };
+  }
+}
+
+// 10. Desvincular una tarjeta NFC sin borrar tarjeta, campaña ni touchpoint (Requisito D-10)
+export async function disassociateNfcCardAction(payload: { cardPhysicalId: string }) {
+  const user = await requireCompanyAdmin();
+  const { cardPhysicalId } = payload;
+
+  try {
+    const physicalCard = await prisma.physicalNfcCard.findUnique({
+      where: { id: cardPhysicalId }
+    });
+    if (!physicalCard) {
+      return { success: false, error: "La tarjeta física no existe." };
+    }
+    if (physicalCard.companyId !== user.companyId) {
+      return { success: false, error: "La tarjeta física no pertenece a su empresa." };
+    }
+
+    await prisma.physicalNfcCard.update({
+      where: { id: cardPhysicalId },
+      data: { localTouchpointId: null }
+    });
+
+    revalidatePath(`/dashboard/local/campanas`);
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al desasociar tarjeta NFC:", err);
+    return { success: false, error: "Error al deshacer la vinculación." };
+  }
 }

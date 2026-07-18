@@ -25,11 +25,18 @@ export default async function EditCampaignPage({ params }: Params) {
 
   const { campaignId } = await params;
 
-  // Consultar campaña local garantizando aislamiento multiempresa (Requisito 3)
+  // Consultar campaña local garantizando aislamiento de empresa con sus touchpoints
   const campaign = await prisma.localCampaign.findFirst({
     where: {
       id: campaignId,
       companyId: user.companyId
+    },
+    include: {
+      touchpoints: {
+        include: {
+          physicalNfcCard: true
+        }
+      }
     }
   });
 
@@ -37,9 +44,23 @@ export default async function EditCampaignPage({ params }: Params) {
     notFound();
   }
 
+  // Consultar tarjetas NFC físicas disponibles para la empresa
+  const availableNfcCards = await prisma.physicalNfcCard.findMany({
+    where: {
+      companyId: user.companyId,
+      cardId: null,
+      localTouchpointId: null
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
   return (
     <div className="space-y-6">
-      <CampanaEditorClient campaign={campaign} />
+      <CampanaEditorClient
+        campaign={campaign as any}
+        initialTouchpoints={campaign.touchpoints as any}
+        initialAvailableCards={availableNfcCards as any}
+      />
     </div>
   );
 }

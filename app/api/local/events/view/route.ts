@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
 import { LocalEventType } from "@prisma/client";
 import { hashIp } from "../../../../../lib/security";
+import { checkRateLimit } from "../../../../../lib/rateLimit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +50,18 @@ export async function POST(request: NextRequest) {
 
     // 5. Capturar IP Hash, UA y Referer del proxy
     const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
-    const ipHash = hashIp(ip.split(",")[0].trim());
+    const clientIp = ip.split(",")[0].trim();
+
+    // 5.5. Rate Limiting persistente (Requisito Parte C)
+    const rateLimitAction = finalEventType === LocalEventType.WHATSAPP_REDIRECT
+      ? "LOCAL_WHATSAPP_REDIRECT"
+      : "LOCAL_VIEW";
+    const limitCheck = await checkRateLimit(clientIp, rateLimitAction, campaign.id);
+    if (!limitCheck.allowed) {
+      return NextResponse.json({ error: "Límite de peticiones excedido" }, { status: 429 });
+    }
+
+    const ipHash = hashIp(clientIp);
     const userAgent = request.headers.get("user-agent") || undefined;
     const referer = request.headers.get("referer") || undefined;
 

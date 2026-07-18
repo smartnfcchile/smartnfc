@@ -3,7 +3,13 @@
 import React, { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { upload } from "@vercel/blob/client";
-import { updateLocalCampaignAction, publishLocalCampaignAction } from "../../actions";
+import { useRouter } from "next/navigation";
+import {
+  updateLocalCampaignAction,
+  publishLocalCampaignAction,
+  associateNfcCardAction,
+  disassociateNfcCardAction
+} from "../../actions";
 import MobilePreview from "../../../../../components/local/MobilePreview";
 
 type LocalCampaignRecord = {
@@ -38,11 +44,52 @@ type LocalCampaignRecord = {
 
 type CampanaEditorClientProps = {
   campaign: LocalCampaignRecord;
+  initialTouchpoints: any[];
+  initialAvailableCards: any[];
 };
 
-export default function CampanaEditorClient({ campaign: initialCampaign }: CampanaEditorClientProps) {
+export default function CampanaEditorClient({
+  campaign: initialCampaign,
+  initialTouchpoints,
+  initialAvailableCards
+}: CampanaEditorClientProps) {
   const [campaign, setCampaign] = useState<LocalCampaignRecord>(initialCampaign);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const handleAssociateCard = async (cardPhysicalId: string, touchpointId: string) => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await associateNfcCardAction({ cardPhysicalId, touchpointId });
+      if (res.success) {
+        setSuccessMsg("¡Tarjeta NFC vinculada con éxito!");
+        setTimeout(() => setSuccessMsg(null), 3000);
+        router.refresh();
+      } else {
+        setErrorMsg(res.error || "Error al vincular la tarjeta.");
+      }
+    } catch (err: any) {
+      setErrorMsg("Error al vincular la tarjeta.");
+    }
+  };
+
+  const handleDisassociateCard = async (cardPhysicalId: string) => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await disassociateNfcCardAction({ cardPhysicalId });
+      if (res.success) {
+        setSuccessMsg("¡Tarjeta NFC desvinculada con éxito!");
+        setTimeout(() => setSuccessMsg(null), 3000);
+        router.refresh();
+      } else {
+        setErrorMsg(res.error || "Error al desvincular la tarjeta.");
+      }
+    } catch (err: any) {
+      setErrorMsg("Error al desvincular la tarjeta.");
+    }
+  };
 
   // Estados del formulario
   const [name, setName] = useState(campaign.name);
@@ -74,7 +121,7 @@ export default function CampanaEditorClient({ campaign: initialCampaign }: Campa
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Control de navegación del editor (Secciones)
-  const [activeTab, setActiveTab] = useState<"identidad" | "presentacion" | "beneficio" | "whatsapp" | "privacidad">("identidad");
+  const [activeTab, setActiveTab] = useState<"identidad" | "presentacion" | "beneficio" | "whatsapp" | "privacidad" | "touchpoints">("identidad");
 
   // Control de vista previa en móviles
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -257,6 +304,127 @@ export default function CampanaEditorClient({ campaign: initialCampaign }: Campa
         </div>
       </div>
 
+    {/* Sección: Puntos NFC y QR (Requisito Parte D y F) */}
+    {activeTab === "touchpoints" && (
+      <div className="space-y-6">
+        <div className="space-y-1.5">
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Puntos de Contacto (NFC / QR)</h3>
+          <p className="text-xs text-slate-400">Vincula tus tarjetas físicas NFC a tus puntos de contacto o descarga sus códigos QR correspondientes.</p>
+        </div>
+
+        <div className="space-y-4">
+          {initialTouchpoints.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No tienes ningún punto de contacto registrado para esta campaña.</p>
+          ) : (
+            initialTouchpoints.map((tp: any) => {
+              const assignedCard = tp.physicalNfcCard;
+              const host = typeof window !== "undefined" ? window.location.host : "localhost:3000";
+              const protocol = host.includes("localhost") ? "http" : "https";
+              const qrRedirectUrl = `${protocol}://${host}/q/${tp.code}`;
+              const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrRedirectUrl)}`;
+
+              return (
+                <div key={tp.id} className="p-4 bg-slate-950/40 border border-slate-850 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="space-y-2 flex-1">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-black text-white">{tp.name}</h4>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${tp.isActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-slate-800 text-slate-400 border border-slate-700"}`}>
+                          {tp.isActive ? "Activo" : "Inactivo"}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-455 font-mono mt-0.5">Código opaco: {tp.code}</p>
+                    </div>
+
+                    {/* Asignación de Tarjeta NFC Física (Requisito Parte D) */}
+                    <div className="p-3 bg-slate-950/60 border border-slate-855 rounded-xl max-w-sm">
+                      {assignedCard ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] text-blue-400 font-bold">NFC Vinculado</p>
+                            <p className="text-[9px] text-slate-350 font-mono mt-0.5">Token: {assignedCard.token.substring(0, 16)}...</p>
+                          </div>
+                          <button
+                            onClick={() => handleDisassociateCard(assignedCard.id)}
+                            className="text-[9px] font-black text-rose-450 hover:text-rose-350 uppercase tracking-wider cursor-pointer border border-rose-500/20 px-2 py-1 rounded bg-rose-500/5 transition hover:bg-rose-500/10 active:scale-95"
+                          >
+                            Desvincular
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-[10px] text-slate-500">Sin tarjeta física NFC asignada.</p>
+                          {initialAvailableCards.length > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <select
+                                id={`select-${tp.id}`}
+                                className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[10px] text-slate-300 focus:outline-none flex-1 font-mono"
+                              >
+                                <option value="">-- Seleccionar tarjeta --</option>
+                                {initialAvailableCards.map((card: any) => (
+                                  <option key={card.id} value={card.id}>
+                                    {card.token.substring(0, 16)}...
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                  onClick={() => {
+                                    const select = document.getElementById(`select-${tp.id}`) as HTMLSelectElement;
+                                    if (select && select.value) {
+                                      handleAssociateCard(select.value, tp.id);
+                                    }
+                                  }}
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold px-3 py-2 rounded-lg text-[9px] transition active:scale-95 cursor-pointer"
+                              >
+                                Vincular
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-[9px] text-slate-600 italic">No tienes tarjetas NFC libres asignadas a tu empresa.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Descarga y enlace del QR (Requisito F-6, F-7 e I-4) */}
+                  {campaign.status === "PUBLISHED" ? (
+                    <div className="flex items-center gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-850 w-full md:w-auto md:min-w-[220px]">
+                      <img src={qrImageUrl} alt="QR Code" className="w-14 h-14 bg-white p-1 rounded-lg" />
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(qrRedirectUrl);
+                            alert("¡Enlace del código QR copiado al portapapeles!");
+                          }}
+                          className="text-[9px] font-black text-slate-300 hover:text-white uppercase tracking-wider block text-left cursor-pointer transition hover:underline"
+                        >
+                          🔗 Copiar Enlace QR
+                        </button>
+                        <a
+                          href={qrImageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[9px] font-black text-blue-400 hover:text-blue-350 uppercase tracking-wider block text-left transition hover:underline"
+                        >
+                          📥 Descargar (Imagen)
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl text-center w-full md:w-auto md:max-w-[150px]">
+                      <p className="text-[9px] text-amber-500/80 font-bold">QR no disponible</p>
+                      <p className="text-[8px] text-slate-500 mt-1">Completa los datos pendientes y publica la campaña para descargar el QR.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    )}
+
       {/* Alertas de cambios */}
       {hasUnsavedChanges && (
         <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold rounded-xl flex items-center gap-2">
@@ -290,7 +458,7 @@ export default function CampanaEditorClient({ campaign: initialCampaign }: Campa
           
           {/* Tabs del editor */}
           <div className="flex border-b border-slate-850 overflow-x-auto">
-            {["identidad", "presentacion", "beneficio", "whatsapp", "privacidad"].map((tab) => (
+            {["identidad", "presentacion", "beneficio", "whatsapp", "privacidad", "touchpoints"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -300,7 +468,7 @@ export default function CampanaEditorClient({ campaign: initialCampaign }: Campa
                     : "border-transparent text-slate-450 hover:text-slate-200"
                 }`}
               >
-                {tab}
+                {tab === "touchpoints" ? "Puntos NFC/QR" : tab}
               </button>
             ))}
           </div>

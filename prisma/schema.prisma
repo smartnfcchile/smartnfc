@@ -325,7 +325,7 @@ model LocalCampaign {
 model LocalTouchpoint {
   id              String           @id @default(cuid())
   campaignId      String
-  campaign        LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign        LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   name            String
   code            String           @unique
   isActive        Boolean          @default(true)
@@ -341,7 +341,7 @@ model LocalTouchpoint {
 model LocalSubscriber {
   id                String                @id @default(cuid())
   campaignId        String
-  campaign          LocalCampaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign          LocalCampaign         @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   name              String
   whatsapp          String
   status            LocalSubscriberStatus @default(ACTIVE)
@@ -361,9 +361,9 @@ model LocalSubscriber {
 model LocalConsentRecord {
   id             String          @id @default(cuid())
   subscriberId   String
-  subscriber     LocalSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  subscriber     LocalSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Restrict)
   campaignId     String
-  campaign       LocalCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign       LocalCampaign   @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   consentVersion Int
   consentText    String
   acceptedAt     DateTime        @default(now())
@@ -382,7 +382,7 @@ model LocalConsentRecord {
 model LocalEvent {
   id           String           @id @default(cuid())
   campaignId   String
-  campaign     LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign     LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   touchpointId String?
   touchpoint   LocalTouchpoint? @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
   subscriberId String?

@@ -121,74 +121,100 @@ export async function updateLocalCampaignAction(campaignId: string, payload: any
 }
 
 // 3. Publicar Campaña Local (Requisito 5)
-export async function publishLocalCampaignAction(campaignId: string) {
+export async function publishLocalCampaignAction(campaignId: string, payload: any) {
   const admin = await requireCompanyAdmin();
 
-  // Buscar campaña con aislamiento multiempresa
-  const campaign = await prisma.localCampaign.findFirst({
-    where: {
-      id: campaignId,
-      companyId: admin.companyId
+  // 1. Validar el payload con el schema de actualización
+  const validated = updateCampaignSchema.parse(payload);
+  const normalizedWhatsapp = validated.whatsappNumber 
+    ? normalizeChileanWhatsApp(validated.whatsappNumber) 
+    : validated.whatsappNumber;
+
+  // 2. Ejecutar la actualización del borrador y la generación del snapshot atómicamente en una transacción (Parte B)
+  const updated = await prisma.$transaction(async (tx) => {
+    // Actualizar campos de borrador
+    const campaign = await tx.localCampaign.update({
+      where: {
+        id: campaignId,
+        companyId: admin.companyId // Aislamiento multiempresa
+      },
+      data: {
+        name: validated.name,
+        logoUrl: validated.logoUrl,
+        primaryColor: validated.primaryColor,
+        secondaryColor: validated.secondaryColor,
+        businessName: validated.businessName,
+        clubName: validated.clubName,
+        headline: validated.headline,
+        subheadline: validated.subheadline,
+        address: validated.address,
+        whatsappNumber: normalizedWhatsapp,
+        whatsappMessage: validated.whatsappMessage,
+        benefitLabel: validated.benefitLabel,
+        benefitTitle: validated.benefitTitle,
+        benefitDescription: validated.benefitDescription,
+        benefitConditions: validated.benefitConditions,
+        benefitStartAt: validated.benefitStartAt,
+        benefitEndAt: validated.benefitEndAt,
+        consentText: validated.consentText
+      }
+    });
+
+    // Validar campos requeridos en el servidor antes de publicar (no confiar en el cliente)
+    if (!campaign.businessName || !campaign.clubName || !campaign.benefitTitle || !campaign.benefitDescription || !campaign.whatsappNumber || !campaign.consentText) {
+      throw new Error("No es posible publicar. Debes completar el nombre comercial, el club, el título y descripción del beneficio, el número de WhatsApp y el texto de consentimiento.");
     }
+
+    // Construir el snapshot explícito en servidor usando los datos grabados
+    const snapshot = {
+      schemaVersion: 1,
+      name: campaign.name,
+      logoUrl: campaign.logoUrl,
+      primaryColor: campaign.primaryColor,
+      secondaryColor: campaign.secondaryColor,
+      businessName: campaign.businessName,
+      clubName: campaign.clubName,
+      headline: campaign.headline,
+      subheadline: campaign.subheadline,
+      address: campaign.address,
+      whatsappNumber: campaign.whatsappNumber,
+      whatsappMessage: campaign.whatsappMessage,
+      benefitLabel: campaign.benefitLabel,
+      benefitTitle: campaign.benefitTitle,
+      benefitDescription: campaign.benefitDescription,
+      benefitConditions: campaign.benefitConditions,
+      benefitStartAt: campaign.benefitStartAt ? campaign.benefitStartAt.toISOString() : null,
+      benefitEndAt: campaign.benefitEndAt ? campaign.benefitEndAt.toISOString() : null,
+      consentText: campaign.consentText,
+      consentVersion: campaign.consentVersion
+    };
+
+    // Actualizar estado a PUBLISHED e insertar snapshot
+    return await tx.localCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        status: LocalCampaignStatus.PUBLISHED,
+        publishedSnapshot: snapshot,
+        publishedVersion: { increment: 1 },
+        publishedAt: new Date()
+      }
+    });
   });
 
-  if (!campaign) {
-    throw new Error("Campaña no encontrada o acceso denegado.");
-  }
-
-  // Validar campos obligatorios requeridos para publicar
-  if (!campaign.businessName || !campaign.clubName || !campaign.benefitTitle || !campaign.benefitDescription || !campaign.whatsappNumber || !campaign.consentText) {
-    throw new Error("No es posible publicar. Debes completar el nombre comercial, el club, el título/descripción del beneficio, el número de WhatsApp y el texto de consentimiento legal.");
-  }
-
-  // Construir el snapshot explícito en el servidor (Requisito 5)
-  const snapshot = {
-    schemaVersion: 1,
-    name: campaign.name,
-    logoUrl: campaign.logoUrl,
-    primaryColor: campaign.primaryColor,
-    secondaryColor: campaign.secondaryColor,
-    businessName: campaign.businessName,
-    clubName: campaign.clubName,
-    headline: campaign.headline,
-    subheadline: campaign.subheadline,
-    address: campaign.address,
-    whatsappNumber: campaign.whatsappNumber,
-    whatsappMessage: campaign.whatsappMessage,
-    benefitLabel: campaign.benefitLabel,
-    benefitTitle: campaign.benefitTitle,
-    benefitDescription: campaign.benefitDescription,
-    benefitConditions: campaign.benefitConditions,
-    benefitStartAt: campaign.benefitStartAt ? campaign.benefitStartAt.toISOString() : null,
-    benefitEndAt: campaign.benefitEndAt ? campaign.benefitEndAt.toISOString() : null,
-    consentText: campaign.consentText,
-    consentVersion: campaign.consentVersion
-  };
-
-  // Actualizar estado e incrementar versión publicada
-  const updated = await prisma.localCampaign.update({
-    where: { id: campaign.id },
-    data: {
-      status: LocalCampaignStatus.PUBLISHED,
-      publishedSnapshot: snapshot,
-      publishedVersion: { increment: 1 },
-      publishedAt: new Date()
-    }
-  });
-
-  // Auditoría
+  // Auditoría fuera de la transacción
   await prisma.adminAuditLog.create({
     data: {
       actorUserId: admin.id,
       action: "LOCAL_CAMPAIGN_PUBLISH",
       entityType: "LOCAL_CAMPAIGN",
-      entityId: campaign.id,
+      entityId: updated.id,
       companyId: admin.companyId,
       metadata: JSON.stringify({ version: updated.publishedVersion })
     }
   });
 
   revalidatePath(`/dashboard/local/campanas/${campaignId}`);
+  revalidatePath(`/club/${updated.slug}`);
   return { success: true, campaign: updated };
 }
 
@@ -222,14 +248,14 @@ export async function archiveLocalCampaignAction(campaignId: string) {
   return { success: true, campaign };
 }
 
-// 5. Suscripción Pública (Requisito 6)
+// 5. Suscripción Pública (Requisito 6 y Parte F)
 export async function subscribeToCampaignAction(slug: string, payload: any) {
   // Validar payload con el schema de suscripción
   const validated = publicSubscriptionSchema.parse(payload);
 
-  // Honeypot Check
+  // Honeypot Check (Requisito F-11)
   if (validated.honeypot) {
-    return { success: false, error: "Inscripción no autorizada." };
+    return { success: true }; // Respuesta neutra exitosa para no revelar detección de spam
   }
 
   // Buscar campaña
@@ -237,6 +263,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
     where: { slug }
   });
 
+  // Exigir que esté publicada (Requisito F-7)
   if (!campaign || campaign.status !== LocalCampaignStatus.PUBLISHED) {
     return { success: false, error: "La campaña no está disponible." };
   }
@@ -257,12 +284,11 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
   const ip = headersList.get("x-forwarded-for") || "127.0.0.1";
   const userAgent = headersList.get("user-agent") || "";
   const referer = headersList.get("referer") || "";
-  // Hash Ip Reutilizando algoritmo seguro (SHA-256)
   const ipHash = crypto.createHash("sha256").update(ip.split(",")[0].trim()).digest("hex");
 
-  // Transacción segura e idempotente (Requisito 6)
+  // Transacción segura para evitar registros parciales sin consentimiento (Requisito F-12)
   await prisma.$transaction(async (tx) => {
-    // Buscar si ya está registrado
+    // Buscar si ya existe el suscriptor
     const existing = await tx.localSubscriber.findUnique({
       where: {
         campaignId_whatsapp: {
@@ -281,20 +307,29 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
     let subscriberId: string;
 
     if (existing) {
+      // Si está bloqueado, rechazar silenciosamente o lanzar error genérico
+      if (existing.status === LocalSubscriberStatus.BLOCKED) {
+        throw new Error("No es posible procesar la suscripción en este momento.");
+      }
+
       subscriberId = existing.id;
+
       // Actualizar datos del suscriptor
       await tx.localSubscriber.update({
         where: { id: existing.id },
         data: {
           name: validated.name.trim(),
           lastInteractionAt: new Date(),
-          status: LocalSubscriberStatus.ACTIVE // Reactivar por si estaba cancelado
+          status: LocalSubscriberStatus.ACTIVE // Reactivar si estaba OPTED_OUT
         }
       });
 
-      // Crear nuevo registro de consentimiento si cambió de versión
+      // Validar duplicidad de consentimiento para evitar duplicados por doble clic
       const latestConsent = existing.consentRecords[0];
-      if (!latestConsent || latestConsent.consentVersion !== campaign.consentVersion) {
+      const now = new Date();
+      const isRecent = latestConsent && (now.getTime() - new Date(latestConsent.acceptedAt).getTime() < 10000);
+
+      if (!isRecent || latestConsent.consentVersion !== campaign.consentVersion) {
         await tx.localConsentRecord.create({
           data: {
             subscriberId: existing.id,
@@ -302,13 +337,13 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
             consentVersion: campaign.consentVersion,
             consentText: campaign.consentText || "Consentimiento aceptado",
             ipHash,
-            userAgent,
+            userAgent: userAgent.substring(0, 255),
             source: touchpointId ? "NFC_QR" : "DIRECT"
           }
         });
       }
     } else {
-      // Crear nuevo suscriptor y consentimiento
+      // Crear nuevo suscriptor y su respectivo consentimiento
       const created = await tx.localSubscriber.create({
         data: {
           campaignId: campaign.id,
@@ -321,7 +356,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
               consentVersion: campaign.consentVersion,
               consentText: campaign.consentText || "Consentimiento aceptado",
               ipHash,
-              userAgent,
+              userAgent: userAgent.substring(0, 255),
               source: touchpointId ? "NFC_QR" : "DIRECT"
             }
           }
@@ -338,13 +373,13 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
         subscriberId,
         eventType: LocalEventType.SUBSCRIPTION,
         ipHash,
-        userAgent,
-        referer
+        userAgent: userAgent.substring(0, 255),
+        referer: referer.substring(0, 255)
       }
     });
   });
 
-  // Retornar datos mínimos para el enlace de WhatsApp público (Requisito 6)
+  // 7. Construir enlace de WhatsApp usando el snapshot publicado exclusivamente
   let bizWhatsapp = campaign.whatsappNumber || "";
   let bizMsg = campaign.whatsappMessage || "";
 
@@ -354,9 +389,19 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
     bizMsg = snap.whatsappMessage || bizMsg;
   }
 
+  // Normalizar el número de la empresa a formato sin + y sin espacios
+  const cleanBizWhatsapp = bizWhatsapp.replace(/[^\d]/g, "");
+
+  // Personalizar mensaje de WhatsApp reemplazando {nombre}
+  let personalizedMessage = bizMsg;
+  personalizedMessage = personalizedMessage
+    .replace(/{nombre}/gi, validated.name)
+    .replace(/{name}/gi, validated.name);
+
+  const whatsappLink = `https://wa.me/${cleanBizWhatsapp}?text=${encodeURIComponent(personalizedMessage)}`;
+
   return {
     success: true,
-    businessWhatsapp: bizWhatsapp,
-    whatsappMessage: bizMsg
+    whatsappLink
   };
 }

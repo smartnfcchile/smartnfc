@@ -198,16 +198,12 @@ export default function CampanaEditorClient({ campaign: initialCampaign }: Campa
 
     startTransition(async () => {
       try {
-        // 1. Guardar primero los cambios actuales en borrador
-        const saveRes = await updateLocalCampaignAction(campaign.id, currentFormState);
-        if (saveRes.success) {
-          // 2. Ejecutar Server Action de publicación
-          const pubRes = await publishLocalCampaignAction(campaign.id);
-          if (pubRes.success && pubRes.campaign) {
-            setCampaign(pubRes.campaign as any);
-            setSuccessMsg("¡Campaña publicada con éxito!");
-            setTimeout(() => setSuccessMsg(null), 3000);
-          }
+        // Ejecutar Server Action de publicación atómica (Requisito B)
+        const pubRes = await publishLocalCampaignAction(campaign.id, currentFormState);
+        if (pubRes.success && pubRes.campaign) {
+          setCampaign(pubRes.campaign as any);
+          setSuccessMsg("¡Campaña publicada con éxito!");
+          setTimeout(() => setSuccessMsg(null), 3000);
         }
       } catch (err: unknown) {
         const error = err instanceof Error ? err.message : "Error al publicar la campaña.";

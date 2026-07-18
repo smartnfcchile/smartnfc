@@ -61,14 +61,18 @@ export async function checkRateLimit(
     const allowed = limit.count <= config.limit;
     const remaining = Math.max(0, config.limit - limit.count);
 
-    // Limpieza probabilística rápida para registros > 24 horas (Requisito C-8)
-    if (Math.random() < 0.02) {
+    // Limpieza probabilística rápida para registros > 24 horas (Requisito C-8 / Parte B)
+    if (Math.random() < 0.01) {
       const cutOff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      prisma.publicRateLimit.deleteMany({
-        where: {
-          windowStart: { lt: cutOff }
-        }
-      }).catch(err => console.error("Error al limpiar rate limits antiguos:", err));
+      try {
+        await prisma.publicRateLimit.deleteMany({
+          where: {
+            windowStart: { lt: cutOff }
+          }
+        });
+      } catch (cleanErr) {
+        console.error("Error silencioso al limpiar rate limits antiguos:", cleanErr);
+      }
     }
 
     return { allowed, remaining };

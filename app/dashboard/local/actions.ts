@@ -13,6 +13,7 @@ import {
   normalizeChileanWhatsApp
 } from "../../../lib/validations/local";
 import { LocalCampaignStatus, LocalSubscriberStatus, LocalEventType } from "@prisma/client";
+import { hashIp } from "../../../lib/security";
 
 // 1. Crear Campaña Local (Requisito 5)
 export async function createLocalCampaignAction(payload: { name: string; slug: string }) {
@@ -284,7 +285,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
   const ip = headersList.get("x-forwarded-for") || "127.0.0.1";
   const userAgent = headersList.get("user-agent") || "";
   const referer = headersList.get("referer") || "";
-  const ipHash = crypto.createHash("sha256").update(ip.split(",")[0].trim()).digest("hex");
+  const ipHash = hashIp(ip.split(",")[0].trim());
 
   // Transacción segura para evitar registros parciales sin consentimiento (Requisito F-12)
   await prisma.$transaction(async (tx) => {

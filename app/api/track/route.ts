@@ -1,12 +1,8 @@
 // app/api/track/route.ts
 
-                import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
-
-function hashIp(ip: string) {
-  return crypto.createHash("sha256").update(ip).digest("hex");
-}
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "../../../lib/prisma";
+import { hashIp } from "../../../lib/security";
 
 export async function POST(request: NextRequest) {
   try {

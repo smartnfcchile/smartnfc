@@ -4,6 +4,7 @@ import LeadForm from "./LeadForm";
 import TrackButton from "./TrackButton";
 import { headers } from "next/headers";
 import crypto from "crypto";
+import { hashIp } from "../../../lib/security";
 
 type PageProps = {
   params: Promise<{
@@ -185,9 +186,7 @@ function getSafeVideoEmbedUrl(videoUrl?: string | null) {
   }
 }
 
-function hashIp(ip: string) {
-  return crypto.createHash("sha256").update(ip).digest("hex");
-}
+
 
 export default async function PublicCardPage({ params, searchParams }: PageProps) {
   const { slug } = await params;

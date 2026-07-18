@@ -1,10 +1,6 @@
+import { hashIp } from "../../../../lib/security";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import crypto from "crypto";
-
-function hashIp(ip: string) {
-  return crypto.createHash("sha256").update(ip).digest("hex");
-}
 
 function clean(value: unknown) {
   if (typeof value !== "string") return "";

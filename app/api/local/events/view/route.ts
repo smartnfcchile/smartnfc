@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
-import crypto from "crypto";
 import { LocalEventType } from "@prisma/client";
-
-function hashIp(ip: string) {
-  return crypto.createHash("sha256").update(ip).digest("hex");
-}
+import { hashIp } from "../../../../../lib/security";
 
 export async function POST(request: NextRequest) {
   try {

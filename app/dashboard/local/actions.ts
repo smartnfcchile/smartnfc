@@ -15,10 +15,20 @@ import {
 import { LocalCampaignStatus, LocalSubscriberStatus, LocalEventType } from "@prisma/client";
 import { hashIp } from "../../../lib/security";
 import { checkRateLimit } from "../../../lib/rateLimit";
+import { requireProductAccess, canCreateLocalCampaign } from "../../../lib/product-access";
 
 // 1. Crear Campaña Local (Requisito 5)
 export async function createLocalCampaignAction(payload: { name: string; slug: string }) {
   const admin = await requireCompanyAdmin();
+
+  // Validar licencia activa
+  await requireProductAccess(admin.companyId, "LOCAL");
+
+  // Validar capacidad de creación de campañas
+  const canCreate = await canCreateLocalCampaign(admin.companyId);
+  if (!canCreate) {
+    throw new Error("Has alcanzado el límite de campañas permitidas para tu plan.");
+  }
 
   // Validar entrada
   const validated = createCampaignSchema.parse(payload);
@@ -70,6 +80,9 @@ export async function createLocalCampaignAction(payload: { name: string; slug: s
 // 2. Actualizar Campaña Local (Requisito 5)
 export async function updateLocalCampaignAction(campaignId: string, payload: any) {
   const admin = await requireCompanyAdmin();
+
+  // Validar licencia activa
+  await requireProductAccess(admin.companyId, "LOCAL");
 
   // Validar entrada
   const validated = updateCampaignSchema.parse(payload);
@@ -125,6 +138,9 @@ export async function updateLocalCampaignAction(campaignId: string, payload: any
 // 3. Publicar Campaña Local (Requisito 5)
 export async function publishLocalCampaignAction(campaignId: string, payload: any) {
   const admin = await requireCompanyAdmin();
+
+  // Validar licencia activa
+  await requireProductAccess(admin.companyId, "LOCAL");
 
   // 1. Validar el payload con el schema de actualización
   const validated = updateCampaignSchema.parse(payload);
@@ -224,6 +240,9 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
 export async function archiveLocalCampaignAction(campaignId: string) {
   const admin = await requireCompanyAdmin();
 
+  // Validar licencia activa
+  await requireProductAccess(admin.companyId, "LOCAL");
+
   // Actualizar estado a ARCHIVED con aislamiento multiempresa
   const campaign = await prisma.localCampaign.update({
     where: {
@@ -260,10 +279,25 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
     return { success: true }; // Respuesta neutra exitosa para no revelar detección de spam
   }
 
-  // Buscar campaña
+  // Buscar campaña con su licencia de producto Local
   const campaign = await prisma.localCampaign.findUnique({
-    where: { slug }
+    where: { slug },
+    include: {
+      company: {
+        include: {
+          productLicenses: {
+            where: { product: "LOCAL" }
+          }
+        }
+      }
+    }
   });
+
+  // Validar que la empresa tenga la licencia Local activa (Requisito Parte G)
+  const localLicense = campaign?.company?.productLicenses?.[0];
+  if (!localLicense || localLicense.status !== "ACTIVE") {
+    return { success: false, error: "El club de beneficios no está activo debido a problemas con su licencia." };
+  }
 
   // Exigir que esté publicada (Requisito F-7)
   if (!campaign || campaign.status !== LocalCampaignStatus.PUBLISHED) {
@@ -422,6 +456,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
 // 8. Obtener tarjetas NFC físicas disponibles para la empresa (Requisito Parte D)
 export async function getCompanyAvailableNfcCardsAction() {
   const user = await requireCompanyAdmin();
+  await requireProductAccess(user.companyId, "LOCAL");
   try {
     const cards = await prisma.physicalNfcCard.findMany({
       where: {
@@ -441,6 +476,7 @@ export async function getCompanyAvailableNfcCardsAction() {
 // 9. Asociar una tarjeta NFC a un Touchpoint Local de forma segura y transaccional (Requisito Parte D)
 export async function associateNfcCardAction(payload: { cardPhysicalId: string; touchpointId: string }) {
   const user = await requireCompanyAdmin();
+  await requireProductAccess(user.companyId, "LOCAL");
   const { cardPhysicalId, touchpointId } = payload;
 
   try {
@@ -506,6 +542,7 @@ export async function associateNfcCardAction(payload: { cardPhysicalId: string; 
 // 10. Desvincular una tarjeta NFC sin borrar tarjeta, campaña ni touchpoint (Requisito D-10)
 export async function disassociateNfcCardAction(payload: { cardPhysicalId: string }) {
   const user = await requireCompanyAdmin();
+  await requireProductAccess(user.companyId, "LOCAL");
   const { cardPhysicalId } = payload;
 
   try {

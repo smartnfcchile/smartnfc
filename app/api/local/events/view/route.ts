@@ -16,14 +16,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Slug inválido" }, { status: 400 });
     }
 
-    // 2. Resolver campaña en servidor (Requisito H-2)
+    // 2. Resolver campaña en servidor con su licencia Local (Requisito H-2 y Parte 4)
     const campaign = await prisma.localCampaign.findUnique({
-      where: { slug }
+      where: { slug },
+      include: {
+        company: {
+          include: {
+            productLicenses: {
+              where: { product: "LOCAL" }
+            }
+          }
+        }
+      }
     });
 
-    // Exigir status PUBLISHED (Requisito H-3)
     if (!campaign || campaign.status !== "PUBLISHED") {
       return NextResponse.json({ error: "Campaña no disponible" }, { status: 404 });
+    }
+
+    // Verificar licencia Local activa
+    const localLicense = campaign.company.productLicenses?.[0];
+    const now = new Date();
+    const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
+    const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
+    const isActive = localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+
+    if (!isActive) {
+      return NextResponse.json({ error: "Esta experiencia no se encuentra disponible." }, { status: 403 });
     }
 
     // 3. Validar touchpoint si se provee (Requisito H-4)

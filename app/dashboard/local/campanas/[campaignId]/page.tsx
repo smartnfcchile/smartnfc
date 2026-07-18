@@ -10,6 +10,8 @@ type Params = {
   }>;
 };
 
+import { hasActiveProduct } from "../../../../../lib/product-access";
+
 export default async function EditCampaignPage({ params }: Params) {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -21,6 +23,11 @@ export default async function EditCampaignPage({ params }: Params) {
 
   if (!isAdmin) {
     redirect("/dashboard");
+  }
+
+  const hasLocal = await hasActiveProduct(user.companyId, "LOCAL");
+  if (!hasLocal) {
+    redirect("/dashboard/local");
   }
 
   const { campaignId } = await params;

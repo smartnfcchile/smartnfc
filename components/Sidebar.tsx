@@ -14,13 +14,15 @@ type SidebarProps = {
     email?: string | null;
     role?: string | null;
   };
+  activeProducts?: string[];
 };
 
-export default function Sidebar({ user }: SidebarProps) {
+export default function Sidebar({ user, activeProducts = ["EMPRESAS"] }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
+  const isSuper = user.role === "SUPERADMIN";
 
   const menuItems = [
     {
@@ -33,37 +35,37 @@ export default function Sidebar({ user }: SidebarProps) {
       title: "Métricas y Analíticas",
       href: "/dashboard/metrics",
       icon: "📊",
-      show: true,
+      show: isSuper || activeProducts.includes("EMPRESAS"),
     },
     {
       title: "Gestionar Vendedores",
       href: "/dashboard/users",
       icon: "👥",
-      show: isAdmin,
+      show: isAdmin && (isSuper || activeProducts.includes("EMPRESAS")),
     },
     {
       title: "Tarjetas Virtuales",
       href: "/dashboard/cards",
       icon: "🎴",
-      show: isAdmin,
+      show: isAdmin && (isSuper || activeProducts.includes("EMPRESAS")),
     },
     {
       title: "Smart NFC Local",
       href: "/dashboard/local",
       icon: <Store className="h-4.5 w-4.5" />,
-      show: isAdmin,
+      show: isSuper || activeProducts.includes("LOCAL"),
     },
     {
       title: "Prospectos (CRM)",
       href: "/dashboard/leads",
       icon: "💰",
-      show: true,
+      show: isSuper || activeProducts.includes("EMPRESAS"),
     },
     {
       title: "Superadministración",
       href: "/superadmin",
       icon: "🛠️",
-      show: user.role === "SUPERADMIN",
+      show: isSuper,
     },
     {
       title: "Configuración",

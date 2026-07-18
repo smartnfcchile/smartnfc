@@ -15,10 +15,11 @@ export default async function EmpresaDetailPage({ params }: PageProps) {
   const resolvedParams = await params;
   const companyId = resolvedParams.companyId;
 
-  // Consultar la empresa por ID (Requisito 6 y 8)
+  // Consultar la empresa por ID con sus licencias de producto
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     include: {
+      productLicenses: true,
       users: {
         orderBy: { createdAt: "asc" }
       },
@@ -44,6 +45,20 @@ export default async function EmpresaDetailPage({ params }: PageProps) {
     isActive: company.isActive,
     createdAt: company.createdAt.toISOString(),
     _count: company._count,
+    productLicenses: company.productLicenses.map((pl) => ({
+      id: pl.id,
+      product: pl.product,
+      planCode: pl.planCode,
+      status: pl.status,
+      includedIdentities: pl.includedIdentities,
+      authorizedExtraIdentities: pl.authorizedExtraIdentities,
+      includedCampaigns: pl.includedCampaigns,
+      includedBranches: pl.includedBranches,
+      includedTouchpoints: pl.includedTouchpoints,
+      startsAt: pl.startsAt ? pl.startsAt.toISOString().split("T")[0] : "",
+      expiresAt: pl.expiresAt ? pl.expiresAt.toISOString().split("T")[0] : "",
+      notes: pl.notes,
+    })),
     users: company.users.map((u) => ({
       id: u.id,
       name: u.name,
@@ -54,5 +69,5 @@ export default async function EmpresaDetailPage({ params }: PageProps) {
     })),
   };
 
-  return <CompanyDetailClient company={serializedCompany} />;
+  return <CompanyDetailClient company={serializedCompany as any} />;
 }

@@ -42,15 +42,16 @@ enum EventType {
 }
 
 model Company {
-  id               String            @id @default(cuid())
+  id               String                  @id @default(cuid())
   name             String
-  slug             String?           @unique
-  plan             PlanType          @default(FREE)
-  isActive         Boolean           @default(true)
+  slug             String?                 @unique
+  plan             PlanType                @default(FREE)
+  isActive         Boolean                 @default(true)
   users            User[]
   cards            Card[]
   physicalNfcCards PhysicalNfcCard[]
   localCampaigns   LocalCampaign[]
+  productLicenses  CompanyProductLicense[]
 
   // Control de licencias y capacidades (Requisito 9)
   maxIdentities Int       @default(5)
@@ -409,4 +410,56 @@ model PublicRateLimit {
 
   @@unique([keyHash, action, windowStart])
   @@index([windowStart])
+}
+
+enum SmartNfcProduct {
+  EMPRESAS
+  LOCAL
+}
+
+enum ProductLicenseStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+
+enum ProductPlanCode {
+  EMPRESAS_CONECTA
+  EMPRESAS_CRECE
+  EMPRESAS_ESCALA
+  EMPRESAS_CORPORATIVO
+  EMPRESAS_HISTORICO
+  LOCAL_IMPULSA
+  LOCAL_FUNDADOR
+  LOCAL_PERSONALIZADO
+}
+
+model CompanyProductLicense {
+  id        String               @id @default(cuid())
+  companyId String
+  company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product   SmartNfcProduct
+  planCode  ProductPlanCode
+  status    ProductLicenseStatus @default(ACTIVE)
+
+  includedIdentities        Int?
+  authorizedExtraIdentities Int? @default(0)
+
+  includedCampaigns   Int?
+  includedBranches    Int?
+  includedTouchpoints Int?
+
+  startsAt  DateTime?
+  renewsAt  DateTime?
+  expiresAt DateTime?
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, product])
+  @@index([companyId, status])
+  @@index([product, status])
 }

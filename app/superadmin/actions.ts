@@ -12,16 +12,51 @@ import UserInvitationEmail from "../../emails/UserInvitationEmail";
 import CompanyCreatedEmail from "../../emails/CompanyCreatedEmail";
 import PasswordResetEmail from "../../emails/PasswordResetEmail";
 
-// 1. Registrar Empresa y Administrador Pendiente (Requisito 5)
+import { ProductPlanCode, ProductLicenseStatus, SmartNfcProduct } from "@prisma/client";
+
+function mapPlanCodeToLegacyPlan(code: ProductPlanCode): PlanType {
+  switch (code) {
+    case "EMPRESAS_CONECTA": return PlanType.FREE;
+    case "EMPRESAS_CRECE": return PlanType.STARTER;
+    case "EMPRESAS_ESCALA": return PlanType.PRO;
+    case "EMPRESAS_CORPORATIVO": return PlanType.ENTERPRISE;
+    default: return PlanType.FREE;
+  }
+}
+
+function mapLicenseStatusToLegacyStatus(status: ProductLicenseStatus): string {
+  switch (status) {
+    case "ACTIVE": return "ACTIVE";
+    case "SUSPENDED": return "SUSPENDED";
+    case "CANCELLED": return "CANCELLED";
+    default: return "ACTIVE";
+  }
+}
+
+// 1. Registrar Empresa y Administrador Pendiente con sus Licencias correspondientes (Fase 5)
 export async function createCompanyAction(data: {
   name: string;
   slug: string;
-  plan: PlanType;
-  maxIdentities: number;
-  licenseStatus: string;
   internalNotes?: string;
   adminName?: string;
   adminEmail?: string;
+  empresasLicense?: {
+    planCode: ProductPlanCode;
+    status: ProductLicenseStatus;
+    includedIdentities: number;
+    authorizedExtraIdentities: number;
+    startsAt?: string;
+    expiresAt?: string;
+  };
+  localLicense?: {
+    planCode: ProductPlanCode;
+    status: ProductLicenseStatus;
+    includedCampaigns: number;
+    includedBranches: number;
+    includedTouchpoints: number;
+    startsAt?: string;
+    expiresAt?: string;
+  };
 }) {
   const superadmin = await requireSuperAdmin();
 
@@ -45,17 +80,57 @@ export async function createCompanyAction(data: {
 
   // Ejecutar creación en BD
   const result = await prisma.$transaction(async (tx) => {
+    // Sincronizar legacy
+    const legacyPlan = data.empresasLicense ? mapPlanCodeToLegacyPlan(data.empresasLicense.planCode) : PlanType.FREE;
+    const legacyMaxId = data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : 5;
+    const legacyStatus = data.empresasLicense ? mapLicenseStatusToLegacyStatus(data.empresasLicense.status) : "ACTIVE";
+
     const company = await tx.company.create({
       data: {
         name: data.name.trim(),
         slug: normalizedSlug,
-        plan: data.plan,
-        maxIdentities: Number(data.maxIdentities),
-        licenseStatus: data.licenseStatus,
+        plan: legacyPlan,
+        maxIdentities: legacyMaxId,
+        licenseStatus: legacyStatus,
         internalNotes: data.internalNotes,
-        isActive: data.licenseStatus === "ACTIVE" || data.licenseStatus === "TRIAL",
+        isActive: (data.empresasLicense?.status === "ACTIVE") || (data.localLicense?.status === "ACTIVE"),
       }
     });
+
+    // Crear licencia de Empresas
+    if (data.empresasLicense) {
+      await tx.companyProductLicense.create({
+        data: {
+          companyId: company.id,
+          product: "EMPRESAS",
+          planCode: data.empresasLicense.planCode,
+          status: data.empresasLicense.status,
+          includedIdentities: Number(data.empresasLicense.includedIdentities),
+          authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
+          startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
+          expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
+          notes: data.internalNotes
+        }
+      });
+    }
+
+    // Crear licencia Local
+    if (data.localLicense) {
+      await tx.companyProductLicense.create({
+        data: {
+          companyId: company.id,
+          product: "LOCAL",
+          planCode: data.localLicense.planCode,
+          status: data.localLicense.status,
+          includedCampaigns: Number(data.localLicense.includedCampaigns),
+          includedBranches: Number(data.localLicense.includedBranches),
+          includedTouchpoints: Number(data.localLicense.includedTouchpoints),
+          startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
+          expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
+          notes: data.internalNotes
+        }
+      });
+    }
 
     await tx.adminAuditLog.create({
       data: {
@@ -78,7 +153,6 @@ export async function createCompanyAction(data: {
         throw new Error("El correo electrónico del administrador ya está registrado.");
       }
 
-      // Crear usuario en estado PENDING y con isActive = false (Requisito 4)
       adminUser = await tx.user.create({
         data: {
           name: data.adminName.trim(),
@@ -247,11 +321,25 @@ export async function resendInvitationAction(userId: string) {
 // 3. Modificar Empresa (Requisito 6)
 export async function updateCompanyAction(companyId: string, data: {
   name: string;
-  plan: PlanType;
-  maxIdentities: number;
-  licenseStatus: string;
   internalNotes?: string;
   isActive: boolean;
+  empresasLicense?: {
+    planCode: ProductPlanCode;
+    status: ProductLicenseStatus;
+    includedIdentities: number;
+    authorizedExtraIdentities: number;
+    startsAt?: string;
+    expiresAt?: string;
+  };
+  localLicense?: {
+    planCode: ProductPlanCode;
+    status: ProductLicenseStatus;
+    includedCampaigns: number;
+    includedBranches: number;
+    includedTouchpoints: number;
+    startsAt?: string;
+    expiresAt?: string;
+  };
 }) {
   const superadmin = await requireSuperAdmin();
 
@@ -262,32 +350,107 @@ export async function updateCompanyAction(companyId: string, data: {
     throw new Error("Empresa no encontrada.");
   }
 
-  const updated = await prisma.company.update({
-    where: { id: companyId },
-    data: {
-      name: data.name.trim(),
-      plan: data.plan,
-      maxIdentities: Number(data.maxIdentities),
-      licenseStatus: data.licenseStatus,
-      internalNotes: data.internalNotes,
-      isActive: data.isActive,
-    }
-  });
+  const updated = await prisma.$transaction(async (tx) => {
+    // Sincronizar legacy si se provee Empresas
+    const legacyPlan = data.empresasLicense ? mapPlanCodeToLegacyPlan(data.empresasLicense.planCode) : company.plan;
+    const legacyMaxId = data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : company.maxIdentities;
+    const legacyStatus = data.empresasLicense ? mapLicenseStatusToLegacyStatus(data.empresasLicense.status) : company.licenseStatus;
 
-  await prisma.adminAuditLog.create({
-    data: {
-      actorUserId: superadmin.id,
-      action: "COMPANY_UPDATE",
-      entityType: "COMPANY",
-      entityId: company.id,
-      companyId: company.id,
-      metadata: JSON.stringify({
-        isActiveBefore: company.isActive,
-        isActiveAfter: data.isActive,
-        licenseBefore: company.licenseStatus,
-        licenseAfter: data.licenseStatus
-      })
+    // 1. Actualizar empresa
+    const comp = await tx.company.update({
+      where: { id: companyId },
+      data: {
+        name: data.name.trim(),
+        plan: legacyPlan,
+        maxIdentities: legacyMaxId,
+        licenseStatus: legacyStatus,
+        internalNotes: data.internalNotes,
+        isActive: data.isActive,
+      }
+    });
+
+    // 2. Upsert licencia de Empresas
+    if (data.empresasLicense) {
+      await tx.companyProductLicense.upsert({
+        where: {
+          companyId_product: {
+            companyId,
+            product: "EMPRESAS"
+          }
+        },
+        update: {
+          planCode: data.empresasLicense.planCode,
+          status: data.empresasLicense.status,
+          includedIdentities: Number(data.empresasLicense.includedIdentities),
+          authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
+          startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
+          expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
+          notes: data.internalNotes
+        },
+        create: {
+          companyId,
+          product: "EMPRESAS",
+          planCode: data.empresasLicense.planCode,
+          status: data.empresasLicense.status,
+          includedIdentities: Number(data.empresasLicense.includedIdentities),
+          authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
+          startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
+          expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
+          notes: data.internalNotes
+        }
+      });
     }
+
+    // 3. Upsert licencia Local
+    if (data.localLicense) {
+      await tx.companyProductLicense.upsert({
+        where: {
+          companyId_product: {
+            companyId,
+            product: "LOCAL"
+          }
+        },
+        update: {
+          planCode: data.localLicense.planCode,
+          status: data.localLicense.status,
+          includedCampaigns: Number(data.localLicense.includedCampaigns),
+          includedBranches: Number(data.localLicense.includedBranches),
+          includedTouchpoints: Number(data.localLicense.includedTouchpoints),
+          startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
+          expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
+          notes: data.internalNotes
+        },
+        create: {
+          companyId,
+          product: "LOCAL",
+          planCode: data.localLicense.planCode,
+          status: data.localLicense.status,
+          includedCampaigns: Number(data.localLicense.includedCampaigns),
+          includedBranches: Number(data.localLicense.includedBranches),
+          includedTouchpoints: Number(data.localLicense.includedTouchpoints),
+          startsAt: data.localLicense.startsAt ? new Date(data.localLicense.startsAt) : null,
+          expiresAt: data.localLicense.expiresAt ? new Date(data.localLicense.expiresAt) : null,
+          notes: data.internalNotes
+        }
+      });
+    }
+
+    await tx.adminAuditLog.create({
+      data: {
+        actorUserId: superadmin.id,
+        action: "COMPANY_UPDATE",
+        entityType: "COMPANY",
+        entityId: company.id,
+        companyId: company.id,
+        metadata: JSON.stringify({
+          isActiveBefore: company.isActive,
+          isActiveAfter: data.isActive,
+          licenseBefore: company.licenseStatus
+        })
+      }
+    });
+
+    return comp;
   });
 
   revalidatePath("/superadmin/empresas");
@@ -608,4 +771,17 @@ export async function completePasswordResetAction(token: string, passwordPlain: 
   });
 
   return { success: true };
+}
+
+// 10. Obtener cantidad de licencias LOCAL_FUNDADOR activas (Fase 5.1)
+export async function getActiveLocalFounderLicensesCountAction(): Promise<number> {
+  const admin = await requireSuperAdmin();
+  const count = await prisma.companyProductLicense.count({
+    where: {
+      product: "LOCAL",
+      planCode: "LOCAL_FUNDADOR",
+      status: "ACTIVE"
+    }
+  });
+  return count;
 }

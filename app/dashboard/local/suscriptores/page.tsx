@@ -3,6 +3,7 @@ import { authOptions } from "../../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
 import Link from "next/link";
+import { hasActiveProduct } from "../../../../lib/product-access";
 
 function maskWhatsApp(phone: string) {
   if (!phone) return "";
@@ -23,6 +24,12 @@ export default async function SubscribersPage() {
 
   if (!isAdmin) {
     redirect("/dashboard");
+  }
+
+  // Verificar licencia de Smart NFC Local
+  const hasLocal = await hasActiveProduct(user.companyId, "LOCAL");
+  if (!hasLocal) {
+    redirect("/dashboard/local");
   }
 
   // 1. Obtener campañas locales de la empresa

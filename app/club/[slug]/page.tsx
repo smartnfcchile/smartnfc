@@ -15,15 +15,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
 
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
-    return { title: "Club de Beneficios" };
+    return { title: "No Disponible", robots: "noindex" };
   }
 
   const campaign = await prisma.localCampaign.findUnique({
-    where: { slug }
+    where: { slug },
+    include: {
+      company: {
+        include: {
+          productLicenses: {
+            where: { product: "LOCAL" }
+          }
+        }
+      }
+    }
   });
 
-  if (!campaign || campaign.status !== "PUBLISHED" || !campaign.publishedSnapshot) {
-    return { title: "Club de Beneficios" };
+  const localLicense = campaign?.company?.productLicenses?.[0];
+  const now = new Date();
+  const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
+  const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
+  const isActive = localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+
+  if (!campaign || campaign.status !== "PUBLISHED" || !campaign.publishedSnapshot || !isActive) {
+    return {
+      title: "No Disponible",
+      robots: {
+        index: false,
+        follow: false
+      }
+    };
   }
 
   const snapshot = campaign.publishedSnapshot as any;
@@ -49,14 +70,44 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
     notFound();
   }
 
-  // 2. Consultar campaña exclusivamente por slug (Requisito E-2)
+  // 2. Consultar campaña con su licencia de producto Local
   const campaign = await prisma.localCampaign.findUnique({
-    where: { slug }
+    where: { slug },
+    include: {
+      company: {
+        include: {
+          productLicenses: {
+            where: { product: "LOCAL" }
+          }
+        }
+      }
+    }
   });
 
   // 3. Exigir status = PUBLISHED y publishedSnapshot no nulo (Requisitos E-3 y E-4)
   if (!campaign || campaign.status !== "PUBLISHED" || !campaign.publishedSnapshot) {
     notFound();
+  }
+
+  // 3.1. Validar que la licencia Local de la empresa esté activa (Requisito Parte G y Parte 5)
+  const localLicense = campaign.company.productLicenses?.[0];
+  const now = new Date();
+  const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
+  const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
+  const isActive = localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+
+  if (!isActive) {
+    return (
+      <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-950/80 border border-slate-800 p-8 rounded-2xl text-center space-y-4 max-w-md shadow-2xl">
+          <div className="text-4xl">🏪</div>
+          <h2 className="text-xl font-black text-white">No Disponible</h2>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Esta experiencia no se encuentra disponible.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   // 4. Validar la estructura del JSON publicado (Requisito E-7)

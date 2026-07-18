@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
 import CampanasClient from "./CampanasClient";
 
+import { hasActiveProduct } from "../../../../lib/product-access";
+
 export default async function LocalCampaignsPage() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -15,6 +17,11 @@ export default async function LocalCampaignsPage() {
 
   if (!isAdmin) {
     redirect("/dashboard");
+  }
+
+  const hasLocal = await hasActiveProduct(user.companyId, "LOCAL");
+  if (!hasLocal) {
+    redirect("/dashboard/local");
   }
 
   // Obtener todas las campañas locales de la empresa

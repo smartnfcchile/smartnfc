@@ -5,6 +5,7 @@ import { prisma } from "../../../lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { revalidatePath } from "next/cache";
+import { canCreateIdentity } from "../../../lib/product-access";
 
 export async function toggleCardActive(cardId: string, isActive: boolean) {
   const session = await getServerSession(authOptions);
@@ -31,6 +32,13 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
 
   if (card.companyId !== admin.companyId) {
     throw new Error("No tienes permisos para modificar esta tarjeta.");
+  }
+
+  if (isActive) {
+    const canAct = await canCreateIdentity(admin.companyId);
+    if (!canAct) {
+      throw new Error("No es posible activar esta tarjeta. Has alcanzado el límite de identidades activas para tu plan.");
+    }
   }
 
   await prisma.card.update({
@@ -85,6 +93,11 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
 
   if (!assignedUser || assignedUser.companyId !== admin.companyId) {
     throw new Error("El usuario seleccionado no existe o pertenece a otra empresa.");
+  }
+
+  const canCreate = await canCreateIdentity(admin.companyId);
+  if (!canCreate) {
+    throw new Error("No es posible crear la tarjeta. Has alcanzado el límite de identidades activas permitidas por tu plan.");
   }
 
   await prisma.card.create({

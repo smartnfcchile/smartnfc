@@ -3,6 +3,7 @@ import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import Link from "next/link";
+import { getProductLicense } from "../../../lib/product-access";
 
 export default async function LocalDashboardPage() {
   const session = await getServerSession(authOptions);
@@ -15,6 +16,44 @@ export default async function LocalDashboardPage() {
 
   if (!isAdmin) {
     redirect("/dashboard");
+  }
+
+  // Verificar la licencia de Smart NFC Local para la empresa (Requisito Parte G)
+  const license = await getProductLicense(user.companyId, "LOCAL");
+
+  if (!license || license.status !== "ACTIVE") {
+    const estadoText = license
+      ? license.status === "SUSPENDED"
+        ? "suspendida"
+        : license.status === "PENDING"
+          ? "en preparación"
+          : license.status === "EXPIRED"
+            ? "vencida"
+            : "cancelada"
+      : "no contratada";
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-2xl text-center space-y-4 max-w-xl mx-auto mt-12 shadow-xl">
+          <div className="text-4xl">🏪</div>
+          <h2 className="text-xl font-black text-white">Smart NFC Local no disponible</h2>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            La licencia de Smart NFC Local para tu empresa se encuentra actualmente <strong className="text-amber-400 font-bold">{estadoText}</strong>.
+          </p>
+          <p className="text-slate-450 text-xs">
+            Si crees que esto es un error o deseas activar esta solución, por favor ponte en contacto con nuestro equipo comercial o con soporte técnico.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/dashboard"
+              className="inline-block bg-slate-800 hover:bg-slate-750 text-white font-extrabold py-2.5 px-6 rounded-xl text-xs transition active:scale-95 border border-slate-750"
+            >
+              Ir al Panel General B2B
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Obtener campañas locales de la empresa

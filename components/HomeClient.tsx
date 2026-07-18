@@ -357,7 +357,7 @@ export default function HomeClient() {
             >
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 text-[9px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                 <Activity size={10} className="animate-pulse" />
-                PLATAFORMA DE RELACIONES COMERCIALES
+                PLATAFORMA PARA RELACIONES PRESENCIALES
               </span>
             </motion.div>
 
@@ -366,9 +366,9 @@ export default function HomeClient() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-3xl sm:text-4xl lg:text-[40px] xl:text-[48px] font-black text-slate-900 dark:text-white tracking-tight leading-[1.15]"
+              className="text-3xl sm:text-4xl lg:text-[38px] xl:text-[44px] font-black text-slate-900 dark:text-white tracking-tight leading-[1.15]"
             >
-              Convierte cada encuentro en una oportunidad<span className="text-blue-600 dark:text-blue-400">.</span>
+              Convierte cada interacción en una relación que continúa<span className="text-blue-600 dark:text-blue-400">.</span>
             </motion.h1>
 
             {/* Subtítulo */}
@@ -378,30 +378,42 @@ export default function HomeClient() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-base sm:text-lg text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-xl"
             >
-              Comparte tu identidad profesional, captura contactos y conserva el contexto de cada relación comercial en una sola plataforma.
+              Centraliza la identidad digital de tu equipo corporativo con <strong>Smart NFC Empresas</strong> o fideliza a tus clientes presenciales mediante WhatsApp con <strong>Smart NFC Local</strong>.
             </motion.p>
 
-            {/* Botones de acción */}
+            {/* Botones de acción de doble CTA */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2"
+              className="flex flex-col gap-4 pt-2"
             >
-              <button
-                onClick={() => setDemoModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-base font-extrabold px-8 py-4 rounded-2xl shadow-[0_8px_30px_var(--glow-shadow)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group cursor-pointer"
-              >
-                Solicitar demostración
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <NextLink
+                  href="/empresas"
+                  className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-6 py-4 rounded-2xl shadow-[0_4px_20px_rgba(37,99,235,0.15)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 flex flex-col justify-center items-center gap-1 text-center"
+                >
+                  <span className="text-sm">Smart NFC Empresas</span>
+                  <span className="text-[9px] opacity-80 uppercase font-extrabold tracking-wider">Identidad Corporativa B2B →</span>
+                </NextLink>
 
-              <a
-                href="#sobre-nosotros"
-                className="px-8 py-4 rounded-2xl bg-button-secondary-bg hover:bg-slate-200 dark:hover:bg-white/10 border border-button-secondary-border text-button-secondary-text font-bold text-center transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
-              >
-                Conocer Smart NFC
-              </a>
+                <NextLink
+                  href="/local"
+                  className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-6 py-4 rounded-2xl shadow-[0_4px_20px_rgba(217,119,6,0.15)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 flex flex-col justify-center items-center gap-1 text-center"
+                >
+                  <span className="text-sm">Smart NFC Local</span>
+                  <span className="text-[9px] opacity-80 uppercase font-extrabold tracking-wider">Fidelización B2C →</span>
+                </NextLink>
+              </div>
+
+              <div className="flex justify-center sm:justify-start gap-4">
+                <button
+                  onClick={() => setDemoModalOpen(true)}
+                  className="text-xs font-bold text-slate-650 dark:text-slate-350 hover:text-blue-600 dark:hover:text-blue-400 transition-all flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                >
+                  Solicitar demostración corporativa
+                </button>
+              </div>
             </motion.div>
 
             {/* Línea de confianza / Micro-beneficios */}

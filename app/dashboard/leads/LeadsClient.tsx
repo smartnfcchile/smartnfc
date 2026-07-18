@@ -187,6 +187,55 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsC
     document.body.removeChild(link);
   };
 
+  // Escapa caracteres especiales según la especificación vCard (RFC 6350)
+  const escapeVCardField = (value: string): string => {
+    return value
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\n/g, "\\n");
+  };
+
+  // Función de Exportación vCard (.vcf) — permite importar todos los prospectos
+  // directamente a la agenda del celular en un solo archivo (contacto múltiple)
+  const handleExportVCard = () => {
+    const vCardBlocks = filteredLeads.map((lead) => {
+      const name = escapeVCardField(lead.name || "Sin nombre");
+      const org = lead.company ? escapeVCardField(lead.company) : "";
+      const title = lead.position ? escapeVCardField(lead.position) : "";
+      // Solo dejamos dígitos y el signo + para máxima compatibilidad al importar
+      const phone = lead.phone ? lead.phone.replace(/[^\d+]/g, "") : "";
+
+      const noteParts: string[] = [`Tarjeta: ${lead.card.name}`];
+      if (lead.notes) noteParts.push(lead.notes);
+      const note = escapeVCardField(noteParts.join(" | "));
+
+      const lines = ["BEGIN:VCARD", "VERSION:3.0", `FN:${name}`, `N:${name};;;;`];
+
+      if (org) lines.push(`ORG:${org}`);
+      if (title) lines.push(`TITLE:${title}`);
+      if (phone) lines.push(`TEL;TYPE=CELL:${phone}`);
+      if (lead.email) lines.push(`EMAIL:${lead.email}`);
+      lines.push(`NOTE:${note}`);
+      lines.push("END:VCARD");
+
+      return lines.join("\r\n");
+    });
+
+    // Un único archivo .vcf puede contener múltiples tarjetas de contacto;
+    // la mayoría de los teléfonos las detecta e importa todas de una vez.
+    const vCardContent = vCardBlocks.join("\r\n");
+    const blob = new Blob([vCardContent], { type: "text/vcard;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `prospectos_smartnfc_${Date.now()}.vcf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       
@@ -219,6 +268,13 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsC
             className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-blue-600/10 active:scale-95 cursor-pointer shrink-0"
           >
             📥 Exportar CSV
+          </button>
+          <button
+            onClick={handleExportVCard}
+            title="Descarga todos los prospectos como contactos listos para importar a tu celular"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-emerald-600/10 active:scale-95 cursor-pointer shrink-0"
+          >
+            📇 Exportar vCard
           </button>
         </div>
 

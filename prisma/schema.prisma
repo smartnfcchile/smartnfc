@@ -50,36 +50,37 @@ model Company {
   users            User[]
   cards            Card[]
   physicalNfcCards PhysicalNfcCard[]
+  localCampaigns   LocalCampaign[]
 
   // Control de licencias y capacidades (Requisito 9)
-  maxIdentities    Int               @default(5)
-  licenseStatus    String            @default("ACTIVE") // ACTIVE, SUSPENDED, TRIAL, CANCELLED
-  licenseStart     DateTime?
-  licenseEnd       DateTime?
-  internalNotes    String?
+  maxIdentities Int       @default(5)
+  licenseStatus String    @default("ACTIVE") // ACTIVE, SUSPENDED, TRIAL, CANCELLED
+  licenseStart  DateTime?
+  licenseEnd    DateTime?
+  internalNotes String?
 
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model User {
-  id               String                 @id @default(cuid())
-  name             String?
-  email            String                 @unique
-  password         String?
-  role             UserRole               @default(COLLABORATOR)
-  isActive         Boolean                @default(true)
-  status           String                 @default("ACTIVE") // PENDING, ACTIVE, SUSPENDED
+  id       String   @id @default(cuid())
+  name     String?
+  email    String   @unique
+  password String?
+  role     UserRole @default(COLLABORATOR)
+  isActive Boolean  @default(true)
+  status   String   @default("ACTIVE") // PENDING, ACTIVE, SUSPENDED
 
-  companyId        String
-  company          Company                @relation(fields: [companyId], references: [id])
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 
   cards            Card[]
   activationTokens UserActivationToken[]
   resetTokens      PasswordResetToken[]
 
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Card {
@@ -89,15 +90,15 @@ model Card {
   isActive      Boolean           @default(true)
   physicalCards PhysicalNfcCard[]
 
-  themeColor  String   @default("#2563eb")
-  themeMode   String   @default("dark")
-  template    String   @default("corporate-1")
-  bannerStyle String   @default("classic")
-  photoStyle  String   @default("circle")
+  themeColor  String @default("#2563eb")
+  themeMode   String @default("dark")
+  template    String @default("corporate-1")
+  bannerStyle String @default("classic")
+  photoStyle  String @default("circle")
 
-  logoUrl     String?
-  avatarUrl   String?
-  coverUrl    String?
+  logoUrl   String?
+  avatarUrl String?
+  coverUrl  String?
 
   profileName String?
   role        String?
@@ -105,114 +106,117 @@ model Card {
   bio         String?
   location    String?
 
-  videoUrl    String?
-  videoTitle  String?
+  videoUrl   String?
+  videoTitle String?
 
-  email       String?
-  phone       String?
-  whatsapp    String?
+  email    String?
+  phone    String?
+  whatsapp String?
 
-  instagram   String?
-  facebook    String?
-  linkedin    String?
-  tiktok      String?
-  youtube     String?
+  instagram String?
+  facebook  String?
+  linkedin  String?
+  tiktok    String?
+  youtube   String?
 
-  showEmail     Boolean  @default(true)
-  showPhone     Boolean  @default(true)
-  showWhatsapp  Boolean  @default(true)
-  showInstagram Boolean  @default(true)
-  showFacebook  Boolean  @default(true)
-  showLinkedin  Boolean  @default(true)
-  showTiktok    Boolean  @default(true)
-  showYoutube   Boolean  @default(true)
+  showEmail     Boolean @default(true)
+  showPhone     Boolean @default(true)
+  showWhatsapp  Boolean @default(true)
+  showInstagram Boolean @default(true)
+  showFacebook  Boolean @default(true)
+  showLinkedin  Boolean @default(true)
+  showTiktok    Boolean @default(true)
+  showYoutube   Boolean @default(true)
 
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id])
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 
-  events      Event[]
-  leads       Lead[]
-  links       CardLink[]
+  events Event[]
+  leads  Lead[]
+  links  CardLink[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CardLink {
-  id        String  @id @default(cuid())
-  title     String
-  url       String
-  icon      String?
-  order     Int     @default(0)
-  isActive  Boolean @default(true)
+  id       String  @id @default(cuid())
+  title    String
+  url      String
+  icon     String?
+  order    Int     @default(0)
+  isActive Boolean @default(true)
 
-  cardId    String
-  card      Card    @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }
 
 model PhysicalNfcCard {
-  id          String    @id @default(cuid())
-  token       String    @unique
-  uid         String?   @unique
-  status      NfcStatus @default(PENDIENTE_GRABACION)
-  batchCode   String?
-  
+  id        String    @id @default(cuid())
+  token     String    @unique
+  uid       String?   @unique
+  status    NfcStatus @default(PENDIENTE_GRABACION)
+  batchCode String?
+
   printedAt   DateTime?
   encodedAt   DateTime?
   shippedAt   DateTime?
   deliveredAt DateTime?
   activatedAt DateTime?
 
-  companyId   String
-  company     Company   @relation(fields: [companyId], references: [id])
-  
-  cardId      String?
-  card        Card?     @relation(fields: [cardId], references: [id])
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 
-  events      Event[]
+  cardId String?
+  card   Card?   @relation(fields: [cardId], references: [id])
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  localTouchpointId String?          @unique
+  localTouchpoint   LocalTouchpoint? @relation(fields: [localTouchpointId], references: [id])
+
+  events Event[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Event {
-  id             String           @id @default(cuid())
-  eventType      EventType
-  ipHash         String?
-  userAgent      String?
-  referer        String?
+  id        String    @id @default(cuid())
+  eventType EventType
+  ipHash    String?
+  userAgent String?
+  referer   String?
 
-  cardId         String
-  card           Card             @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   physicalCardId String?
   physicalCard   PhysicalNfcCard? @relation(fields: [physicalCardId], references: [id], onDelete: SetNull)
 
-  createdAt      DateTime         @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Lead {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  name      String
-  company   String?
-  position  String?
-  email     String
-  phone     String?
-  message   String?
+  name     String
+  company  String?
+  position String?
+  email    String
+  phone    String?
+  message  String?
 
   // Campos de CRM y Trazabilidad analítica
-  status    String   @default("NUEVO")
-  notes     String?
-  ipHash    String?
+  status String  @default("NUEVO")
+  notes  String?
+  ipHash String?
 
-  cardId    String
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }
@@ -229,21 +233,142 @@ model AdminAuditLog {
 }
 
 model UserActivationToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+enum LocalCampaignStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  ARCHIVED
+}
+
+enum LocalCampaignTemplate {
+  URBAN
+}
+
+model LocalCampaign {
+  id          String                @id @default(cuid())
+  companyId   String
+  company     Company               @relation(fields: [companyId], references: [id])
+  name        String
+  slug        String                @unique
+  status      LocalCampaignStatus   @default(DRAFT)
+  template    LocalCampaignTemplate @default(URBAN)
+  isPublished Boolean               @default(false)
+  isActive    Boolean               @default(true)
+
+  // Configuración de borrador
+  logoUrl            String?
+  primaryColor       String    @default("#2563eb")
+  secondaryColor     String    @default("#d4af37")
+  businessName       String?
+  clubName           String?
+  headline           String?
+  subheadline        String?
+  address            String?
+  whatsappNumber     String?
+  whatsappMessage    String?
+  benefitLabel       String?
+  benefitTitle       String?
+  benefitDescription String?
+  benefitConditions  String?
+  benefitStartAt     DateTime?
+  benefitEndAt       DateTime?
+  consentText        String?
+  consentVersion     Int       @default(1)
+
+  // Configuración publicada
+  publishedSnapshot Json?
+  publishedVersion  Int       @default(0)
+  publishedAt       DateTime?
+
+  touchpoints LocalTouchpoint[]
+  subscribers LocalSubscriber[]
+  events      LocalEvent[]
+
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  localConsentRecords LocalConsentRecord[]
+}
+
+model LocalTouchpoint {
+  id              String           @id @default(cuid())
+  campaignId      String
+  campaign        LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name            String
+  code            String           @unique
+  isActive        Boolean          @default(true)
+  physicalNfcCard PhysicalNfcCard?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  localEvents LocalEvent[]
+}
+
+model LocalSubscriber {
+  id                String               @id @default(cuid())
+  campaignId        String
+  campaign          LocalCampaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name              String
+  whatsapp          String
+  status            String               @default("ACTIVE") // ACTIVE, OPTED_OUT, BLOCKED
+  firstSubscribedAt DateTime             @default(now())
+  lastInteractionAt DateTime             @default(now())
+  consentRecords    LocalConsentRecord[]
+  events            LocalEvent[]
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, whatsapp])
+}
+
+model LocalConsentRecord {
+  id             String          @id @default(cuid())
+  subscriberId   String
+  subscriber     LocalSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  campaignId     String
+  campaign       LocalCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  consentVersion Int
+  consentText    String
+  acceptedAt     DateTime        @default(now())
+  revokedAt      DateTime?
+  source         String?
+  ipHash         String?
+  userAgent      String?
+  metadata       Json?
+
+  createdAt DateTime @default(now())
+}
+
+model LocalEvent {
+  id           String           @id @default(cuid())
+  campaignId   String
+  campaign     LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  touchpointId String?
+  touchpoint   LocalTouchpoint? @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
+  subscriberId String?
+  subscriber   LocalSubscriber? @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
+  eventType    String // VIEW, NFC_SCAN, QR_SCAN, SUBSCRIPTION, WHATSAPP_REDIRECT
+  ipHash       String?
+  userAgent    String?
+  referer      String?
+  createdAt    DateTime         @default(now())
 }

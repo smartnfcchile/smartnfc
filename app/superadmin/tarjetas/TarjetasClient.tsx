@@ -177,7 +177,6 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
 
   return (
     <div className="space-y-6">
-      
       {/* Alertas */}
       {errorMsg && (
         <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-bold rounded-xl flex justify-between items-center">

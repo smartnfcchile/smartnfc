@@ -31,6 +31,11 @@ export default function SuperadminSidebar() {
       href: "/superadmin/licencias",
       icon: "💳",
     },
+    {
+      title: "Tarjetas NFC",
+      href: "/superadmin/tarjetas",
+      icon: "🎴",
+    },
   ];
 
   return (

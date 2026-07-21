@@ -57,11 +57,11 @@ export default function UrbanLocalTemplate({
   const secondaryColor = data.secondaryColor || "#d4af37";
 
   return (
-    <div className="w-full max-w-[380px] mx-auto border border-slate-200 dark:border-slate-800 rounded-[32px] overflow-hidden shadow-2xl bg-white text-slate-850 relative min-h-[640px] flex flex-col justify-between p-6">
+    <div className="w-full max-w-[380px] mx-auto border border-slate-200 dark:border-slate-800 rounded-[32px] overflow-hidden shadow-2xl bg-white text-slate-900 relative min-h-[640px] flex flex-col justify-between p-6">
       
       {/* Indicador de Vista Previa (Solo en modo preview) */}
       {mode === "preview" && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-blue-600/10 border border-blue-600/20 text-blue-600 text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded-full uppercase select-none z-10">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-blue-600/10 border border-blue-600/30 text-blue-700 text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded-full uppercase select-none z-10">
           Vista Previa
         </div>
       )}
@@ -76,18 +76,18 @@ export default function UrbanLocalTemplate({
             <img
               src={data.logoUrl}
               alt="Logo"
-              className="w-16 h-16 object-cover mx-auto rounded-full border border-slate-100 shadow-sm"
+              className="w-16 h-16 object-cover mx-auto rounded-full border border-slate-200 shadow-sm"
             />
           ) : (
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-full flex items-center justify-center mx-auto text-2xl font-bold shadow-inner">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full flex items-center justify-center mx-auto text-2xl font-bold shadow-inner border border-slate-200 dark:border-slate-700">
               {data.businessName ? data.businessName.charAt(0).toUpperCase() : "L"}
             </div>
           )}
 
           {data.clubName && (
             <span
-              style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30`, color: primaryColor }}
-              className="inline-block px-3 py-0.5 rounded-full border text-[9px] font-extrabold uppercase tracking-wider animate-pulse"
+              style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40`, color: primaryColor }}
+              className="inline-block px-3 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider animate-pulse"
             >
               {data.clubName}
             </span>
@@ -103,14 +103,14 @@ export default function UrbanLocalTemplate({
           <h3 className="text-sm font-extrabold text-slate-800 leading-snug">
             {data.headline || "¡Bienvenido al Club!"}
           </h3>
-          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+          <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
             {data.subheadline || "Suscríbete y activa tu beneficio exclusivo en segundos."}
           </p>
         </div>
 
         {/* Beneficio Destacado */}
         <div
-          style={{ borderColor: `${primaryColor}20`, background: `linear-gradient(135deg, white, #fafafa)` }}
+          style={{ borderColor: `${primaryColor}30`, background: `linear-gradient(135deg, #ffffff, #fafafa)` }}
           className="border p-4 rounded-2xl shadow-sm space-y-2 relative overflow-hidden"
         >
           <div
@@ -124,13 +124,13 @@ export default function UrbanLocalTemplate({
             <h4 style={{ color: primaryColor }} className="text-base font-black tracking-tight">
               {data.benefitTitle || "Título del Beneficio"}
             </h4>
-            <p className="text-xs text-slate-650 leading-relaxed font-medium">
+            <p className="text-xs text-slate-700 leading-relaxed font-medium">
               {data.benefitDescription || "Descripción del beneficio que recibirá el cliente."}
             </p>
           </div>
 
           {data.benefitConditions && (
-            <div className="pt-2 border-t border-slate-100 text-[9px] text-slate-400 font-medium italic leading-normal">
+            <div className="pt-2 border-t border-slate-200 text-[9.5px] text-slate-600 font-medium italic leading-normal">
               * Condiciones: {data.benefitConditions}
             </div>
           )}
@@ -138,11 +138,11 @@ export default function UrbanLocalTemplate({
 
         {/* Flujo condicional: Éxito vs Formulario */}
         {isSuccess ? (
-          <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center space-y-4 animate-fadeIn">
-            <div className="text-3xl text-emerald-500">🎉</div>
+          <div className="bg-emerald-500/10 border border-emerald-500/30 p-5 rounded-2xl text-center space-y-4 animate-fadeIn">
+            <div className="text-3xl text-emerald-600">🎉</div>
             <div className="space-y-1">
               <h4 className="text-sm font-black text-slate-900">¡Ya eres parte del Club!</h4>
-              <p className="text-[11px] text-slate-600 font-medium leading-normal">
+              <p className="text-[11px] text-slate-700 font-medium leading-normal">
                 Presiona el botón para activar tu beneficio en WhatsApp enviando el mensaje preparado.
               </p>
             </div>
@@ -152,7 +152,7 @@ export default function UrbanLocalTemplate({
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ backgroundColor: "#25d366" }}
-                className="inline-flex w-full items-center justify-center py-3 px-4 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition hover:scale-[1.02] active:scale-95 text-center"
+                className="inline-flex w-full items-center justify-center py-3 px-4 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition hover:scale-[1.02] active:scale-95 text-center cursor-pointer"
               >
                 💬 Abrir WhatsApp
               </a>
@@ -164,14 +164,14 @@ export default function UrbanLocalTemplate({
             className="space-y-3 pt-1"
           >
             {error && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-455 text-[10px] font-bold rounded-xl leading-normal">
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-700 text-[10px] font-bold rounded-xl leading-normal">
                 ⚠️ {error}
               </div>
             )}
 
             {/* Input de Nombre */}
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+              <label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
                 Tu Nombre
               </label>
               <input
@@ -181,13 +181,13 @@ export default function UrbanLocalTemplate({
                 placeholder="ej. Juan Pérez"
                 value={mode === "public" ? formName : ""}
                 onChange={(e) => onFormNameChange?.(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white focus:outline-none text-xs text-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white focus:outline-none text-xs text-slate-900 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* Input de WhatsApp */}
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+              <label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
                 Tu WhatsApp
               </label>
               <input
@@ -197,7 +197,7 @@ export default function UrbanLocalTemplate({
                 placeholder="ej. 9XXXXXXXX"
                 value={mode === "public" ? formWhatsapp : ""}
                 onChange={(e) => onFormWhatsappChange?.(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white focus:outline-none text-xs text-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white focus:outline-none text-xs text-slate-900 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
               />
             </div>
 
@@ -210,9 +210,9 @@ export default function UrbanLocalTemplate({
                 disabled={mode === "preview" || isSubmitting}
                 checked={mode === "public" ? consentAccepted : true}
                 onChange={(e) => onConsentAcceptedChange?.(e.target.checked)}
-                className="mt-0.5 rounded border-slate-300 text-blue-600 h-3.5 w-3.5 focus:ring-blue-500 focus:ring-offset-0 disabled:opacity-50"
+                className="mt-0.5 rounded border-slate-300 text-blue-600 h-3.5 w-3.5 focus:ring-blue-500 focus:ring-offset-0 disabled:opacity-60"
               />
-              <label htmlFor="consent-check" className="text-[9.5px] text-slate-550 leading-snug font-medium select-none cursor-pointer">
+              <label htmlFor="consent-check" className="text-[9.5px] text-slate-700 leading-snug font-medium select-none cursor-pointer">
                 {data.consentText || "Acepto los términos y el envío de mensajes."}
               </label>
             </div>
@@ -234,7 +234,7 @@ export default function UrbanLocalTemplate({
                 type="submit"
                 disabled={isSubmitting}
                 style={{ backgroundColor: primaryColor }}
-                className="w-full py-3 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider transition-all select-none shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="w-full py-3 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider transition-all select-none shadow-md shadow-blue-500/20 hover:shadow-blue-500/30 active:scale-95 disabled:opacity-60 cursor-pointer"
               >
                 {isSubmitting ? "Registrando..." : "Activar mi beneficio"}
               </button>
@@ -254,13 +254,13 @@ export default function UrbanLocalTemplate({
       </div>
 
       {/* Footer del Local */}
-      <div className="pt-3 border-t border-slate-100 text-center space-y-1">
+      <div className="pt-3 border-t border-slate-200 text-center space-y-1">
         {data.address && (
-          <p className="text-[9px] text-slate-400 font-medium">
+          <p className="text-[9px] text-slate-600 font-medium">
             📍 {data.address}
           </p>
         )}
-        <p className="text-[8px] text-slate-350 font-bold uppercase tracking-widest">
+        <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">
           Tecnología Smart NFC
         </p>
       </div>

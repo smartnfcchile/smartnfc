@@ -824,3 +824,203 @@ export async function getActiveLocalFounderLicensesCountAction(): Promise<number
   });
   return count;
 }
+
+// 11. Registrar Tarjeta Física NFC (Fase 5.2 - Inventario Superadmin)
+export async function registerPhysicalCardSuperadminAction(data: {
+  token?: string;
+  companyId: string;
+  status?: "PENDIENTE_GRABACION" | "GRABADA" | "ENVIADA" | "ENTREGADA" | "ACTIVA" | "SUSPENDIDA";
+  batchCode?: string;
+}) {
+  try {
+    const superadmin = await requireSuperAdmin();
+
+    if (!data.companyId) {
+      return { success: false, error: "Debe seleccionar una empresa para asociar la tarjeta." };
+    }
+
+    const companyExists = await prisma.company.findUnique({
+      where: { id: data.companyId }
+    });
+    if (!companyExists) {
+      return { success: false, error: "La empresa seleccionada no existe." };
+    }
+
+    // Generar o sanitizar token único e opaco
+    const rawToken = data.token ? data.token.trim().toLowerCase() : "";
+    const finalToken = rawToken || crypto.randomBytes(8).toString("hex");
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(finalToken)) {
+      return { success: false, error: "El token debe contener solo caracteres alfanuméricos válidos." };
+    }
+
+    // Validar token único
+    const existingToken = await prisma.physicalNfcCard.findUnique({
+      where: { token: finalToken }
+    });
+    if (existingToken) {
+      return { success: false, error: "El token ingresado ya existe en la base de datos." };
+    }
+
+    const cardStatus = data.status || "ENTREGADA";
+
+    const newCard = await prisma.physicalNfcCard.create({
+      data: {
+        token: finalToken,
+        companyId: data.companyId,
+        status: cardStatus as any,
+        batchCode: data.batchCode ? data.batchCode.trim() : null,
+        deliveredAt: cardStatus === "ENTREGADA" || cardStatus === "ACTIVA" ? new Date() : null,
+        activatedAt: cardStatus === "ACTIVA" ? new Date() : null
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: superadmin.id,
+        action: "PHYSICAL_CARD_REGISTERED",
+        entityType: "PHYSICAL_CARD",
+        entityId: newCard.id,
+        companyId: data.companyId,
+        metadata: JSON.stringify({
+          token: finalToken,
+          status: cardStatus,
+          companyId: data.companyId
+        })
+      }
+    });
+
+    revalidatePath("/superadmin/tarjetas");
+    revalidatePath(`/superadmin/empresas/${data.companyId}`);
+    return {
+      success: true,
+      cardId: newCard.id,
+      token: newCard.token
+    };
+  } catch (err: any) {
+    console.error("Error al registrar tarjeta física:", err);
+    return {
+      success: false,
+      error: err.message || "Error interno al registrar la tarjeta física."
+    };
+  }
+}
+
+// 12. Reasignar Empresa de Tarjeta Física (Fase 5.2 - Inventario Superadmin)
+export async function assignPhysicalCardSuperadminAction(data: {
+  cardPhysicalId: string;
+  targetCompanyId: string;
+}) {
+  try {
+    const superadmin = await requireSuperAdmin();
+
+    const physicalCard = await prisma.physicalNfcCard.findUnique({
+      where: { id: data.cardPhysicalId }
+    });
+    if (!physicalCard) {
+      return { success: false, error: "Tarjeta física no encontrada." };
+    }
+
+    // Regla de seguridad: Si la tarjeta está vinculada a un destino B2B o Local, no puede reasignarse directamente
+    if (physicalCard.cardId || physicalCard.localTouchpointId) {
+      return {
+        success: false,
+        error: "La tarjeta física se encuentra actualmente vinculada a un destino (B2B o Local). Primero debe desvincular el destino de forma explícita antes de cambiar de empresa."
+      };
+    }
+
+    const targetCompany = await prisma.company.findUnique({
+      where: { id: data.targetCompanyId }
+    });
+    if (!targetCompany) {
+      return { success: false, error: "La empresa destino no existe." };
+    }
+
+    const updated = await prisma.physicalNfcCard.update({
+      where: { id: data.cardPhysicalId },
+      data: {
+        companyId: data.targetCompanyId
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: superadmin.id,
+        action: "PHYSICAL_CARD_REASSIGNED_COMPANY",
+        entityType: "PHYSICAL_CARD",
+        entityId: updated.id,
+        companyId: data.targetCompanyId,
+        metadata: JSON.stringify({
+          cardPhysicalId: updated.id,
+          previousCompanyId: physicalCard.companyId,
+          newCompanyId: data.targetCompanyId
+        })
+      }
+    });
+
+    revalidatePath("/superadmin/tarjetas");
+    revalidatePath(`/superadmin/empresas/${physicalCard.companyId}`);
+    revalidatePath(`/superadmin/empresas/${data.targetCompanyId}`);
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al reasignar tarjeta física:", err);
+    return {
+      success: false,
+      error: err.message || "Error interno al reasignar tarjeta física."
+    };
+  }
+}
+
+// 13. Desvincular Destino de Tarjeta Física desde Superadmin (Fase 5.2)
+export async function disassociatePhysicalCardSuperadminAction(cardPhysicalId: string) {
+  try {
+    const superadmin = await requireSuperAdmin();
+
+    const physicalCard = await prisma.physicalNfcCard.findUnique({
+      where: { id: cardPhysicalId }
+    });
+    if (!physicalCard) {
+      return { success: false, error: "Tarjeta física no encontrada." };
+    }
+
+    if (!physicalCard.cardId && !physicalCard.localTouchpointId) {
+      return { success: false, error: "La tarjeta física no tiene un destino vinculado." };
+    }
+
+    const previousCardId = physicalCard.cardId;
+    const previousTouchpointId = physicalCard.localTouchpointId;
+
+    const updated = await prisma.physicalNfcCard.update({
+      where: { id: cardPhysicalId },
+      data: {
+        cardId: null,
+        localTouchpointId: null
+      }
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: superadmin.id,
+        action: "PHYSICAL_CARD_DESASSOCIATED_DESTINATION",
+        entityType: "PHYSICAL_CARD",
+        entityId: updated.id,
+        companyId: physicalCard.companyId,
+        metadata: JSON.stringify({
+          cardPhysicalId: updated.id,
+          previousCardId,
+          previousTouchpointId
+        })
+      }
+    });
+
+    revalidatePath("/superadmin/tarjetas");
+    revalidatePath(`/superadmin/empresas/${physicalCard.companyId}`);
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al desvincular destino de tarjeta física:", err);
+    return {
+      success: false,
+      error: err.message || "Error interno al desvincular destino."
+    };
+  }
+}

@@ -57,47 +57,6 @@ export default function CampanaEditorClient({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Número comercial de WhatsApp centralizado
-  const rawSalesWhatsapp = process.env.NEXT_PUBLIC_SALES_WHATSAPP || "+56944891518";
-  const salesWhatsappClean = rawSalesWhatsapp.replace(/[^0-9]/g, "");
-  const salesWhatsappUrl = `https://wa.me/${salesWhatsappClean}?text=${encodeURIComponent(
-    "Hola, quisiera solicitar tarjetas NFC adicionales para mi local."
-  )}`;
-
-  const handleAssociateCard = async (cardPhysicalId: string, touchpointId: string) => {
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    try {
-      const res = await associateNfcCardAction({ cardPhysicalId, touchpointId });
-      if (res.success) {
-        setSuccessMsg("¡Tarjeta NFC vinculada con éxito!");
-        setTimeout(() => setSuccessMsg(null), 3000);
-        router.refresh();
-      } else {
-        setErrorMsg(res.error || "Error al vincular la tarjeta.");
-      }
-    } catch (err: any) {
-      setErrorMsg("Error al vincular la tarjeta.");
-    }
-  };
-
-  const handleDisassociateCard = async (cardPhysicalId: string) => {
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    try {
-      const res = await disassociateNfcCardAction({ cardPhysicalId });
-      if (res.success) {
-        setSuccessMsg("¡Tarjeta NFC desvinculada con éxito!");
-        setTimeout(() => setSuccessMsg(null), 3000);
-        router.refresh();
-      } else {
-        setErrorMsg(res.error || "Error al desvincular la tarjeta.");
-      }
-    } catch (err: any) {
-      setErrorMsg("Error al desvincular la tarjeta.");
-    }
-  };
-
   // Estados del formulario
   const [name, setName] = useState(campaign.name);
   const [logoUrl, setLogoUrl] = useState(campaign.logoUrl);
@@ -443,20 +402,20 @@ export default function CampanaEditorClient({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-slate-700 dark:text-slate-300">
                     <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1">
                       <span className="font-black text-blue-600 dark:text-blue-400 block text-xs">Paso 1</span>
-                      <p className="font-medium leading-relaxed">Crea o identifica el punto de contacto físico (ej. "Mostrador").</p>
+                      <p className="font-medium leading-relaxed">Define el lugar donde instalarás el soporte.</p>
                     </div>
                     <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1">
                       <span className="font-black text-blue-600 dark:text-blue-400 block text-xs">Paso 2</span>
-                      <p className="font-medium leading-relaxed">Selecciona una tarjeta NFC entregada por Smart NFC a tu empresa.</p>
+                      <p className="font-medium leading-relaxed">Descarga el QR generado para la gráfica.</p>
                     </div>
                     <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1">
                       <span className="font-black text-blue-600 dark:text-blue-400 block text-xs">Paso 3</span>
-                      <p className="font-medium leading-relaxed">Vincúlala con un clic y prueba el escaneo en el local.</p>
+                      <p className="font-medium leading-relaxed">Smart NFC Chile vincula y prueba la tarjeta NFC incluida en el pack.</p>
                     </div>
                   </div>
                   <div className="text-[10.5px] text-slate-600 dark:text-slate-400 space-y-1 pt-1 font-medium">
                     <p>• <strong>Código QR:</strong> Se descarga e imprime de inmediato sin dependencias de hardware.</p>
-                    <p>• <strong>Chip NFC:</strong> La tarjeta no requiere reprogramación manual; Smart NFC resuelve el destino de forma dinámica a nivel servidor.</p>
+                    <p>• <strong>Soporte y NFC:</strong> Configurado, despachado y controlado por la administración central.</p>
                   </div>
                 </div>
 
@@ -489,17 +448,10 @@ export default function CampanaEditorClient({
                             <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
                               {assignedCard ? (
                                 <div className="space-y-2">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                      <p className="text-[10px] text-blue-600 dark:text-blue-400 font-extrabold uppercase">✓ NFC Vinculado</p>
-                                      <p className="text-[10px] text-slate-700 dark:text-slate-300 font-mono mt-0.5">Token: {assignedCard.token}</p>
-                                    </div>
-                                    <button
-                                      onClick={() => handleDisassociateCard(assignedCard.id)}
-                                      className="text-[9px] font-black text-rose-600 dark:text-rose-400 hover:underline uppercase tracking-wider cursor-pointer border border-rose-500/30 px-2 py-1 rounded bg-rose-500/10 transition"
-                                    >
-                                      Desvincular
-                                    </button>
+                                  <div>
+                                    <p className="text-[10px] text-blue-600 dark:text-blue-400 font-extrabold uppercase">✓ Punto de contacto activo</p>
+                                    <p className="text-xs text-slate-700 dark:text-slate-300 font-bold mt-1">La tarjeta NFC y el código QR dirigen correctamente a esta campaña.</p>
+                                    <p className="text-[9.5px] text-slate-500 font-mono mt-1">Token físico: {assignedCard.token}</p>
                                   </div>
 
                                   {/* URL grabada físicamente en chip */}
@@ -521,46 +473,11 @@ export default function CampanaEditorClient({
                                   </div>
                                 </div>
                               ) : (
-                                <div className="space-y-2">
-                                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">Sin tarjeta física NFC asignada a este punto.</p>
-                                  {initialAvailableCards.length > 0 ? (
-                                    <div className="flex items-center gap-2">
-                                      <select
-                                        id={`select-${tp.id}`}
-                                        className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-[10px] text-slate-900 dark:text-slate-200 focus:outline-none flex-1 font-mono"
-                                      >
-                                        <option value="">-- Seleccionar tarjeta libre --</option>
-                                        {initialAvailableCards.map((card: any) => (
-                                          <option key={card.id} value={card.id}>
-                                            {card.token.substring(0, 16)}...
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <button
-                                        onClick={() => {
-                                          const select = document.getElementById(`select-${tp.id}`) as HTMLSelectElement;
-                                          if (select && select.value) {
-                                            handleAssociateCard(select.value, tp.id);
-                                          }
-                                        }}
-                                        className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold px-3 py-2 rounded-lg text-[9.5px] transition cursor-pointer"
-                                      >
-                                        Vincular
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
-                                      <p className="text-[10px] text-amber-800 dark:text-amber-300 font-bold">No tienes tarjetas NFC libres disponibles en tu inventario.</p>
-                                      <a
-                                        href={salesWhatsappUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-lg transition"
-                                      >
-                                        💬 Solicitar Tarjetas NFC (WhatsApp)
-                                      </a>
-                                    </div>
-                                  )}
+                                <div className="space-y-1">
+                                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-extrabold uppercase">⏳ Configuración en preparación</p>
+                                  <p className="text-xs text-slate-700 dark:text-slate-300 font-bold mt-1">
+                                    Smart NFC Chile está preparando la tarjeta NFC incluida en tu pack. Mientras tanto, el código QR de este punto ya está disponible.
+                                  </p>
                                 </div>
                               )}
                             </div>

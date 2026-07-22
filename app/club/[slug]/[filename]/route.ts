@@ -7,16 +7,22 @@ import { generateSingleVcfString } from "../../../../lib/vcf";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> | { slug: string } }
+  { params }: { params: Promise<{ slug: string; filename: string }> | { slug: string; filename: string } }
 ) {
   // Manejo seguro del parámetro asíncrono en Next.js 15+
   const resolvedParams = await params;
   const slug = resolvedParams.slug;
+  const filename = resolvedParams.filename;
 
   try {
+    // 0. Validar nombre de archivo
+    if (filename !== "contacto.vcf") {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+
     // 1. Validar slug
     if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
-      return new NextResponse(`Campaña no disponible. Invalid slug: ${slug || "undefined"}. Resolved params: ${JSON.stringify(resolvedParams)}`, {
+      return new NextResponse("Campaña no disponible", {
         status: 404,
         headers: { "X-Content-Type-Options": "nosniff" }
       });
@@ -37,7 +43,7 @@ export async function GET(
     });
 
     if (!campaign || campaign.status !== "PUBLISHED") {
-      return new NextResponse(`Campaña no disponible. Campaign exist: ${campaign !== null}. Status: ${campaign?.status}. Slug: ${slug}`, {
+      return new NextResponse("Campaña no disponible", {
         status: 404,
         headers: {
           "X-Content-Type-Options": "nosniff",

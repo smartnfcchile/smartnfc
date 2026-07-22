@@ -16,7 +16,7 @@ export async function GET(
   try {
     // 1. Validar slug
     if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
-      return new NextResponse("Campaña no disponible", {
+      return new NextResponse(`Campaña no disponible. Invalid slug: ${slug || "undefined"}. Resolved params: ${JSON.stringify(resolvedParams)}`, {
         status: 404,
         headers: { "X-Content-Type-Options": "nosniff" }
       });
@@ -37,7 +37,7 @@ export async function GET(
     });
 
     if (!campaign || campaign.status !== "PUBLISHED") {
-      return new NextResponse("Campaña no disponible", {
+      return new NextResponse(`Campaña no disponible. Campaign exist: ${campaign !== null}. Status: ${campaign?.status}. Slug: ${slug}`, {
         status: 404,
         headers: {
           "X-Content-Type-Options": "nosniff",

@@ -72,7 +72,6 @@ export async function GET(
       const sub = item.subscriber;
       const snap = batch.campaign?.publishedSnapshot as any;
       const campaignName = snap?.clubName || batch.campaign?.name || "Beneficios";
-      
       return {
         fullName: `Club ${campaignName} - ${sub.name}`,
         phone: sub.whatsapp

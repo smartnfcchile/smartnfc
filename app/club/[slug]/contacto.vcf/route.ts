@@ -79,7 +79,6 @@ export async function GET(
     const orgName = snap.businessName || campaign.name;
     const clubName = snap.clubName || orgName;
     const address = snap.address || "";
-    
     // Obtener la URL pública de la landing del club
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://smartnfc.cl";
     const clubUrl = `${appUrl}/club/${slug}`;

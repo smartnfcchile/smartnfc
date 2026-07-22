@@ -14,7 +14,7 @@ import {
 interface Subscriber {
   id: string;
   name: string;
-  whatsapp: string;
+  whatsappMasked: string;
   status: string;
   createdAt: string;
   firstSubscribedAt: string;
@@ -53,7 +53,7 @@ interface Batch {
     id: string;
     subscriber: {
       name: string;
-      whatsapp: string;
+      whatsappMasked: string;
     };
   }>;
 }
@@ -66,7 +66,7 @@ interface Removal {
   subscriber: {
     id: string;
     name: string;
-    whatsapp: string;
+    whatsappMasked: string;
     campaign: {
       name: string;
     };
@@ -80,12 +80,7 @@ interface SubscribersClientProps {
   campaigns: Array<{ id: string; name: string }>;
 }
 
-function maskWhatsApp(phone: string) {
-  if (!phone) return "";
-  const cleaned = phone.replace(/[^\d]/g, "");
-  if (cleaned.length < 6) return "****";
-  return `+${cleaned.substring(0, cleaned.length - 4)} ****`;
-}
+
 
 // Helper para calcular el rango de hoy en Santiago de Chile
 function getChileTodayRange() {
@@ -452,7 +447,7 @@ export default function SubscribersClient({
                       <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20 transition">
                         <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{sub.name}</td>
                         <td className="py-3.5 px-4 font-mono text-slate-700 dark:text-slate-300">
-                          {maskWhatsApp(sub.whatsapp)}
+                          {sub.whatsappMasked}
                         </td>
                         <td className="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-400">{sub.campaign.name}</td>
                         <td className="py-3.5 px-4">
@@ -615,7 +610,7 @@ export default function SubscribersClient({
                           {rem.subscriber.name}
                         </td>
                         <td className="py-3.5 px-4 font-mono text-slate-700 dark:text-slate-300">
-                          {maskWhatsApp(rem.subscriber.whatsapp)}
+                          {rem.subscriber.whatsappMasked}
                         </td>
                         <td className="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-400">
                           {rem.subscriber.campaign.name}

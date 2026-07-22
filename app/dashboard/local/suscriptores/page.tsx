@@ -86,10 +86,39 @@ export default async function SubscribersPage() {
     }
   });
 
+function maskWhatsApp(phone: string) {
+  if (!phone) return "";
+  const cleaned = phone.replace(/[^\d]/g, "");
+  if (cleaned.length < 6) return "****";
+  return `+${cleaned.substring(0, cleaned.length - 4)} ****`;
+}
+
   // Serializar objetos para evitar problemas con campos Date en Client Components
-  const serializedSubscribers = JSON.parse(JSON.stringify(subscribers));
-  const serializedBatches = JSON.parse(JSON.stringify(batches));
-  const serializedRemovals = JSON.parse(JSON.stringify(removals));
+  // y asegurar que NUNCA viaje el teléfono completo al navegador
+  const serializedSubscribers = JSON.parse(JSON.stringify(subscribers)).map((sub: any) => {
+    sub.whatsappMasked = maskWhatsApp(sub.whatsapp);
+    delete sub.whatsapp;
+    return sub;
+  });
+
+  const serializedBatches = JSON.parse(JSON.stringify(batches)).map((batch: any) => {
+    batch.items.forEach((item: any) => {
+      if (item.subscriber) {
+        item.subscriber.whatsappMasked = maskWhatsApp(item.subscriber.whatsapp);
+        delete item.subscriber.whatsapp;
+      }
+    });
+    return batch;
+  });
+
+  const serializedRemovals = JSON.parse(JSON.stringify(removals)).map((rem: any) => {
+    if (rem.subscriber) {
+      rem.subscriber.whatsappMasked = maskWhatsApp(rem.subscriber.whatsapp);
+      delete rem.subscriber.whatsapp;
+    }
+    return rem;
+  });
+
   const serializedCampaigns = campaigns.map(c => ({ id: c.id, name: c.name }));
 
   return (

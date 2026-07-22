@@ -42,16 +42,17 @@ enum EventType {
 }
 
 model Company {
-  id               String                  @id @default(cuid())
+  id               String                      @id @default(cuid())
   name             String
-  slug             String?                 @unique
-  plan             PlanType                @default(FREE)
-  isActive         Boolean                 @default(true)
+  slug             String?                     @unique
+  plan             PlanType                    @default(FREE)
+  isActive         Boolean                     @default(true)
   users            User[]
   cards            Card[]
   physicalNfcCards PhysicalNfcCard[]
   localCampaigns   LocalCampaign[]
   productLicenses  CompanyProductLicense[]
+  broadcastBatches LocalBroadcastExportBatch[]
 
   // Control de licencias y capacidades (Requisito 9)
   maxIdentities Int       @default(5)
@@ -79,6 +80,12 @@ model User {
   cards            Card[]
   activationTokens UserActivationToken[]
   resetTokens      PasswordResetToken[]
+
+  // Relaciones de difusión de WhatsApp
+  createdBatches    LocalBroadcastExportBatch[] @relation("BatchCreatedByUser")
+  confirmedBatches  LocalBroadcastExportBatch[] @relation("BatchConfirmedByUser")
+  requestedRemovals LocalBroadcastRemoval[]     @relation("RemovalRequestedByUser")
+  completedRemovals LocalBroadcastRemoval[]     @relation("RemovalCompletedByUser")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -276,6 +283,7 @@ enum LocalEventType {
   QR_SCAN
   SUBSCRIPTION
   WHATSAPP_REDIRECT
+  VCF_DOWNLOAD
 }
 
 model LocalCampaign {
@@ -312,9 +320,10 @@ model LocalCampaign {
   publishedVersion  Int       @default(0)
   publishedAt       DateTime?
 
-  touchpoints LocalTouchpoint[]
-  subscribers LocalSubscriber[]
-  events      LocalEvent[]
+  touchpoints      LocalTouchpoint[]
+  subscribers      LocalSubscriber[]
+  events           LocalEvent[]
+  broadcastBatches LocalBroadcastExportBatch[]
 
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
@@ -340,16 +349,19 @@ model LocalTouchpoint {
 }
 
 model LocalSubscriber {
-  id                String                @id @default(cuid())
+  id                String                     @id @default(cuid())
   campaignId        String
-  campaign          LocalCampaign         @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  campaign          LocalCampaign              @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   name              String
   whatsapp          String
-  status            LocalSubscriberStatus @default(ACTIVE)
-  firstSubscribedAt DateTime              @default(now())
-  lastInteractionAt DateTime              @default(now())
+  status            LocalSubscriberStatus      @default(ACTIVE)
+  firstSubscribedAt DateTime                   @default(now())
+  lastSubscribedAt  DateTime                   @default(now())
+  lastInteractionAt DateTime                   @default(now())
   consentRecords    LocalConsentRecord[]
   events            LocalEvent[]
+  exportItems       LocalBroadcastExportItem[]
+  removals          LocalBroadcastRemoval[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -373,6 +385,9 @@ model LocalConsentRecord {
   ipHash         String?
   userAgent      String?
   metadata       Json?
+
+  exportItems LocalBroadcastExportItem[]
+  removals    LocalBroadcastRemoval[]
 
   createdAt DateTime @default(now())
 
@@ -462,4 +477,70 @@ model CompanyProductLicense {
   @@unique([companyId, product])
   @@index([companyId, status])
   @@index([product, status])
+}
+
+enum LocalBroadcastBatchStatus {
+  EXPORTED
+  CONFIRMED
+  CANCELLED
+}
+
+enum BroadcastRemovalReason {
+  OPTED_OUT
+  BLOCKED
+}
+
+model LocalBroadcastExportBatch {
+  id                String                    @id @default(cuid())
+  companyId         String
+  company           Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  campaignId        String?
+  campaign          LocalCampaign?            @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  createdByUserId   String
+  createdByUser     User                      @relation("BatchCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt         DateTime                  @default(now())
+  confirmedAt       DateTime?
+  confirmedByUserId String?
+  confirmedByUser   User?                     @relation("BatchConfirmedByUser", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  status            LocalBroadcastBatchStatus @default(EXPORTED)
+
+  // Garantía real de concurrencia: único lote EXPORTED por compañía/campaña
+  activeScopeKey String? @unique
+
+  items LocalBroadcastExportItem[]
+
+  @@index([companyId])
+}
+
+model LocalBroadcastExportItem {
+  id              String                    @id @default(cuid())
+  batchId         String
+  batch           LocalBroadcastExportBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  subscriberId    String
+  subscriber      LocalSubscriber           @relation(fields: [subscriberId], references: [id], onDelete: Restrict)
+  consentRecordId String
+  consentRecord   LocalConsentRecord        @relation(fields: [consentRecordId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                  @default(now())
+
+  @@unique([batchId, subscriberId])
+}
+
+model LocalBroadcastRemoval {
+  id                String                 @id @default(cuid())
+  subscriberId      String
+  subscriber        LocalSubscriber        @relation(fields: [subscriberId], references: [id], onDelete: Restrict)
+  consentRecordId   String
+  consentRecord     LocalConsentRecord     @relation(fields: [consentRecordId], references: [id], onDelete: Restrict)
+  reason            BroadcastRemovalReason
+  requestedAt       DateTime               @default(now())
+  requestedByUserId String
+  requestedByUser   User                   @relation("RemovalRequestedByUser", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  completedAt       DateTime?
+  completedByUserId String?
+  completedByUser   User?                  @relation("RemovalCompletedByUser", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@unique([subscriberId, consentRecordId])
+  @@index([subscriberId])
 }

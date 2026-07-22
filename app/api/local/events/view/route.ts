@@ -88,21 +88,26 @@ export async function POST(request: NextRequest) {
     const safeUserAgent = userAgent ? userAgent.substring(0, 255) : null;
     const safeReferer = referer ? referer.substring(0, 255) : null;
 
-    // 6. Registrar evento (Requisito H-7)
-    await prisma.localEvent.create({
-      data: {
-        campaignId: campaign.id,
-        touchpointId,
-        eventType: finalEventType,
-        ipHash,
-        userAgent: safeUserAgent,
-        referer: safeReferer
-      }
-    });
+    // 6. Registrar evento (Requisito H-7) - Fail-Open
+    try {
+      await prisma.localEvent.create({
+        data: {
+          campaignId: campaign.id,
+          touchpointId,
+          eventType: finalEventType,
+          ipHash,
+          userAgent: safeUserAgent,
+          referer: safeReferer
+        }
+      });
+    } catch (trackErr) {
+      console.error("Error silencioso (fail-open) al registrar evento de visita:", trackErr);
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
-    console.error("Error al registrar evento local:", err);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    console.error("Error al procesar petición de evento local:", err);
+    // Retornamos 200 OK para no romper la experiencia de usuario si falla el backend de tracking
+    return NextResponse.json({ success: true });
   }
 }

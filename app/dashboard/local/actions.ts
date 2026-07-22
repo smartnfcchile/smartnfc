@@ -271,85 +271,120 @@ export async function archiveLocalCampaignAction(campaignId: string) {
 
 // 5. Suscripción Pública (Requisito 6 y Parte F)
 export async function subscribeToCampaignAction(slug: string, payload: any) {
-  // Validar payload con el schema de suscripción
-  const validated = publicSubscriptionSchema.parse(payload);
+  try {
+    // Validar payload con el schema de suscripción de forma segura
+    const parseResult = publicSubscriptionSchema.safeParse(payload);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0];
+      let friendlyMessage = "Datos de suscripción inválidos.";
+      if (firstError) {
+        if (firstError.path.includes("consentAccepted")) {
+          friendlyMessage = "Debes aceptar el consentimiento para continuar.";
+        } else if (firstError.path.includes("name")) {
+          friendlyMessage = firstError.message;
+        } else if (firstError.path.includes("whatsapp")) {
+          friendlyMessage = "El número de WhatsApp es inválido. Debe tener 9 dígitos (ej. 9XXXXXXXX) o incluir código de país.";
+        } else if (firstError.code === "unrecognized_keys") {
+          friendlyMessage = "La petición contiene campos no reconocidos.";
+        } else {
+          friendlyMessage = firstError.message;
+        }
+      }
+      return {
+        success: false,
+        error: friendlyMessage
+      };
+    }
 
-  // Honeypot Check (Requisito F-11)
-  if (validated.honeypot) {
-    return { success: true }; // Respuesta neutra exitosa para no revelar detección de spam
-  }
+    const validated = parseResult.data;
 
-  // Buscar campaña con su licencia de producto Local
-  const campaign = await prisma.localCampaign.findUnique({
-    where: { slug },
-    include: {
-      company: {
-        include: {
-          productLicenses: {
-            where: { product: "LOCAL" }
+    // Honeypot Check (Requisito F-11)
+    if (validated.honeypot) {
+      return { success: true }; // Respuesta neutra exitosa para no revelar detección de spam
+    }
+
+    // Buscar campaña con su licencia de producto Local
+    const campaign = await prisma.localCampaign.findUnique({
+      where: { slug },
+      include: {
+        company: {
+          include: {
+            productLicenses: {
+              where: { product: "LOCAL" }
+            }
           }
         }
       }
-    }
-  });
-
-  // Validar que la empresa tenga la licencia Local activa (Requisito Parte G)
-  const localLicense = campaign?.company?.productLicenses?.[0];
-  if (!localLicense || localLicense.status !== "ACTIVE") {
-    return { success: false, error: "El club de beneficios no está activo debido a problemas con su licencia." };
-  }
-
-  // Exigir que esté publicada (Requisito F-7)
-  if (!campaign || campaign.status !== LocalCampaignStatus.PUBLISHED) {
-    return { success: false, error: "La campaña no está disponible." };
-  }
-
-  // Resolver touchpoint si se provee código público
-  let touchpointId: string | null = null;
-  if (validated.touchpointCode) {
-    const tp = await prisma.localTouchpoint.findUnique({
-      where: { code: validated.touchpointCode }
     });
-    if (tp && tp.campaignId === campaign.id && tp.isActive) {
-      touchpointId = tp.id;
+
+    if (!campaign) {
+      return { success: false, error: "La campaña no está disponible." };
     }
-  }
 
-  // Capturar IP Hash, UA y Referer del servidor de Next.js
-  const headersList = await headers();
-  const ip = headersList.get("x-forwarded-for") || "127.0.0.1";
-  const userAgent = headersList.get("user-agent") || "";
-  const referer = headersList.get("referer") || "";
-  const clientIp = ip.split(",")[0].trim();
+    // Validar que la empresa tenga la licencia Local activa (Requisito Parte G)
+    const localLicense = campaign.company?.productLicenses?.[0];
+    if (!localLicense || localLicense.status !== "ACTIVE") {
+      return { success: false, error: "El club de beneficios no está activo debido a problemas con su licencia." };
+    }
 
-  // 1. Rate Limiting persistente (Requisito Parte C)
-  const limitCheck = await checkRateLimit(clientIp, "LOCAL_SUBSCRIBE", campaign.id);
-  if (!limitCheck.allowed) {
-    return {
-      success: false,
-      error: "Has superado el límite de intentos de suscripción. Por favor, inténtalo más tarde."
-    };
-  }
+    // Exigir que esté publicada (Requisito F-7)
+    if (campaign.status !== LocalCampaignStatus.PUBLISHED) {
+      return { success: false, error: "La campaña no está disponible." };
+    }
 
-  const ipHash = hashIp(clientIp);
-
-  // Transacción segura para evitar registros parciales sin consentimiento (Requisito F-12)
-  await prisma.$transaction(async (tx) => {
-    // Buscar si ya existe el suscriptor
-    const existing = await tx.localSubscriber.findUnique({
-      where: {
-        campaignId_whatsapp: {
-          campaignId: campaign.id,
-          whatsapp: validated.whatsapp
-        }
-      },
-      include: {
-        consentRecords: {
-          orderBy: { acceptedAt: "desc" },
-          take: 1
-        }
+    // Resolver touchpoint si se provee código público
+    let touchpointId: string | null = null;
+    if (validated.touchpointCode) {
+      const tp = await prisma.localTouchpoint.findUnique({
+        where: { code: validated.touchpointCode }
+      });
+      if (tp && tp.campaignId === campaign.id && tp.isActive) {
+        touchpointId = tp.id;
       }
-    });
+    }
+
+    // Capturar IP Hash, UA y Referer del servidor de Next.js
+    let userAgent = "";
+    let referer = "";
+    let clientIp = "127.0.0.1";
+    try {
+      const headersList = await headers();
+      const ip = headersList.get("x-forwarded-for") || "127.0.0.1";
+      userAgent = headersList.get("user-agent") || "";
+      referer = headersList.get("referer") || "";
+      clientIp = ip.split(",")[0].trim();
+    } catch {
+      // Fallback para ejecución fuera del request scope (ej. scripts de prueba CLI)
+    }
+
+    // 1. Rate Limiting persistente (Requisito Parte C)
+    const limitCheck = await checkRateLimit(clientIp, "LOCAL_SUBSCRIBE", campaign.id);
+    if (!limitCheck.allowed) {
+      return {
+        success: false,
+        error: "Has superado el límite de intentos de suscripción. Por favor, inténtalo más tarde."
+      };
+    }
+
+    const ipHash = hashIp(clientIp);
+
+    // Transacción segura para evitar registros parciales sin consentimiento (Requisito F-12)
+    await prisma.$transaction(async (tx) => {
+      // Buscar si ya existe el suscriptor
+      const existing = await tx.localSubscriber.findUnique({
+        where: {
+          campaignId_whatsapp: {
+            campaignId: campaign.id,
+            whatsapp: validated.whatsapp
+          }
+        },
+        include: {
+          consentRecords: {
+            orderBy: { acceptedAt: "desc" },
+            take: 1
+          }
+        }
+      });
 
     let subscriberId: string;
 
@@ -451,6 +486,13 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
     success: true,
     whatsappLink
   };
+  } catch (err: any) {
+    console.error("Error inesperado en suscripción pública:", err);
+    return {
+      success: false,
+      error: "No pudimos completar tu registro. Inténtalo nuevamente."
+    };
+  }
 }
 
 // 8. Obtener tarjetas NFC físicas disponibles para la empresa (Requisito Parte D)

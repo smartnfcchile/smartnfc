@@ -98,4 +98,7 @@ export const publicSubscriptionSchema = z.object({
   }).transform(normalizeChileanWhatsApp),
   honeypot: z.string().max(0, "Acceso no autorizado (Honeypot detectado).").optional().or(z.literal("")),
   touchpointCode: z.string().optional(),
+  consentAccepted: z.literal(true, {
+    message: "Debes aceptar el consentimiento para continuar."
+  }),
 }).strict();

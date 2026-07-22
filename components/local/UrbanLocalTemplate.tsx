@@ -35,6 +35,7 @@ type UrbanLocalTemplateProps = {
   isSuccess?: boolean;
   whatsappLink?: string;
   error?: string | null;
+  slug?: string;
 };
 
 export default function UrbanLocalTemplate({
@@ -50,7 +51,8 @@ export default function UrbanLocalTemplate({
   isSubmitting = false,
   isSuccess = false,
   whatsappLink = "",
-  error = null
+  error = null,
+  slug = ""
 }: UrbanLocalTemplateProps) {
   const primaryColor = data.primaryColor || "#2563eb";
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -128,12 +130,6 @@ export default function UrbanLocalTemplate({
               {data.benefitDescription || "Descripción del beneficio que recibirá el cliente."}
             </p>
           </div>
-
-          {data.benefitConditions && (
-            <div className="pt-2 border-t border-slate-200 text-[9.5px] text-slate-600 font-medium italic leading-normal">
-              * Condiciones: {data.benefitConditions}
-            </div>
-          )}
         </div>
 
         {/* Flujo condicional: Éxito vs Formulario */}
@@ -141,22 +137,41 @@ export default function UrbanLocalTemplate({
           <div className="bg-emerald-500/10 border border-emerald-500/30 p-5 rounded-2xl text-center space-y-4 animate-fadeIn">
             <div className="text-3xl text-emerald-600">🎉</div>
             <div className="space-y-1">
-              <h4 className="text-sm font-black text-slate-900">¡Ya eres parte del Club!</h4>
-              <p className="text-[11px] text-slate-700 font-medium leading-normal">
-                Presiona el botón para activar tu beneficio en WhatsApp enviando el mensaje preparado.
+              <h4 className="text-sm font-black text-white">¡Ya eres parte del Club!</h4>
+              <p className="text-[11px] text-slate-400 font-medium leading-normal">
+                Completa estos pasos para asegurarte de recibir nuestras ofertas.
               </p>
             </div>
-            {whatsappLink && (
-              <a
-                href={whatsappLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ backgroundColor: "#25d366" }}
-                className="inline-flex w-full items-center justify-center py-3 px-4 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition hover:scale-[1.02] active:scale-95 text-center cursor-pointer"
-              >
-                💬 Abrir WhatsApp
-              </a>
-            )}
+            
+            <div className="space-y-2.5 text-left pt-2">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Paso 1: Guarda el local</span>
+                <a
+                  href={`/club/${slug || "slug"}/contacto.vcf`}
+                  className="inline-flex w-full items-center justify-center py-2.5 px-4 bg-slate-900 border border-slate-800 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition hover:scale-[1.01] active:scale-95 text-center cursor-pointer"
+                >
+                  📥 Guardar contacto del local
+                </a>
+              </div>
+
+              <div className="space-y-1 pt-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Paso 2: Confirma tu suscripción</span>
+                {whatsappLink && (
+                  <a
+                    href={whatsappLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ backgroundColor: "#25d366" }}
+                    className="inline-flex w-full items-center justify-center py-2.5 px-4 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition hover:scale-[1.01] active:scale-95 text-center cursor-pointer"
+                  >
+                    💬 Confirmar por WhatsApp
+                  </a>
+                )}
+                <span className="text-[9px] text-slate-500 font-medium block text-center leading-normal pt-1">
+                  Para recibir las difusiones, guarda nuestro contacto y envía este mensaje.
+                </span>
+              </div>
+            </div>
           </div>
         ) : (
           <form

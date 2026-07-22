@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { hashIp } from "./security";
 
-export type RateLimitAction = "LOCAL_VIEW" | "LOCAL_SUBSCRIBE" | "LOCAL_WHATSAPP_REDIRECT";
+export type RateLimitAction = "LOCAL_VIEW" | "LOCAL_SUBSCRIBE" | "LOCAL_WHATSAPP_REDIRECT" | "LOCAL_VCF_DOWNLOAD";
 
 interface RateLimitConfig {
   limit: number;
@@ -11,7 +11,8 @@ interface RateLimitConfig {
 const ACTION_CONFIGS: Record<RateLimitAction, RateLimitConfig> = {
   LOCAL_VIEW: { limit: 30, windowSeconds: 60 },            // 30 por minuto
   LOCAL_SUBSCRIBE: { limit: 5, windowSeconds: 600 },        // 5 por 10 minutos (600s)
-  LOCAL_WHATSAPP_REDIRECT: { limit: 10, windowSeconds: 600 } // 10 por 10 minutos (600s)
+  LOCAL_WHATSAPP_REDIRECT: { limit: 10, windowSeconds: 600 }, // 10 por 10 minutos (600s)
+  LOCAL_VCF_DOWNLOAD: { limit: 10, windowSeconds: 600 }     // 10 por 10 minutos (600s)
 };
 
 /**

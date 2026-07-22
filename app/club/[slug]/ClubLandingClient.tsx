@@ -123,6 +123,7 @@ export default function ClubLandingClient({ slug, touchpointCode, initialData }:
         isSuccess={isSuccess}
         whatsappLink={whatsappLink}
         error={error}
+        slug={slug}
       />
     </div>
   );

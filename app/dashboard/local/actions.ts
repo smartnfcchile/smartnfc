@@ -12,7 +12,7 @@ import {
   publicSubscriptionSchema,
   normalizeChileanWhatsApp
 } from "../../../lib/validations/local";
-import { LocalCampaignStatus, LocalSubscriberStatus, LocalEventType } from "@prisma/client";
+import { LocalCampaignStatus, LocalSubscriberStatus, LocalEventType, LocalBroadcastBatchStatus, BroadcastRemovalReason } from "@prisma/client";
 import { hashIp } from "../../../lib/security";
 import { checkRateLimit } from "../../../lib/rateLimit";
 import { requireProductAccess, canCreateLocalCampaign } from "../../../lib/product-access";
@@ -368,6 +368,35 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
 
     const ipHash = hashIp(clientIp);
 
+    // 1.5. Control de bloqueados pre-transacción (Retorno exitoso neutral)
+    const preExisting = await prisma.localSubscriber.findUnique({
+      where: {
+        campaignId_whatsapp: {
+          campaignId: campaign.id,
+          whatsapp: validated.whatsapp
+        }
+      }
+    });
+
+    if (preExisting && preExisting.status === LocalSubscriberStatus.BLOCKED) {
+      let bizWhatsapp = campaign.whatsappNumber || "";
+      let bizMsg = campaign.whatsappMessage || "";
+      if (campaign.publishedSnapshot) {
+        const snap = campaign.publishedSnapshot as any;
+        bizWhatsapp = snap.whatsappNumber || bizWhatsapp;
+        bizMsg = snap.whatsappMessage || bizMsg;
+      }
+      const cleanBizWhatsapp = bizWhatsapp.replace(/[^\d]/g, "");
+      let personalizedMessage = bizMsg
+        .replace(/{nombre}/gi, validated.name)
+        .replace(/{name}/gi, validated.name);
+      const whatsappLink = `https://wa.me/${cleanBizWhatsapp}?text=${encodeURIComponent(personalizedMessage)}`;
+      return {
+        success: true,
+        whatsappLink
+      };
+    }
+
     // Transacción segura para evitar registros parciales sin consentimiento (Requisito F-12)
     await prisma.$transaction(async (tx) => {
       // Buscar si ya existe el suscriptor
@@ -386,54 +415,32 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
         }
       });
 
-    let subscriberId: string;
+      let subscriberId: string;
 
-    if (existing) {
-      // Si está bloqueado, rechazar silenciosamente o lanzar error genérico
-      if (existing.status === LocalSubscriberStatus.BLOCKED) {
-        throw new Error("No es posible procesar la suscripción en este momento.");
-      }
+      if (existing) {
+        subscriberId = existing.id;
+        const isOptedOut = existing.status === LocalSubscriberStatus.OPTED_OUT;
 
-      subscriberId = existing.id;
-
-      // Actualizar datos del suscriptor
-      await tx.localSubscriber.update({
-        where: { id: existing.id },
-        data: {
-          name: validated.name.trim(),
-          lastInteractionAt: new Date(),
-          status: LocalSubscriberStatus.ACTIVE // Reactivar si estaba OPTED_OUT
-        }
-      });
-
-      // Validar duplicidad de consentimiento para evitar duplicados por doble clic
-      const latestConsent = existing.consentRecords[0];
-      const now = new Date();
-      const isRecent = latestConsent && (now.getTime() - new Date(latestConsent.acceptedAt).getTime() < 10000);
-
-      if (!isRecent || latestConsent.consentVersion !== campaign.consentVersion) {
-        await tx.localConsentRecord.create({
+        // Actualizar datos del suscriptor
+        await tx.localSubscriber.update({
+          where: { id: existing.id },
           data: {
-            subscriberId: existing.id,
-            campaignId: campaign.id,
-            consentVersion: campaign.consentVersion,
-            consentText: campaign.consentText || "Consentimiento aceptado",
-            ipHash,
-            userAgent: userAgent.substring(0, 255),
-            source: touchpointId ? "NFC_QR" : "DIRECT"
+            name: validated.name.trim(),
+            lastInteractionAt: new Date(),
+            status: LocalSubscriberStatus.ACTIVE,
+            ...(isOptedOut ? { lastSubscribedAt: new Date() } : {})
           }
         });
-      }
-    } else {
-      // Crear nuevo suscriptor y su respectivo consentimiento
-      const created = await tx.localSubscriber.create({
-        data: {
-          campaignId: campaign.id,
-          name: validated.name.trim(),
-          whatsapp: validated.whatsapp,
-          status: LocalSubscriberStatus.ACTIVE,
-          consentRecords: {
-            create: {
+
+        // Validar duplicidad de consentimiento para evitar duplicados por doble clic
+        const latestConsent = existing.consentRecords[0];
+        const now = new Date();
+        const isRecent = latestConsent && (now.getTime() - new Date(latestConsent.acceptedAt).getTime() < 10000);
+
+        if (isOptedOut || !isRecent || latestConsent.consentVersion !== campaign.consentVersion) {
+          await tx.localConsentRecord.create({
+            data: {
+              subscriberId: existing.id,
               campaignId: campaign.id,
               consentVersion: campaign.consentVersion,
               consentText: campaign.consentText || "Consentimiento aceptado",
@@ -441,25 +448,45 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
               userAgent: userAgent.substring(0, 255),
               source: touchpointId ? "NFC_QR" : "DIRECT"
             }
+          });
+        }
+      } else {
+        // Crear nuevo suscriptor y su respectivo consentimiento
+        const created = await tx.localSubscriber.create({
+          data: {
+            campaignId: campaign.id,
+            name: validated.name.trim(),
+            whatsapp: validated.whatsapp,
+            status: LocalSubscriberStatus.ACTIVE,
+            lastSubscribedAt: new Date(),
+            consentRecords: {
+              create: {
+                campaignId: campaign.id,
+                consentVersion: campaign.consentVersion,
+                consentText: campaign.consentText || "Consentimiento aceptado",
+                ipHash,
+                userAgent: userAgent.substring(0, 255),
+                source: touchpointId ? "NFC_QR" : "DIRECT"
+              }
+            }
           }
+        });
+        subscriberId = created.id;
+      }
+
+      // Registrar el evento de conversión
+      await tx.localEvent.create({
+        data: {
+          campaignId: campaign.id,
+          touchpointId,
+          subscriberId,
+          eventType: LocalEventType.SUBSCRIPTION,
+          ipHash,
+          userAgent: userAgent.substring(0, 255),
+          referer: referer.substring(0, 255)
         }
       });
-      subscriberId = created.id;
-    }
-
-    // Registrar el evento de conversión
-    await tx.localEvent.create({
-      data: {
-        campaignId: campaign.id,
-        touchpointId,
-        subscriberId,
-        eventType: LocalEventType.SUBSCRIPTION,
-        ipHash,
-        userAgent: userAgent.substring(0, 255),
-        referer: referer.substring(0, 255)
-      }
     });
-  });
 
   // 7. Construir enlace de WhatsApp usando el snapshot publicado exclusivamente
   let bizWhatsapp = campaign.whatsappNumber || "";
@@ -610,3 +637,491 @@ export async function disassociateNfcCardAction(payload: { cardPhysicalId: strin
     return { success: false, error: "Error al deshacer la vinculación." };
   }
 }
+
+// ==========================================
+// FASE 6 — INCORPORACIÓN A DIFUSIÓN DE WHATSAPP
+// ==========================================
+
+export async function createBroadcastExportBatchAction(campaignId?: string) {
+  const admin = await requireCompanyAdmin();
+  const companyId = admin.companyId;
+
+  // Validar licencia activa
+  await requireProductAccess(companyId, "LOCAL");
+
+  // Validar consistencia de campaña si se provee
+  if (campaignId) {
+    const campaign = await prisma.localCampaign.findFirst({
+      where: { id: campaignId, companyId }
+    });
+    if (!campaign) {
+      return { success: false, error: "La campaña no pertenece a su empresa." };
+    }
+  }
+
+  // Generar activeScopeKey único
+  const activeScopeKey = `${companyId}:${campaignId ?? "TODAS"}`;
+
+  try {
+    // Buscar suscriptores ACTIVE de la empresa/campaña
+    const subscribers = await prisma.localSubscriber.findMany({
+      where: {
+        campaign: {
+          companyId,
+          ...(campaignId ? { id: campaignId } : {})
+        },
+        status: "ACTIVE"
+      },
+      include: {
+        consentRecords: {
+          orderBy: { acceptedAt: "desc" },
+          take: 1
+        },
+        exportItems: {
+          include: {
+            batch: true
+          }
+        }
+      },
+      take: 500
+    });
+
+    // Filtrar in-memory para asegurar "consentimiento exacto" que no esté ya confirmado
+    const pendingSubscribers = subscribers.filter(sub => {
+      const latestConsent = sub.consentRecords[0];
+      if (!latestConsent) return false;
+      
+      const hasConfirmedExport = sub.exportItems.some(item => 
+        item.consentRecordId === latestConsent.id && 
+        item.batch.status === "CONFIRMED"
+      );
+      return !hasConfirmedExport;
+    });
+
+    if (pendingSubscribers.length === 0) {
+      return { success: false, error: "No hay nuevos suscriptores con consentimientos pendientes de exportar." };
+    }
+
+    // Creación atómica dentro de una transacción con activeScopeKey único
+    const batch = await prisma.$transaction(async (tx) => {
+      // Doble verificación dentro de la transacción
+      const existing = await tx.localBroadcastExportBatch.findFirst({
+        where: { activeScopeKey, status: "EXPORTED" }
+      });
+      if (existing) {
+        return existing;
+      }
+
+      return await tx.localBroadcastExportBatch.create({
+        data: {
+          companyId,
+          campaignId: campaignId || null,
+          createdByUserId: admin.id,
+          status: "EXPORTED",
+          activeScopeKey,
+          items: {
+            create: pendingSubscribers.map(sub => ({
+              subscriberId: sub.id,
+              consentRecordId: sub.consentRecords[0].id
+            }))
+          }
+        }
+      });
+    });
+
+    // Auditoría
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "EXPORT_BATCH_CREATE",
+        entityType: "LOCAL_BROADCAST_BATCH",
+        entityId: batch.id,
+        companyId,
+        metadata: JSON.stringify({ campaignId: campaignId || "TODAS", count: pendingSubscribers.length })
+      }
+    });
+
+    try {
+      revalidatePath("/dashboard/local/suscriptores");
+    } catch {}
+    return { success: true, batchId: batch.id };
+  } catch (err: any) {
+    console.error("Error al crear lote de exportación:", err);
+    // Controlar el fallo de unicidad P2002 y retornar el lote EXPORTED existente
+    if (err.code === "P2002" || err.message?.includes("Unique constraint failed")) {
+      const existingBatch = await prisma.localBroadcastExportBatch.findFirst({
+        where: { activeScopeKey, status: "EXPORTED" }
+      });
+      if (existingBatch) {
+        return { success: true, batchId: existingBatch.id, alreadyActive: true };
+      }
+    }
+    return { success: false, error: "Error interno al generar el lote de exportación." };
+  }
+}
+
+export async function confirmBroadcastExportBatchAction(batchId: string) {
+  const admin = await requireCompanyAdmin();
+  const companyId = admin.companyId;
+
+  try {
+    const batch = await prisma.localBroadcastExportBatch.findUnique({
+      where: { id: batchId },
+      include: { items: { include: { subscriber: true } } }
+    });
+
+    if (!batch || batch.companyId !== companyId) {
+      return { success: false, error: "Lote no encontrado." };
+    }
+
+    if (batch.status === "CONFIRMED") {
+      return { success: true }; // Idempotencia
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Confirmar lote
+      await tx.localBroadcastExportBatch.update({
+        where: { id: batchId },
+        data: {
+          status: "CONFIRMED",
+          confirmedAt: new Date(),
+          confirmedByUserId: admin.id,
+          activeScopeKey: null // Liberar activeScopeKey para futuros lotes
+        }
+      });
+
+      // 2. Para aquellos suscriptores que ya tengan estado OPTED_OUT o BLOCKED, asegurar que tengan una remoción pendiente
+      for (const item of batch.items) {
+        const sub = item.subscriber;
+        if (sub.status === "OPTED_OUT" || sub.status === "BLOCKED") {
+          const existingRemoval = await tx.localBroadcastRemoval.findUnique({
+            where: {
+              subscriberId_consentRecordId: {
+                subscriberId: sub.id,
+                consentRecordId: item.consentRecordId
+              }
+            }
+          });
+          if (!existingRemoval) {
+            await tx.localBroadcastRemoval.create({
+              data: {
+                subscriberId: sub.id,
+                consentRecordId: item.consentRecordId,
+                reason: sub.status === "BLOCKED" ? "BLOCKED" : "OPTED_OUT",
+                requestedByUserId: admin.id,
+                completedAt: null
+              }
+            });
+          } else if (existingRemoval.completedAt !== null) {
+            // Reabrir remoción si se confirma que estaba en este lote
+            await tx.localBroadcastRemoval.update({
+              where: { id: existingRemoval.id },
+              data: { completedAt: null, completedByUserId: null }
+            });
+          }
+        }
+      }
+    });
+
+    // Auditoría
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "EXPORT_BATCH_CONFIRM",
+        entityType: "LOCAL_BROADCAST_BATCH",
+        entityId: batchId,
+        companyId,
+        metadata: JSON.stringify({ count: batch.items.length })
+      }
+    });
+
+    try {
+      revalidatePath("/dashboard/local/suscriptores");
+    } catch {}
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al confirmar lote:", err);
+    return { success: false, error: "Error al confirmar la incorporación." };
+  }
+}
+
+export async function cancelBroadcastExportBatchAction(batchId: string) {
+  const admin = await requireCompanyAdmin();
+  const companyId = admin.companyId;
+
+  try {
+    const batch = await prisma.localBroadcastExportBatch.findUnique({
+      where: { id: batchId }
+    });
+
+    if (!batch || batch.companyId !== companyId) {
+      return { success: false, error: "Lote no encontrado." };
+    }
+
+    if (batch.status === "CANCELLED") {
+      return { success: true }; // Idempotencia
+    }
+
+    if (batch.status !== "EXPORTED") {
+      return { success: false, error: "Solo se pueden cancelar lotes en estado EXPORTADO." };
+    }
+
+    await prisma.localBroadcastExportBatch.update({
+      where: { id: batchId },
+      data: {
+        status: "CANCELLED",
+        activeScopeKey: null // Liberar activeScopeKey
+      }
+    });
+
+    // Auditoría
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "EXPORT_BATCH_CANCEL",
+        entityType: "LOCAL_BROADCAST_BATCH",
+        entityId: batchId,
+        companyId,
+        metadata: ""
+      }
+    });
+
+    try {
+      revalidatePath("/dashboard/local/suscriptores");
+    } catch {}
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al cancelar lote:", err);
+    return { success: false, error: "Error al cancelar el lote de exportación." };
+  }
+}
+
+export async function registerSubscriberOptOutAction(subscriberId: string) {
+  const admin = await requireCompanyAdmin();
+  const companyId = admin.companyId;
+
+  try {
+    const sub = await prisma.localSubscriber.findUnique({
+      where: { id: subscriberId },
+      include: {
+        campaign: true,
+        consentRecords: { orderBy: { acceptedAt: "desc" }, take: 1 }
+      }
+    });
+
+    if (!sub || sub.campaign.companyId !== companyId) {
+      return { success: false, error: "Suscriptor no encontrado." };
+    }
+
+    if (sub.status === "OPTED_OUT") {
+      return { success: true }; // Idempotente
+    }
+
+    const latestConsent = sub.consentRecords[0];
+    if (!latestConsent) {
+      return { success: false, error: "El suscriptor no cuenta con registros de consentimiento." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Poner en estado OPTED_OUT
+      await tx.localSubscriber.update({
+        where: { id: subscriberId },
+        data: { status: "OPTED_OUT" }
+      });
+
+      // 2. Comprobar si ha sido alguna vez incorporado (en lote CONFIRMED)
+      const hasConfirmedItem = await tx.localBroadcastExportItem.findFirst({
+        where: {
+          subscriberId,
+          batch: { status: "CONFIRMED" }
+        }
+      });
+
+      // Si nunca fue incorporado, el retiro se marca completado automáticamente (no requiere acción física en teléfono)
+      const completedAt = hasConfirmedItem ? null : new Date();
+      const completedByUserId = hasConfirmedItem ? null : admin.id;
+
+      // 3. Crear LocalBroadcastRemoval
+      await tx.localBroadcastRemoval.upsert({
+        where: {
+          subscriberId_consentRecordId: {
+            subscriberId,
+            consentRecordId: latestConsent.id
+          }
+        },
+        create: {
+          subscriberId,
+          consentRecordId: latestConsent.id,
+          reason: "OPTED_OUT",
+          requestedByUserId: admin.id,
+          completedAt,
+          completedByUserId
+        },
+        update: {
+          reason: "OPTED_OUT",
+          completedAt,
+          completedByUserId
+        }
+      });
+    });
+
+    // Auditoría
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "SUBSCRIBER_OPTED_OUT_MANUALLY",
+        entityType: "LOCAL_SUBSCRIBER",
+        entityId: subscriberId,
+        companyId,
+        metadata: ""
+      }
+    });
+
+    try {
+      revalidatePath("/dashboard/local/suscriptores");
+    } catch {}
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al registrar baja voluntaria:", err);
+    return { success: false, error: "Error al registrar la solicitud de baja." };
+  }
+}
+
+export async function blockSubscriberAction(subscriberId: string) {
+  const admin = await requireCompanyAdmin();
+  const companyId = admin.companyId;
+
+  try {
+    const sub = await prisma.localSubscriber.findUnique({
+      where: { id: subscriberId },
+      include: {
+        campaign: true,
+        consentRecords: { orderBy: { acceptedAt: "desc" }, take: 1 }
+      }
+    });
+
+    if (!sub || sub.campaign.companyId !== companyId) {
+      return { success: false, error: "Suscriptor no encontrado." };
+    }
+
+    if (sub.status === "BLOCKED") {
+      return { success: true };
+    }
+
+    const latestConsent = sub.consentRecords[0];
+    if (!latestConsent) {
+      return { success: false, error: "El suscriptor no cuenta con registros de consentimiento." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Bloquear suscriptor
+      await tx.localSubscriber.update({
+        where: { id: subscriberId },
+        data: { status: "BLOCKED" }
+      });
+
+      // 2. Comprobar si ha sido alguna vez incorporado
+      const hasConfirmedItem = await tx.localBroadcastExportItem.findFirst({
+        where: {
+          subscriberId,
+          batch: { status: "CONFIRMED" }
+        }
+      });
+
+      const completedAt = hasConfirmedItem ? null : new Date();
+      const completedByUserId = hasConfirmedItem ? null : admin.id;
+
+      // 3. Registrar remoción
+      await tx.localBroadcastRemoval.upsert({
+        where: {
+          subscriberId_consentRecordId: {
+            subscriberId,
+            consentRecordId: latestConsent.id
+          }
+        },
+        create: {
+          subscriberId,
+          consentRecordId: latestConsent.id,
+          reason: "BLOCKED",
+          requestedByUserId: admin.id,
+          completedAt,
+          completedByUserId
+        },
+        update: {
+          reason: "BLOCKED",
+          completedAt,
+          completedByUserId
+        }
+      });
+    });
+
+    // Auditoría
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "SUBSCRIBER_BLOCKED_MANUALLY",
+        entityType: "LOCAL_SUBSCRIBER",
+        entityId: subscriberId,
+        companyId,
+        metadata: ""
+      }
+    });
+
+    try {
+      revalidatePath("/dashboard/local/suscriptores");
+    } catch {}
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al bloquear suscriptor:", err);
+    return { success: false, error: "Error al registrar el bloqueo administrativo." };
+  }
+}
+
+export async function confirmBroadcastRemovalAction(removalId: string) {
+  const admin = await requireCompanyAdmin();
+  const companyId = admin.companyId;
+
+  try {
+    const removal = await prisma.localBroadcastRemoval.findUnique({
+      where: { id: removalId },
+      include: { subscriber: { include: { campaign: true } } }
+    });
+
+    if (!removal || removal.subscriber.campaign.companyId !== companyId) {
+      return { success: false, error: "Registro de remoción no encontrado." };
+    }
+
+    if (removal.completedAt !== null) {
+      return { success: true }; // Idempotencia
+    }
+
+    await prisma.localBroadcastRemoval.update({
+      where: { id: removalId },
+      data: {
+        completedAt: new Date(),
+        completedByUserId: admin.id
+      }
+    });
+
+    // Auditoría
+    await prisma.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "BROADCAST_REMOVAL_CONFIRM",
+        entityType: "LOCAL_REMOVAL",
+        entityId: removalId,
+        companyId,
+        metadata: ""
+      }
+    });
+
+    try {
+      revalidatePath("/dashboard/local/suscriptores");
+    } catch {}
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al confirmar remoción física:", err);
+    return { success: false, error: "Error al confirmar el retiro de la lista." };
+  }
+}
+

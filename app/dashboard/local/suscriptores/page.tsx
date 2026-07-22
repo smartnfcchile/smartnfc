@@ -5,6 +5,14 @@ import { prisma } from "../../../../lib/prisma";
 import Link from "next/link";
 import { hasActiveProduct } from "../../../../lib/product-access";
 import SubscribersClient from "./SubscribersClient";
+import { SubscriberDashboardDto, BatchDashboardDto, RemovalDashboardDto } from "./types";
+
+function maskWhatsApp(phone: string) {
+  if (!phone) return "";
+  const cleaned = phone.replace(/[^\d]/g, "");
+  if (cleaned.length < 6) return "****";
+  return `+${cleaned.substring(0, cleaned.length - 4)} ****`;
+}
 
 export default async function SubscribersPage() {
   const session = await getServerSession(authOptions);
@@ -27,21 +35,49 @@ export default async function SubscribersPage() {
 
   // 1. Obtener campañas locales de la empresa
   const campaigns = await prisma.localCampaign.findMany({
-    where: { companyId: user.companyId }
+    where: { companyId: user.companyId },
+    select: { id: true, name: true }
   });
   const campaignIds = campaigns.map(c => c.id);
 
-  // 2. Obtener todos los suscriptores de estas campañas
+  // 2. Obtener todos los suscriptores de estas campañas usando select explícito
   const subscribers = await prisma.localSubscriber.findMany({
     where: {
       campaignId: { in: campaignIds }
     },
-    include: {
-      campaign: true,
-      consentRecords: { orderBy: { acceptedAt: "desc" } },
+    select: {
+      id: true,
+      name: true,
+      whatsapp: true, // Necesario en servidor para mask, no enviado a navegador
+      status: true,
+      createdAt: true,
+      firstSubscribedAt: true,
+      lastSubscribedAt: true,
+      campaign: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      consentRecords: {
+        orderBy: { acceptedAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          acceptedAt: true
+        }
+      },
       exportItems: {
-        include: {
-          batch: true
+        select: {
+          id: true,
+          batchId: true,
+          consentRecordId: true,
+          batch: {
+            select: {
+              id: true,
+              status: true
+            }
+          }
         }
       }
     },
@@ -50,15 +86,33 @@ export default async function SubscribersPage() {
     }
   });
 
-  // 3. Obtener todos los lotes de la empresa
+  // 3. Obtener todos los lotes de la empresa usando select explícito
   const batches = await prisma.localBroadcastExportBatch.findMany({
     where: { companyId: user.companyId },
-    include: {
-      campaign: true,
-      createdByUser: true,
+    select: {
+      id: true,
+      createdAt: true,
+      status: true,
+      campaignId: true,
+      campaign: {
+        select: {
+          name: true
+        }
+      },
+      createdByUser: {
+        select: {
+          name: true
+        }
+      },
       items: {
-        include: {
-          subscriber: true
+        select: {
+          id: true,
+          subscriber: {
+            select: {
+              name: true,
+              whatsapp: true // Necesario en servidor para mask, no enviado a navegador
+            }
+          }
         }
       }
     },
@@ -67,17 +121,29 @@ export default async function SubscribersPage() {
     }
   });
 
-  // 4. Obtener remociones físicas pendientes (completedAt is null) y completadas
+  // 4. Obtener remociones físicas usando select explícito
   const removals = await prisma.localBroadcastRemoval.findMany({
     where: {
       subscriber: {
         campaignId: { in: campaignIds }
       }
     },
-    include: {
+    select: {
+      id: true,
+      createdAt: true,
+      reason: true,
+      completedAt: true,
       subscriber: {
-        include: {
-          campaign: true
+        select: {
+          id: true,
+          name: true,
+          whatsapp: true, // Necesario en servidor para mask, no enviado a navegador
+          campaign: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
         }
       }
     },
@@ -86,38 +152,64 @@ export default async function SubscribersPage() {
     }
   });
 
-function maskWhatsApp(phone: string) {
-  if (!phone) return "";
-  const cleaned = phone.replace(/[^\d]/g, "");
-  if (cleaned.length < 6) return "****";
-  return `+${cleaned.substring(0, cleaned.length - 4)} ****`;
-}
-
-  // Serializar objetos para evitar problemas con campos Date en Client Components
-  // y asegurar que NUNCA viaje el teléfono completo al navegador
-  const serializedSubscribers = JSON.parse(JSON.stringify(subscribers)).map((sub: any) => {
-    sub.whatsappMasked = maskWhatsApp(sub.whatsapp);
-    delete sub.whatsapp;
-    return sub;
-  });
-
-  const serializedBatches = JSON.parse(JSON.stringify(batches)).map((batch: any) => {
-    batch.items.forEach((item: any) => {
-      if (item.subscriber) {
-        item.subscriber.whatsappMasked = maskWhatsApp(item.subscriber.whatsapp);
-        delete item.subscriber.whatsapp;
+  // 5. Mapear DTOs explícitos limpios de PII (whatsapp, ipHash, userAgent, consentText, companyId)
+  const serializedSubscribers: SubscriberDashboardDto[] = subscribers.map(sub => ({
+    id: sub.id,
+    name: sub.name,
+    whatsappMasked: maskWhatsApp(sub.whatsapp),
+    status: sub.status,
+    createdAt: sub.createdAt.toISOString(),
+    firstSubscribedAt: sub.firstSubscribedAt.toISOString(),
+    lastSubscribedAt: sub.lastSubscribedAt ? sub.lastSubscribedAt.toISOString() : null,
+    campaign: {
+      id: sub.campaign.id,
+      name: sub.campaign.name
+    },
+    consentRecords: sub.consentRecords.map(cr => ({
+      id: cr.id,
+      acceptedAt: cr.acceptedAt.toISOString()
+    })),
+    exportItems: sub.exportItems.map(ei => ({
+      id: ei.id,
+      batchId: ei.batchId,
+      consentRecordId: ei.consentRecordId,
+      batch: {
+        id: ei.batch.id,
+        status: ei.batch.status
       }
-    });
-    return batch;
-  });
+    }))
+  }));
 
-  const serializedRemovals = JSON.parse(JSON.stringify(removals)).map((rem: any) => {
-    if (rem.subscriber) {
-      rem.subscriber.whatsappMasked = maskWhatsApp(rem.subscriber.whatsapp);
-      delete rem.subscriber.whatsapp;
+  const serializedBatches: BatchDashboardDto[] = batches.map(batch => ({
+    id: batch.id,
+    createdAt: batch.createdAt.toISOString(),
+    status: batch.status,
+    campaignId: batch.campaignId,
+    campaign: batch.campaign ? { name: batch.campaign.name } : null,
+    createdByUser: batch.createdByUser ? { name: batch.createdByUser.name || "Usuario" } : null,
+    items: batch.items.map(item => ({
+      id: item.id,
+      subscriber: {
+        name: item.subscriber.name,
+        whatsappMasked: maskWhatsApp(item.subscriber.whatsapp)
+      }
+    }))
+  }));
+
+  const serializedRemovals: RemovalDashboardDto[] = removals.map(rem => ({
+    id: rem.id,
+    createdAt: rem.createdAt.toISOString(),
+    reason: rem.reason,
+    completedAt: rem.completedAt ? rem.completedAt.toISOString() : null,
+    subscriber: {
+      id: rem.subscriber.id,
+      name: rem.subscriber.name,
+      whatsappMasked: maskWhatsApp(rem.subscriber.whatsapp),
+      campaign: {
+        name: rem.subscriber.campaign.name
+      }
     }
-    return rem;
-  });
+  }));
 
   const serializedCampaigns = campaigns.map(c => ({ id: c.id, name: c.name }));
 

@@ -1,5 +1,6 @@
 import { PrismaClient, PlanType, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
@@ -29,15 +30,18 @@ async function main() {
   });
 
   // Promocionar al superadministrador si está configurado en el env
-  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || process.env.SEED_SUPERADMIN_EMAIL;
+  const superAdminPassword = process.env.SEED_SUPERADMIN_PASSWORD;
   if (superAdminEmail) {
     console.log(`Verificando/Creando superadministrador con email: ${superAdminEmail}`);
-    const superAdminPasswordHash = await bcrypt.hash("SuperAdmin1234", 10);
+    const rawPassword = superAdminPassword || crypto.randomBytes(18).toString("hex");
+    const superAdminPasswordHash = await bcrypt.hash(rawPassword, 10);
     await prisma.user.upsert({
       where: { email: superAdminEmail.trim().toLowerCase() },
       update: {
         role: UserRole.SUPERADMIN,
         isActive: true,
+        ...(superAdminPassword ? { password: superAdminPasswordHash } : {}),
       },
       create: {
         name: "Super Administrador",

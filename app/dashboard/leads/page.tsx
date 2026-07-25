@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
@@ -23,10 +24,10 @@ export default async function LeadsPage() {
 
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
-  // 1. Consultar todos los leads de la empresa o del usuario
+  // 1. Consultar todos los leads de la empresa o del usuario con sus interacciones históricas
   const leads = await prisma.lead.findMany({
     where: isAdmin
-      ? { card: { companyId: user.companyId } }
+      ? { companyId: user.companyId }
       : { card: { userId: user.id } },
     include: {
       card: {
@@ -35,6 +36,9 @@ export default async function LeadsPage() {
           id: true,
         },
       },
+      interactions: {
+        orderBy: { createdAt: "desc" }
+      }
     },
     orderBy: { createdAt: "desc" },
   });
@@ -46,7 +50,7 @@ export default async function LeadsPage() {
   });
   const cardIds = cardsList.map((c) => c.id);
 
-  // 3. Consultar los eventos de interacción de estas tarjetas para armar la línea de tiempo
+  // 3. Consultar los eventos de interacción de estas tarjetas para armar la línea de tiempo analítica
   const events = await prisma.event.findMany({
     where: {
       cardId: { in: cardIds },
@@ -65,7 +69,7 @@ export default async function LeadsPage() {
         </div>
       </div>
 
-      <LeadsClient initialLeads={leads} allEvents={events} isAdmin={isAdmin} />
+      <LeadsClient initialLeads={leads as any} allEvents={events} isAdmin={isAdmin} />
     </div>
   );
 }

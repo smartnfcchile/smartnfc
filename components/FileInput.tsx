@@ -10,15 +10,15 @@ type FileInputProps = {
   accept?: string;
   className?: string;
   type: "avatar" | "logo" | "cover";
+  onUrlChange?: (url: string) => void;
 };
 
 export default function FileInput({
-  name,
   urlName,
   initialUrl,
   accept,
-  className,
   type,
+  onUrlChange,
 }: FileInputProps) {
   const [url, setUrl] = useState<string>(initialUrl || "");
   const [uploading, setUploading] = useState(false);
@@ -50,9 +50,12 @@ export default function FileInput({
       });
 
       setUrl(newBlob.url);
-    } catch (err: any) {
+      if (onUrlChange) {
+        onUrlChange(newBlob.url);
+      }
+    } catch (err) {
       console.error("Error al subir archivo a Vercel Blob:", err);
-      const errorMessage = err?.message || String(err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
       setError(`Error al subir imagen: ${errorMessage}`);
       alert(`Hubo un error al subir la imagen: ${errorMessage}\n\nAsegúrate de tener Vercel Blob configurado.`);
       e.target.value = ""; // Resetea el input

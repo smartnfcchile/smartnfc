@@ -1,5 +1,8 @@
 "use server";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
 import { revalidatePath } from "next/cache";
 import { put } from "@vercel/blob";
@@ -44,6 +47,104 @@ export async function updateCard(formData: FormData) {
   const showLinkedin = formData.get("showLinkedin") === "on";
   const showTiktok = formData.get("showTiktok") === "on";
   const showYoutube = formData.get("showYoutube") === "on";
+
+  // Compárteme tus datos settings
+  const shareContactEnabled = formData.get("shareContactEnabled") === "on";
+  const shareContactButtonText = formData.get("shareContactButtonText") as string || "Compárteme tus datos";
+  const shareContactIntro = formData.get("shareContactIntro") as string || "Déjame tus datos para mantenernos en contacto.";
+  const shareContactConfirm = formData.get("shareContactConfirm") as string || "¡Gracias! Tus datos fueron enviados correctamente.";
+  const shareContactConsent = formData.get("shareContactConsent") as string || "Acepto el tratamiento de mis datos personales para fines de contacto comercial.";
+  const primaryActionType = formData.get("primaryActionType") as string || "WHATSAPP";
+  const secondaryActionType = formData.get("secondaryActionType") as string || "SAVE_CONTACT";
+
+  const shareContactFieldsInput = formData.get("shareContactFields") as string;
+  let shareContactFields = null;
+  if (shareContactFieldsInput) {
+    try {
+      shareContactFields = JSON.parse(shareContactFieldsInput);
+    } catch {
+      // Fallback
+    }
+  }
+
+  // 1.5. Validaciones Zod de CTA
+  const ActionTypeSchema = z.enum(["WHATSAPP", "PHONE", "EMAIL", "SAVE_CONTACT", "CRM_FORM", "NONE"]);
+
+  try {
+    const ctaData = {
+      primaryActionType,
+      secondaryActionType,
+      shareContactEnabled,
+      whatsapp: whatsapp || null,
+      showWhatsapp,
+      phone: phone || null,
+      showPhone,
+      email: email || null,
+      showEmail,
+    };
+
+    z.object({
+      primaryActionType: ActionTypeSchema,
+      secondaryActionType: ActionTypeSchema,
+      shareContactEnabled: z.boolean(),
+      whatsapp: z.string().optional().nullable(),
+      showWhatsapp: z.boolean(),
+      phone: z.string().optional().nullable(),
+      showPhone: z.boolean(),
+      email: z.string().optional().nullable(),
+      showEmail: z.boolean(),
+    }).refine(data => {
+      // Impide guardar la misma acción para primaria y secundaria, salvo NONE
+      if (data.primaryActionType === data.secondaryActionType && data.primaryActionType !== "NONE") {
+        return false;
+      }
+      return true;
+    }, {
+      message: "La acción primaria y secundaria no pueden ser la misma, excepto si es 'Ninguna (NONE)'",
+      path: ["secondaryActionType"]
+    }).refine(data => {
+      // Impide guardar CRM_FORM si la captura está desactivada
+      if ((data.primaryActionType === "CRM_FORM" || data.secondaryActionType === "CRM_FORM") && !data.shareContactEnabled) {
+        return false;
+      }
+      return true;
+    }, {
+      message: "No se puede seleccionar 'Formulario de Captura (CRM_FORM)' si la captura de prospectos está desactivada.",
+      path: ["primaryActionType"]
+    }).refine(data => {
+      // WHATSAPP sin número válido y visible
+      if ((data.primaryActionType === "WHATSAPP" || data.secondaryActionType === "WHATSAPP") && (!data.whatsapp || !data.showWhatsapp)) {
+        return false;
+      }
+      return true;
+    }, {
+      message: "Se requiere un número de WhatsApp visible para usar la acción de WhatsApp.",
+      path: ["whatsapp"]
+    }).refine(data => {
+      // PHONE sin teléfono válido y visible
+      if ((data.primaryActionType === "PHONE" || data.secondaryActionType === "PHONE") && (!data.phone || !data.showPhone)) {
+        return false;
+      }
+      return true;
+    }, {
+      message: "Se requiere un número de teléfono visible para usar la acción de llamada.",
+      path: ["phone"]
+    }).refine(data => {
+      // EMAIL sin correo válido y visible
+      if ((data.primaryActionType === "EMAIL" || data.secondaryActionType === "EMAIL") && (!data.email || !data.showEmail)) {
+        return false;
+      }
+      return true;
+    }, {
+      message: "Se requiere un correo electrónico visible para usar la acción de enviar correo.",
+      path: ["email"]
+    }).parse(ctaData);
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      throw new Error(err.issues.map((e: any) => e.message).join(" | "));
+    }
+    throw err;
+  }
 
   let avatarUrl = formData.get("avatarUrl") as string;
   let logoUrl = formData.get("logoUrl") as string;
@@ -165,6 +266,14 @@ export async function updateCard(formData: FormData) {
       logoUrl,
       coverUrl,
       location,
+      shareContactEnabled,
+      shareContactButtonText,
+      shareContactIntro,
+      shareContactConfirm,
+      shareContactConsent,
+      shareContactFields: shareContactFields || undefined,
+      primaryActionType,
+      secondaryActionType,
     },
   });
 

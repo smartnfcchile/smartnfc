@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { toggleCardActive, createVirtualCard } from "./actions";
@@ -181,12 +183,20 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
                     {item.id.includes("0.") ? (
                       <span className="text-xs text-slate-500 italic">Sincronizando...</span>
                     ) : (
-                      <Link
-                        href={`/dashboard/editor/${item.id}`}
-                        className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-700 transition active:scale-95 inline-block cursor-pointer"
-                      >
-                        ✏️ Configurar Perfil
-                      </Link>
+                      <div className="flex justify-center items-center gap-2">
+                        <Link
+                          href={`/dashboard/editor/${item.id}`}
+                          className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-700 transition active:scale-95 inline-block cursor-pointer"
+                        >
+                          ✏️ Configurar Perfil
+                        </Link>
+                        <Link
+                          href={`/dashboard/qr/${item.id}`}
+                          className="bg-orange-600/10 hover:bg-orange-650/20 text-orange-400 text-xs font-semibold py-1.5 px-3 rounded-lg border border-orange-500/20 transition active:scale-95 inline-block cursor-pointer"
+                        >
+                          📷 QR
+                        </Link>
+                      </div>
                     )}
                   </td>
                 </tr>

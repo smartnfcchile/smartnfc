@@ -39,6 +39,7 @@ enum EventType {
   EMAIL_CLICK
   LINK_CLICK
   VCARD_DOWNLOAD
+  CONTACT_SHARED
 }
 
 model Company {
@@ -53,6 +54,8 @@ model Company {
   localCampaigns   LocalCampaign[]
   productLicenses  CompanyProductLicense[]
   broadcastBatches LocalBroadcastExportBatch[]
+  leads            Lead[]
+  leadInteractions LeadInteraction[]
 
   // Control de licencias y capacidades (Requisito 9)
   maxIdentities Int       @default(5)
@@ -142,9 +145,20 @@ model Card {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
-  events Event[]
-  leads  Lead[]
-  links  CardLink[]
+  events           Event[]
+  leads            Lead[]
+  links            CardLink[]
+  leadInteractions LeadInteraction[]
+
+  // Configuración de "Compárteme tus datos"
+  shareContactEnabled    Boolean @default(false)
+  shareContactButtonText String  @default("Compárteme tus datos")
+  shareContactIntro      String  @default("Déjame tus datos para mantenernos en contacto.")
+  shareContactConfirm    String  @default("¡Gracias! Tus datos fueron enviados correctamente.")
+  shareContactConsent    String  @default("Acepto el tratamiento de mis datos personales para fines de contacto comercial.")
+  shareContactFields     Json?
+  primaryActionType      String  @default("WHATSAPP")
+  secondaryActionType    String  @default("SAVE_CONTACT")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -219,14 +233,23 @@ model Lead {
   message  String?
 
   // Campos de CRM y Trazabilidad analítica
-  status String  @default("NUEVO")
-  notes  String?
-  ipHash String?
+  status           String  @default("NUEVO")
+  notes            String?
+  ipHash           String?
+  identityConflict Boolean @default(false)
+  conflictDetails  String?
 
   cardId String
   card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
+  companyId       String
+  companyRelation Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  interactions LeadInteraction[]
+
   createdAt DateTime @default(now())
+
+  @@index([companyId])
 }
 
 model AdminAuditLog {
@@ -543,4 +566,38 @@ model LocalBroadcastRemoval {
 
   @@unique([subscriberId, consentRecordId])
   @@index([subscriberId])
+}
+
+enum LeadInteractionType {
+  CONTACT_CAPTURE
+  RE_ENGAGEMENT
+}
+
+enum ContactSource {
+  NFC
+  QR
+  DIRECT
+  UNKNOWN
+}
+
+model LeadInteraction {
+  id              String              @id @default(cuid())
+  leadId          String
+  cardId          String
+  companyId       String
+  type            LeadInteractionType
+  source          ContactSource       @default(UNKNOWN)
+  message         String?             @db.Text
+  consentAccepted Boolean             @default(false)
+  consentText     String?             @db.Text
+  consentAt       DateTime?
+  createdAt       DateTime            @default(now())
+
+  lead            Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  card            Card    @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  companyRelation Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@index([leadId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([cardId, createdAt])
 }

@@ -1,7 +1,20 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useState, useTransition } from "react";
 import { updateLeadCRM } from "./actions";
+
+type LeadInteractionRecord = {
+  id: string;
+  type: "CONTACT_CAPTURE" | "RE_ENGAGEMENT";
+  source: "NFC" | "QR" | "DIRECT" | "UNKNOWN";
+  message: string | null;
+  consentAccepted: boolean;
+  consentText: string | null;
+  consentAt: Date | null;
+  createdAt: Date;
+};
 
 type LeadWithCard = {
   id: string;
@@ -20,6 +33,7 @@ type LeadWithCard = {
     id: string;
     name: string;
   };
+  interactions: LeadInteractionRecord[];
 };
 
 type EventRecord = {
@@ -37,7 +51,7 @@ type LeadsClientProps = {
   isAdmin: boolean;
 };
 
-export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsClientProps) {
+export default function LeadsClient({ initialLeads, allEvents, isAdmin: _isAdmin }: LeadsClientProps) {
   const [leads, setLeads] = useState<LeadWithCard[]>(initialLeads);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("TODOS");
@@ -115,6 +129,8 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsC
         return "🔗 Clic Enlace";
       case "VCARD_DOWNLOAD":
         return "📥 Descarga vCard";
+      case "CONTACT_SHARED":
+        return "🤝 Contacto Compartido";
       default:
         return "📍 Interacción";
     }
@@ -196,14 +212,12 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsC
       .replace(/\n/g, "\\n");
   };
 
-  // Función de Exportación vCard (.vcf) — permite importar todos los prospectos
-  // directamente a la agenda del celular en un solo archivo (contacto múltiple)
+  // Función de Exportación vCard (.vcf)
   const handleExportVCard = () => {
     const vCardBlocks = filteredLeads.map((lead) => {
       const name = escapeVCardField(lead.name || "Sin nombre");
       const org = lead.company ? escapeVCardField(lead.company) : "";
       const title = lead.position ? escapeVCardField(lead.position) : "";
-      // Solo dejamos dígitos y el signo + para máxima compatibilidad al importar
       const phone = lead.phone ? lead.phone.replace(/[^\d+]/g, "") : "";
 
       const noteParts: string[] = [`Tarjeta: ${lead.card.name}`];
@@ -222,8 +236,6 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsC
       return lines.join("\r\n");
     });
 
-    // Un único archivo .vcf puede contener múltiples tarjetas de contacto;
-    // la mayoría de los teléfonos las detecta e importa todas de una vez.
     const vCardContent = vCardBlocks.join("\r\n");
     const blob = new Blob([vCardContent], { type: "text/vcard;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -277,7 +289,7 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsC
             📇 Exportar vCard
           </button>
         </div>
-
+ 
         {/* Tabla / Lista de Prospectos */}
         <div className="bg-slate-900/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
           {filteredLeads.length === 0 ? (
@@ -419,10 +431,60 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin }: LeadsC
 
             </div>
 
+            {/* Bitácora de Interacciones de Contacto */}
+            <div className="space-y-3 pt-4 border-t border-slate-850">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Bitácora de Prospecto (CRM Histórico)
+              </label>
+
+              {selectedLead.interactions && selectedLead.interactions.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedLead.interactions.map((interaction) => (
+                    <div key={interaction.id} className="bg-slate-950/60 rounded-xl p-3 border border-slate-850 space-y-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          interaction.type === "CONTACT_CAPTURE" 
+                            ? "bg-blue-600/10 text-blue-400 border border-blue-600/20" 
+                            : "bg-purple-600/10 text-purple-400 border border-purple-600/20"
+                        }`}>
+                          {interaction.type === "CONTACT_CAPTURE" ? "Captura Inicial" : "Re-contacto"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          Origen: <strong className="text-slate-200">{interaction.source}</strong>
+                        </span>
+                      </div>
+                      
+                      {interaction.message && (
+                        <p className="text-slate-355 italic bg-slate-900/40 p-2 rounded-lg border border-slate-800">
+                          &quot;{interaction.message}&quot;
+                        </p>
+                      )}
+
+                      <div className="text-[10px] text-slate-500 space-y-1">
+                        <div className="flex items-center gap-1.5 text-emerald-400/90">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>Consentimiento Aceptado el {new Date(interaction.createdAt).toLocaleDateString("es-CL")}</span>
+                        </div>
+                        {interaction.consentText && (
+                          <div className="pl-3 border-l border-slate-800 text-[9px] text-slate-550 max-h-12 overflow-y-auto scrollbar-thin">
+                            {interaction.consentText}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500 italic py-2">
+                  No hay interacciones registradas para este prospecto.
+                </p>
+              )}
+            </div>
+
             {/* Historial Analítico (Timeline) */}
             <div className="space-y-3 pt-4 border-t border-slate-850">
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Línea de Tiempo (Por IP)
+                Línea de Tiempo Analítica (Por IP)
               </label>
 
               {leadEvents.length === 0 ? (

@@ -6,12 +6,25 @@ type LeadFormProps = {
   cardId: string;
   themeColor: string;
   themeMode?: string;
+  buttonText?: string | null;
+  introText?: string | null;
+  confirmText?: string | null;
+  consentText?: string | null;
 };
 
-export default function LeadForm({ cardId, themeColor, themeMode }: LeadFormProps) {
+export default function LeadForm({ 
+  cardId, 
+  themeColor, 
+  themeMode,
+  buttonText,
+  introText,
+  confirmText,
+  consentText
+}: LeadFormProps) {
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">(
     "idle"
   );
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const isDark = themeMode === "dark";
 
@@ -27,34 +40,47 @@ export default function LeadForm({ cardId, themeColor, themeMode }: LeadFormProp
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
+    const formData = new FormData(form);
 
-    const formData = new FormData(event.currentTarget);
-
-    const payload = {
-      cardId,
-      name: String(formData.get("name") || ""),
-      company: String(formData.get("company") || ""),
-      position: String(formData.get("position") || ""),
-      email: String(formData.get("email") || ""),
-      phone: String(formData.get("phone") || ""),
-      message: String(formData.get("message") || ""),
-      nickname: String(formData.get("nickname") || ""), // Honeypot
-    };
-
-    const response = await fetch("/api/public/leads", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      setStatus("error");
+    // Si hay texto de consentimiento, validar que esté aceptado
+    if (consentText && !consentAccepted) {
+      alert("Debes aceptar el consentimiento de contacto.");
       return;
     }
-    form.reset();
-    setStatus("success");
+
+    try {
+      setStatus("sending");
+      const payload = {
+        cardId,
+        name: String(formData.get("name") || ""),
+        company: String(formData.get("company") || ""),
+        position: String(formData.get("position") || ""),
+        email: String(formData.get("email") || ""),
+        phone: String(formData.get("phone") || ""),
+        message: String(formData.get("message") || ""),
+        nickname: String(formData.get("nickname") || ""), // Honeypot
+        consentAccepted: !!consentText ? consentAccepted : true,
+        consentText: consentText || null,
+      };
+
+      const response = await fetch("/api/public/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        setStatus("error");
+        return;
+      }
+      form.reset();
+      setConsentAccepted(false);
+      setStatus("success");
+    } catch {
+      setStatus("error");
+    }
   }
 
   return (
@@ -67,12 +93,11 @@ export default function LeadForm({ cardId, themeColor, themeMode }: LeadFormProp
       </p>
 
       <h2 className={formStyles.title}>
-        Déjame tus datos
+        {buttonText || "Déjame tus datos"}
       </h2>
 
       <p className={formStyles.paragraph}>
-        Completa este formulario y te contactaremos para mostrarte cómo funciona
-        una tarjeta NFC inteligente.
+        {introText || "Completa este formulario y nos pondremos en contacto a la brevedad."}
       </p>
 
       <div className="mt-5 space-y-3">
@@ -125,18 +150,34 @@ export default function LeadForm({ cardId, themeColor, themeMode }: LeadFormProp
           className={`${formStyles.input} resize-none`}
         />
 
+        {/* Checkbox de Consentimiento GDPR */}
+        {consentText && (
+          <label className="flex items-start gap-2.5 pt-2 select-none cursor-pointer">
+            <input 
+              type="checkbox"
+              required
+              checked={consentAccepted}
+              onChange={(e) => setConsentAccepted(e.target.checked)}
+              className="mt-1 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+            />
+            <span className={`text-xs leading-5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              {consentText}
+            </span>
+          </label>
+        )}
+
         <button
           type="submit"
           disabled={status === "sending"}
-          className="w-full rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
           style={{ backgroundColor: themeColor }}
         >
-          {status === "sending" ? "Enviando..." : "Solicitar contacto"}
+          {status === "sending" ? "Enviando..." : (buttonText || "Solicitar contacto")}
         </button>
 
         {status === "success" && (
           <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-            Datos enviados correctamente.
+            {confirmText || "Datos enviados correctamente."}
           </p>
         )}
 

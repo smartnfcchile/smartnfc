@@ -324,8 +324,7 @@ export default function CardEditorClient({
               })} />
 
               {/* PESTAÑA: Información Básica */}
-              {activeTab === "basics" && (
-                <div className="space-y-6 animate-fadeIn">
+              <div className={activeTab === "basics" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Información del Perfil</h2>
                     <p className="text-xs text-slate-400">Describe tu rol, cargo y ubicación para presentarte profesionalmente.</p>
@@ -385,11 +384,9 @@ export default function CardEditorClient({
                     />
                   </div>
                 </div>
-              )}
 
               {/* PESTAÑA: Diseño y Plantilla */}
-              {activeTab === "design" && (
-                <div className="space-y-6 animate-fadeIn">
+              <div className={activeTab === "design" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Ajustes Visuales y Plantillas</h2>
                     <p className="text-xs text-slate-400">Selecciona el color corporativo y una plantilla adaptada a tu giro de negocio.</p>
@@ -512,11 +509,9 @@ export default function CardEditorClient({
                     </div>
                   </div>
                 </div>
-              )}
 
               {/* PESTAÑA: Imágenes */}
-              {activeTab === "images" && (
-                <div className="space-y-6 animate-fadeIn">
+              <div className={activeTab === "images" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Imágenes de Perfil</h2>
                     <p className="text-xs text-slate-400">Sube tus fotos corporativas y de fondo. Límite máximo 4MB.</p>
@@ -560,11 +555,9 @@ export default function CardEditorClient({
                     </div>
                   </div>
                 </div>
-              )}
 
               {/* PESTAÑA: Contacto y Redes */}
-              {activeTab === "contact" && (
-                <div className="space-y-6 animate-fadeIn">
+              <div className={activeTab === "contact" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Canales de Contacto y Redes Sociales</h2>
                     <p className="text-xs text-slate-400">Configura tus números de contacto directo y tus perfiles sociales.</p>
@@ -605,11 +598,9 @@ export default function CardEditorClient({
                     ))}
                   </div>
                 </div>
-              )}
 
               {/* PESTAÑA: CRM / Captura de Prospectos */}
-              {activeTab === "crm" && (
-                <div className="space-y-6 animate-fadeIn">
+              <div className={activeTab === "crm" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Configuración de Captura (CRM)</h2>
                     <p className="text-xs text-slate-400">Activa el formulario de contacto para que tus visitantes compartan su información directo a tu CRM.</p>
@@ -694,11 +685,9 @@ export default function CardEditorClient({
                     </div>
                   )}
                 </div>
-              )}
 
               {/* PESTAÑA: Enlaces Personalizados */}
-              {activeTab === "links" && (
-                <div className="space-y-6 animate-fadeIn">
+              <div className={activeTab === "links" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Documentos y Enlaces Personalizados</h2>
                     <p className="text-xs text-slate-400">Agrega botones adicionales dirigidos a PDFs, catálogos, portafolios o tu web.</p>
@@ -736,7 +725,6 @@ export default function CardEditorClient({
                     )}
                   </div>
                 </div>
-              )}
             </form>
 
             {/* Formulario Secundario para Añadir Enlace (Solo visible en Pestaña Enlaces) */}

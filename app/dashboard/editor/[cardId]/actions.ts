@@ -12,7 +12,8 @@ import { requireCompanyAdmin, assertCardBelongsToCompany } from "../../../../lib
 
 // 1. EL MOTOR DE GUARDADO (Server Action)
 export async function updateCard(formData: FormData) {
-  const cardId = formData.get("cardId") as string;
+  try {
+    const cardId = formData.get("cardId") as string;
   
   const admin = await requireCompanyAdmin();
   if (admin.role !== "SUPERADMIN") {
@@ -278,6 +279,11 @@ export async function updateCard(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/editor/${cardId}`);
+  return { success: true };
+  } catch (error: any) {
+    console.error("Error al actualizar la tarjeta:", error);
+    return { success: false, error: error.message || "Error interno del servidor" };
+  }
 }
 
 // Acción para eliminar un enlace personalizado

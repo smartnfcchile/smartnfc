@@ -48,7 +48,7 @@ type CardEditorProps = {
     secondaryActionType: string;
     links: CardLink[];
   };
-  updateCardAction: (formData: FormData) => Promise<void>;
+  updateCardAction: (formData: FormData) => Promise<any>;
   addLinkAction: (formData: FormData) => Promise<void>;
   deleteLinkAction: (formData: FormData) => Promise<void>;
 };
@@ -198,12 +198,15 @@ export default function CardEditorClient({
     try {
       setIsDirty(false); // Desactivar advertencia temporalmente para el post
       const formData = new FormData(formRef.current);
-      await updateCardAction(formData);
+      const res = await updateCardAction(formData) as any;
+      if (res && res.success === false) {
+        throw new Error(res.error);
+      }
       alert("✅ Cambios guardados con éxito.");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setIsDirty(true);
-      alert("❌ Hubo un error al guardar los cambios.");
+      alert(`❌ Hubo un error al guardar los cambios: ${err.message}`);
     }
   };
 

@@ -51,7 +51,7 @@ type LeadsClientProps = {
   isAdmin: boolean;
 };
 
-export default function LeadsClient({ initialLeads, allEvents, isAdmin: _isAdmin }: LeadsClientProps) {
+export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProps) {
   const [leads, setLeads] = useState<LeadWithCard[]>(initialLeads);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("TODOS");
@@ -98,7 +98,7 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin: _isAdmin
     const matchesSearch =
       lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (lead.company && lead.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.card.name.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === "TODOS" || lead.status === statusFilter;
@@ -183,7 +183,7 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin: _isAdmin
         `"${lead.name.replace(/"/g, '""')}"`,
         `"${(lead.company || "").replace(/"/g, '""')}"`,
         `"${(lead.position || "").replace(/"/g, '""')}"`,
-        `"${lead.email}"`,
+        `"${lead.email || ""}"`,
         `"${lead.phone || ""}"`,
         `"${lead.card.name}"`,
         `"${lead.status}"`,
@@ -325,7 +325,7 @@ export default function LeadsClient({ initialLeads, allEvents, isAdmin: _isAdmin
                             {lead.company && (
                               <span>🏢 {lead.company} {lead.position ? `(${lead.position})` : ""}</span>
                             )}
-                            <div className="truncate">📧 {lead.email}</div>
+                             {lead.email && <div className="truncate">📧 {lead.email}</div>}
                           </div>
                         </td>
                         <td className="py-4 px-4 text-slate-400 font-medium text-xs sm:text-sm">

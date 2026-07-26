@@ -40,6 +40,7 @@ enum EventType {
   LINK_CLICK
   VCARD_DOWNLOAD
   CONTACT_SHARED
+  PROFILE_SHARED
 }
 
 model Company {
@@ -228,7 +229,7 @@ model Lead {
   name     String
   company  String?
   position String?
-  email    String
+  email    String?
   phone    String?
   message  String?
 
@@ -250,6 +251,7 @@ model Lead {
   createdAt DateTime @default(now())
 
   @@index([companyId])
+  @@index([companyId, phone])
 }
 
 model AdminAuditLog {

@@ -70,24 +70,26 @@ export async function POST(request: Request) {
     const consentText = clean(body.consentText) || null;
     const sourceParam = clean(body.source) || "UNKNOWN";
 
-    if (!cardId || !name || !email) {
+    if (!cardId || !name || !phone) {
       return NextResponse.json(
-        { error: "Nombre, email y tarjeta son obligatorios." },
+        { error: "Nombre, teléfono y tarjeta son obligatorios." },
         { status: 400 }
       );
     }
 
     // Normalizar correo y teléfono de forma consistente
-    const normEmail = normalizeEmail(email);
-    const normPhone = phone ? normalizePhone(phone) : null;
+    const normEmail = email ? normalizeEmail(email) : null;
+    const normPhone = normalizePhone(phone);
 
-    // Validación de formato de correo básico
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(normEmail)) {
-      return NextResponse.json(
-        { error: "Formato de correo electrónico inválido." },
-        { status: 400 }
-      );
+    // Validación de formato de correo básico (solo si se proporciona)
+    if (normEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normEmail)) {
+        return NextResponse.json(
+          { error: "Formato de correo electrónico inválido." },
+          { status: 400 }
+        );
+      }
     }
 
     // 3. Ejecutar transacciones analíticas y persistencia
@@ -114,13 +116,13 @@ export async function POST(request: Request) {
       }
 
       // Buscar leads existentes para desduplicación scoped por empresa (companyId)
-      const existingLeadByEmail = await tx.lead.findFirst({
-        where: { companyId, email: normEmail },
-      });
-
-      const existingLeadByPhone = normPhone 
-        ? await tx.lead.findFirst({ where: { companyId, phone: normPhone } })
+      const existingLeadByEmail = normEmail 
+        ? await tx.lead.findFirst({ where: { companyId, email: normEmail } })
         : null;
+
+      const existingLeadByPhone = await tx.lead.findFirst({ 
+        where: { companyId, phone: normPhone } 
+      });
 
       // Validaciones transaccionales de consistencia multiempresa
       if (existingLeadByEmail && existingLeadByEmail.companyId !== companyId) {
@@ -147,7 +149,7 @@ export async function POST(request: Request) {
             company: company || null,
             position: position || null,
             email: normEmail,
-            phone: normPhone || null,
+            phone: normPhone,
             message: message || null,
             identityConflict: true,
             conflictDetails: conflictMsg,
@@ -155,24 +157,6 @@ export async function POST(request: Request) {
           },
         });
         targetLeadId = newLead.id;
-      } 
-      // Coincidencia por Email
-      else if (existingLeadByEmail) {
-        targetLeadId = existingLeadByEmail.id;
-        interactionType = LeadInteractionType.RE_ENGAGEMENT;
-
-        // Actualizar campos vacíos de forma conservadora
-        const updateData: any = {};
-        if (!existingLeadByEmail.phone && normPhone) updateData.phone = normPhone;
-        if (!existingLeadByEmail.company && company) updateData.company = company;
-        if (!existingLeadByEmail.position && position) updateData.position = position;
-
-        if (Object.keys(updateData).length > 0) {
-          await tx.lead.update({
-            where: { id: targetLeadId },
-            data: updateData,
-          });
-        }
       } 
       // Coincidencia por Teléfono
       else if (existingLeadByPhone) {
@@ -192,6 +176,24 @@ export async function POST(request: Request) {
           });
         }
       } 
+      // Coincidencia por Email
+      else if (existingLeadByEmail) {
+        targetLeadId = existingLeadByEmail.id;
+        interactionType = LeadInteractionType.RE_ENGAGEMENT;
+
+        // Actualizar campos vacíos de forma conservadora
+        const updateData: any = {};
+        if (!existingLeadByEmail.phone && normPhone) updateData.phone = normPhone;
+        if (!existingLeadByEmail.company && company) updateData.company = company;
+        if (!existingLeadByEmail.position && position) updateData.position = position;
+
+        if (Object.keys(updateData).length > 0) {
+          await tx.lead.update({
+            where: { id: targetLeadId },
+            data: updateData,
+          });
+        }
+      } 
       // Ninguna coincidencia: Lead completamente nuevo
       else {
         const newLead = await tx.lead.create({
@@ -202,7 +204,7 @@ export async function POST(request: Request) {
             company: company || null,
             position: position || null,
             email: normEmail,
-            phone: normPhone || null,
+            phone: normPhone,
             message: message || null,
             ipHash: hashIp(ip),
           },

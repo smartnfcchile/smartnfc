@@ -22,6 +22,7 @@ import {
 import FileInput from "../../../../components/FileInput";
 import CardProfileView from "../../../../components/card-profile/CardProfileView";
 import { CardProfileData } from "../../../../components/card-profile/CardProfileView";
+import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 
 type CardLink = {
   id: string;
@@ -66,9 +67,9 @@ export default function CardEditorClient({
     isActive: card.isActive,
     themeColor: card.themeColor,
     themeMode: card.themeMode,
-    template: card.template,
-    bannerStyle: card.bannerStyle,
-    photoStyle: card.photoStyle,
+    template: normalizeTemplate(card.template),
+    bannerStyle: normalizeBannerStyle(card.bannerStyle, card.template),
+    photoStyle: normalizePhotoStyle(card.photoStyle),
     logoUrl: card.logoUrl,
     avatarUrl: card.avatarUrl,
     coverUrl: card.coverUrl,
@@ -152,9 +153,9 @@ export default function CardEditorClient({
       location: formData.get("location") as string,
       themeColor: formData.get("themeColor") as string,
       themeMode: formData.get("themeMode") as string,
-      template: formData.get("template") as string,
-      bannerStyle: formData.get("bannerStyle") as string,
-      photoStyle: formData.get("photoStyle") as string,
+      template: normalizeTemplate(formData.get("template") as string),
+      bannerStyle: normalizeBannerStyle(formData.get("bannerStyle") as string, formData.get("template") as string),
+      photoStyle: normalizePhotoStyle(formData.get("photoStyle") as string),
       whatsapp: formData.get("whatsapp") as string,
       phone: formData.get("phone") as string,
       email: formData.get("email") as string,
@@ -426,15 +427,12 @@ export default function CardEditorClient({
                       <label className="text-xs font-semibold text-slate-300 block">Recorte del Banner (Borde inferior)</label>
                       <select
                         name="bannerStyle"
-                        defaultValue={cardData.bannerStyle || "classic"}
+                        defaultValue={cardData.bannerStyle || "straight"}
                         className="w-full bg-slate-950 border border-slate-850 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
                       >
-                        <option value="classic">Clásico / Molde de Plantilla</option>
                         <option value="straight">Recto Moderno</option>
                         <option value="arc">Corte Cóncavo (Arco)</option>
                         <option value="wave">Ondulado Dinámico</option>
-                        <option value="arch">Domo Inverso</option>
-                        <option value="diagonal">Corte Diagonal</option>
                       </select>
                     </div>
 
@@ -448,16 +446,7 @@ export default function CardEditorClient({
                         <option value="circle">Círculo clásico</option>
                         <option value="rounded-square">Cuadrado redondeado</option>
                         <option value="hexagon">Hexagonal</option>
-                        <option value="diamond">Diamante</option>
-                        <option value="shield">Escudo corporativo</option>
-                        <option value="double-ring">Anillo doble</option>
-                        <option value="neon">Brillo Neón</option>
-                        <option value="crystal">Borde Cristal</option>
-                        <option value="glassmorphism">Glassmorphism</option>
-                        <option value="gold-frame">Marco Dorado Luxury</option>
-                        <option value="silver-frame">Marco Plateado Elegant</option>
-                        <option value="premium-black">Marco Negro Premium</option>
-                        <option value="no-frame">Sin marco</option>
+                        <option value="no-frame">Sin marco (Cuadrado puro)</option>
                       </select>
                     </div>
                   </div>
@@ -466,46 +455,43 @@ export default function CardEditorClient({
                   <div className="space-y-4 pt-4 border-t border-slate-800">
                     <label className="text-xs font-bold text-slate-300 block">Selección de Plantilla</label>
                     
-                    <div className="space-y-6">
-                      {[
-                        { title: "Corporate Elite", items: ["corporate-1", "corporate-2", "corporate-3", "corporate-4", "corporate-5"] },
-                        { title: "Personal Brand", items: ["personal-1", "personal-2", "personal-3", "personal-4", "personal-5"] },
-                        { title: "Comercial / Ventas", items: ["comercial-1", "comercial-2", "comercial-3", "comercial-4", "comercial-5"] },
-                        { title: "Empresa / Catálogo", items: ["business-1", "business-2", "business-3", "business-4", "business-5"] },
-                        { title: "Industrias & Creadores", items: ["creator-1", "creator-2", "creator-3", "creator-4", "creator-5"] },
-                      ].map((category) => (
-                        <div key={category.title} className="space-y-2">
-                          <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{category.title}</h4>
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                            {category.items.map((tmpl) => {
-                              const isChecked = cardData.template === tmpl;
-                              return (
-                                <label 
-                                  key={tmpl}
-                                  className={`relative flex flex-col items-center justify-center p-3 rounded-xl border text-center cursor-pointer transition select-none ${
-                                    isChecked 
-                                      ? "border-blue-500 bg-blue-500/10 text-blue-400 font-bold ring-1 ring-blue-500" 
-                                      : "border-slate-800 bg-slate-950/40 hover:border-slate-700 text-slate-300"
-                                  }`}
-                                >
-                                  <input 
-                                    type="radio" 
-                                    name="template" 
-                                    value={tmpl}
-                                    checked={isChecked}
-                                    onChange={() => {
-                                      setCardData(prev => ({ ...prev, template: tmpl }));
-                                      setIsDirty(true);
-                                    }}
-                                    className="sr-only"
-                                  />
-                                  <span className="text-[11px] truncate w-full">{tmpl}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {[
+                          { id: "classic-dark", name: "Clásico Oscuro", desc: "Corporativo tradicional oscuro" },
+                          { id: "classic-light", name: "Clásico Claro", desc: "Corporativo limpio claro" },
+                          { id: "neobrutalist", name: "Neo-brutalista", desc: "Alto contraste retro" },
+                          { id: "split-diagonal", name: "Split Diagonal", desc: "Banner inclinado moderno" },
+                          { id: "company-dark", name: "Empresa Oscuro", desc: "Cabecera con logo oscuro" },
+                          { id: "company-light", name: "Empresa Claro", desc: "Cabecera con logo claro" },
+                        ].map((tmpl) => {
+                          const isChecked = cardData.template === tmpl.id;
+                          return (
+                            <label 
+                              key={tmpl.id}
+                              className={`relative flex flex-col items-center justify-center p-4 rounded-xl border text-center cursor-pointer transition select-none ${
+                                isChecked 
+                                  ? "border-blue-500 bg-blue-500/10 text-blue-400 font-bold ring-1 ring-blue-500" 
+                                  : "border-slate-800 bg-slate-955/40 hover:border-slate-700 text-slate-300"
+                              }`}
+                            >
+                              <input 
+                                type="radio" 
+                                name="template" 
+                                value={tmpl.id}
+                                checked={isChecked}
+                                onChange={() => {
+                                  setCardData(prev => ({ ...prev, template: normalizeTemplate(tmpl.id) }));
+                                  setIsDirty(true);
+                                }}
+                                className="sr-only"
+                              />
+                              <span className="text-[12px] font-bold block mb-1">{tmpl.name}</span>
+                              <span className="text-[9px] text-slate-500 leading-normal">{tmpl.desc}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>

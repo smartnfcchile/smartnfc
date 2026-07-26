@@ -9,6 +9,7 @@ import { put } from "@vercel/blob";
 import fs from "fs";
 import path from "path";
 import { requireCompanyAdmin, assertCardBelongsToCompany } from "../../../../lib/permissions";
+import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 
 // 1. EL MOTOR DE GUARDADO (Server Action)
 export async function updateCard(formData: FormData) {
@@ -26,9 +27,10 @@ export async function updateCard(formData: FormData) {
   const bio = formData.get("bio") as string;
   const themeColor = formData.get("themeColor") as string;
   const themeMode = formData.get("themeMode") as string;
-  const template = formData.get("template") as string;
-  const bannerStyle = formData.get("bannerStyle") as string;
-  const photoStyle = formData.get("photoStyle") as string;
+  const rawTemplate = formData.get("template") as string;
+  const template = normalizeTemplate(rawTemplate);
+  const bannerStyle = normalizeBannerStyle(formData.get("bannerStyle") as string, rawTemplate);
+  const photoStyle = normalizePhotoStyle(formData.get("photoStyle") as string);
   const whatsapp = formData.get("whatsapp") as string; 
   const email = formData.get("email") as string; 
   const linkedin = formData.get("linkedin") as string;
@@ -140,6 +142,14 @@ export async function updateCard(formData: FormData) {
       message: "Se requiere un correo electrónico visible para usar la acción de enviar correo.",
       path: ["email"]
     }).parse(ctaData);
+
+    // Validar parámetros visuales normalizados mediante Zod
+    z.object({
+      template: z.enum(["classic-dark", "classic-light", "neobrutalist", "split-diagonal", "company-dark", "company-light"]),
+      photoStyle: z.enum(["circle", "rounded-square", "hexagon", "no-frame"]),
+      bannerStyle: z.enum(["straight", "arc", "wave"]),
+    }).parse({ template, photoStyle, bannerStyle });
+
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       throw new Error(err.issues.map((e: any) => e.message).join(" | "));

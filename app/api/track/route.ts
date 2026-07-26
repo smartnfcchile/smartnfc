@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
       | "PHONE_CLICK"
       | "EMAIL_CLICK"
       | "LINK_CLICK"
-      | "VCARD_DOWNLOAD";
+      | "VCARD_DOWNLOAD"
+      | "PROFILE_SHARED";
 
     if (!cardId || !eventType) {
       return NextResponse.json(

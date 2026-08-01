@@ -73,6 +73,7 @@ export default function CardEditorClient({
     logoUrl: card.logoUrl,
     avatarUrl: card.avatarUrl,
     coverUrl: card.coverUrl,
+    heroImageUrl: card.heroImageUrl,
     profileName: card.profileName,
     role: card.role,
     companyName: card.companyName,
@@ -115,7 +116,6 @@ export default function CardEditorClient({
     }));
   }, [card.links]);
 
-  // 2. Control de Pestañas (Tabs)
   const [activeTab, setActiveTab] = useState<"basics" | "design" | "images" | "contact" | "links" | "crm">("basics");
 
   // 3. Advertencia de Cambios sin Guardar
@@ -156,6 +156,7 @@ export default function CardEditorClient({
       template: normalizeTemplate(formData.get("template") as string),
       bannerStyle: normalizeBannerStyle(formData.get("bannerStyle") as string, formData.get("template") as string),
       photoStyle: normalizePhotoStyle(formData.get("photoStyle") as string),
+      heroImageUrl: formData.get("heroImageUrl") as string,
       whatsapp: formData.get("whatsapp") as string,
       phone: formData.get("phone") as string,
       email: formData.get("email") as string,
@@ -184,7 +185,7 @@ export default function CardEditorClient({
     }));
   };
 
-  const handleImageChange = (type: "avatar" | "logo" | "cover", url: string) => {
+  const handleImageChange = (type: "avatar" | "logo" | "cover" | "hero", url: string) => {
     setIsDirty(true);
     setCardData(prev => ({
       ...prev,
@@ -537,6 +538,21 @@ export default function CardEditorClient({
                         accept="image/*"
                         type="cover"
                         onUrlChange={(url) => handleImageChange("cover", url)}
+                      />
+                    </div>
+
+                    <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
+                      <label className="text-xs font-bold text-slate-300 block">Imagen hero / Fondo de la landing</label>
+                      <p className="text-[10px] text-slate-500 leading-relaxed mb-2">
+                        Imagen decorativa que aparecerá detrás de tu tarjeta. Recomendamos una imagen horizontal de al menos 1600 × 900 px.
+                      </p>
+                      <FileInput
+                        name="heroImageFile"
+                        urlName="heroImageUrl"
+                        initialUrl={cardData.heroImageUrl}
+                        accept="image/*"
+                        type="hero"
+                        onUrlChange={(url) => handleImageChange("hero", url)}
                       />
                     </div>
                   </div>

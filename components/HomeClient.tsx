@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
@@ -37,6 +37,11 @@ import DashboardMockup from "./DashboardMockup";
 
 export default function HomeClient() {
   const { theme, setTheme } = useTheme();
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -201,7 +206,7 @@ export default function HomeClient() {
                 { id: "system", icon: Laptop, label: "Sistema" }
               ].map((opt) => {
                 const IconComponent = opt.icon;
-                const isSel = theme === opt.id;
+                const isSel = isMounted && theme === opt.id;
                 return (
                   <button
                     key={opt.id}
@@ -301,7 +306,7 @@ export default function HomeClient() {
                       { id: "system", icon: Laptop, label: "Sistema" }
                     ].map((opt) => {
                       const IconComponent = opt.icon;
-                      const isSel = theme === opt.id;
+                      const isSel = isMounted && theme === opt.id;
                       return (
                         <button
                           key={opt.id}

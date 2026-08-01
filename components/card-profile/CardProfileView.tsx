@@ -39,6 +39,7 @@ export interface CardProfileData {
   logoUrl: string | null;
   avatarUrl: string | null;
   coverUrl: string | null;
+  heroImageUrl: string | null;
   profileName: string | null;
   role: string | null;
   companyName: string | null;
@@ -329,17 +330,70 @@ END:VCARD`;
     photoConfig.className += " border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]";
   }
 
+  const hasHeroClass = card.heroImageUrl ? "has-hero" : "";
+
   return (
-    <main className={mainClass}>
+    <main className={`nfc-landing-main ${hasHeroClass} ${mainClass}`}>
+      {card.heroImageUrl && (
+        <>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media (min-width: 640px) {
+              .nfc-landing-main.has-hero {
+                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.48) 0%, rgba(3, 7, 18, 0.82) 55%, rgba(3, 7, 18, 0.96) 100%), url(${card.heroImageUrl}) !important;
+                background-size: cover !important;
+                background-position: center top !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 2rem 1rem !important;
+              }
+              .nfc-hero-mobile-strip {
+                display: none !important;
+              }
+            }
+            @media (max-width: 639px) {
+              .nfc-landing-main.has-hero {
+                background-image: none !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                justify-content: flex-start !important;
+                padding: 0 0 2rem 0 !important;
+              }
+              .nfc-hero-mobile-strip {
+                display: block !important;
+                width: 100% !important;
+                height: 220px !important;
+                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.3) 0%, rgba(3, 7, 18, 0.6) 100%), url(${card.heroImageUrl}) !important;
+                background-size: cover !important;
+                background-position: center top !important;
+                background-repeat: no-repeat !important;
+                flex-shrink: 0 !important;
+              }
+              .nfc-landing-article.has-hero {
+                margin-top: -48px !important;
+                width: calc(100% - 2rem) !important;
+                max-width: calc(100% - 2rem) !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                z-index: 10 !important;
+              }
+            }
+          `}} />
+          <div className="nfc-hero-mobile-strip" />
+        </>
+      )}
       {/* Elementos decorativos de fondo en línea */}
-      {normTemplate === "split-diagonal" && (
+      {normTemplate === "split-diagonal" && !card.heroImageUrl && (
         <div 
           className="absolute top-0 left-0 w-full h-[35%] -skew-y-6 origin-top-left transform scale-y-110 opacity-80 pointer-events-none z-0" 
           style={{ backgroundColor: themeColor }}
         />
       )}
 
-      <article className={articleClass}>
+      <article className={`nfc-landing-article ${hasHeroClass} ${articleClass}`}>
         {isBusiness ? (
           /* MOLDES DE BANNER PARA EMPRESAS */
           <div className="w-full flex flex-col relative">

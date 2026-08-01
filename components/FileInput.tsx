@@ -9,7 +9,7 @@ type FileInputProps = {
   initialUrl?: string | null;
   accept?: string;
   className?: string;
-  type: "avatar" | "logo" | "cover";
+  type: "avatar" | "logo" | "cover" | "hero";
   onUrlChange?: (url: string) => void;
 };
 
@@ -94,6 +94,14 @@ export default function FileInput({
             className="h-16 max-w-28 object-contain border border-slate-700 p-1 bg-slate-850 rounded"
           />
         );
+      } else if (type === "hero") {
+        return (
+          <img
+            src={url}
+            alt="Hero / Fondo actual"
+            className="h-20 w-full sm:w-44 object-cover border border-slate-700 bg-slate-850 rounded-lg"
+          />
+        );
       } else {
         return (
           <img
@@ -118,6 +126,12 @@ export default function FileInput({
           Sin logo
         </div>
       );
+    } else if (type === "hero") {
+      return (
+        <div className="h-20 w-full sm:w-44 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs bg-slate-950 select-none">
+          Sin imagen hero
+        </div>
+      );
     } else {
       return (
         <div className="h-20 w-full sm:w-44 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs bg-slate-950 select-none">
@@ -131,20 +145,34 @@ export default function FileInput({
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
       {renderPreview()}
       <div className="flex-1 space-y-2">
-        <input
-          type="file"
-          accept={accept}
-          onChange={handleChange}
-          disabled={uploading}
-          className="block w-full text-xs text-slate-400
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-full file:border-0
-            file:text-xs file:font-semibold
-            file:bg-blue-600 file:text-white
-            file:cursor-pointer hover:file:bg-blue-500
-            disabled:opacity-50 disabled:cursor-not-allowed
-            transition-all"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            accept={accept}
+            onChange={handleChange}
+            disabled={uploading}
+            className="block w-full text-xs text-slate-400
+              file:mr-4 file:py-2 file:px-4
+              file:rounded-full file:border-0
+              file:text-xs file:font-semibold
+              file:bg-blue-600 file:text-white
+              file:cursor-pointer hover:file:bg-blue-500
+              disabled:opacity-50 disabled:cursor-not-allowed
+              transition-all"
+          />
+          {url && !uploading && (
+            <button
+              type="button"
+              onClick={() => {
+                setUrl("");
+                if (onUrlChange) onUrlChange("");
+              }}
+              className="text-xs text-red-500 hover:text-red-400 font-bold px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/25 transition cursor-pointer hover:bg-red-500/20"
+            >
+              Eliminar
+            </button>
+          )}
+        </div>
         {/* Input oculto que registra la URL subida y se envía en el Formulario */}
         <input type="hidden" name={urlName} value={url} />
         {error && <p className="text-[10px] text-red-500 font-medium">{error}</p>}

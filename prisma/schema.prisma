@@ -111,6 +111,7 @@ model Card {
   logoUrl   String?
   avatarUrl String?
   coverUrl  String?
+  heroImageUrl String?
 
   profileName String?
   role        String?

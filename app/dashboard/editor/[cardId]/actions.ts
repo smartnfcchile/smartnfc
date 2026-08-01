@@ -160,6 +160,7 @@ export async function updateCard(formData: FormData) {
   let avatarUrl = formData.get("avatarUrl") as string;
   let logoUrl = formData.get("logoUrl") as string;
   let coverUrl = formData.get("coverUrl") as string;
+  let heroImageUrl = formData.get("heroImageUrl") as string;
 
   // Procesamos la subida de la foto de portada (Banner)
   const coverFile = formData.get("coverFile") as File | null;
@@ -186,6 +187,34 @@ export async function updateCard(formData: FormData) {
       }
     } catch (error) {
       console.error("Error al guardar Portada:", error);
+    }
+  }
+
+  // Procesamos la subida de la imagen hero (Fondo)
+  const heroFile = formData.get("heroImageFile") as File | null;
+  if (heroFile && heroFile.size > 0) {
+    try {
+      const ext = heroFile.name.split(".").pop() || "jpg";
+      const filename = `hero-${cardId}-${Date.now()}.${ext}`;
+
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        const blob = await put(filename, heroFile, {
+          access: "public",
+        });
+        heroImageUrl = blob.url;
+      } else {
+        const bytes = await heroFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const uploadDir = path.join(process.cwd(), "public", "uploads");
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const filepath = path.join(uploadDir, filename);
+        await fs.promises.writeFile(filepath, buffer);
+        heroImageUrl = `/uploads/${filename}`;
+      }
+    } catch (error) {
+      console.error("Error al guardar Imagen Hero:", error);
     }
   }
 
@@ -276,6 +305,7 @@ export async function updateCard(formData: FormData) {
       avatarUrl,
       logoUrl,
       coverUrl,
+      heroImageUrl,
       location,
       shareContactEnabled,
       shareContactButtonText,

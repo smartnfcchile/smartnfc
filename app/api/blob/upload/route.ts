@@ -12,17 +12,20 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (pathname, clientPayload) => {
+      onBeforeGenerateToken: async () => {
         // 1. Verificamos quién está conectado en la sesión para seguridad
         const session = await getServerSession(authOptions);
         if (!session) {
           throw new Error("No autorizado");
         }
 
+        const user = session.user as { id?: string };
+        if (!user.id) throw new Error("Sesión inválida");
         return {
-          allowedContentTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+          allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
+          maximumSizeInBytes: 5_000_000,
           tokenPayload: JSON.stringify({
-            userId: (session.user as any).id,
+            userId: user.id,
           }),
         };
       },

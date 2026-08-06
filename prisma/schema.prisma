@@ -44,19 +44,21 @@ enum EventType {
 }
 
 model Company {
-  id               String                      @id @default(cuid())
-  name             String
-  slug             String?                     @unique
-  plan             PlanType                    @default(FREE)
-  isActive         Boolean                     @default(true)
-  users            User[]
-  cards            Card[]
-  physicalNfcCards PhysicalNfcCard[]
-  localCampaigns   LocalCampaign[]
-  productLicenses  CompanyProductLicense[]
-  broadcastBatches LocalBroadcastExportBatch[]
-  leads            Lead[]
-  leadInteractions LeadInteraction[]
+  id                  String                      @id @default(cuid())
+  name                String
+  slug                String?                     @unique
+  plan                PlanType                    @default(FREE)
+  isActive            Boolean                     @default(true)
+  users               User[]
+  cards               Card[]
+  physicalNfcCards    PhysicalNfcCard[]
+  localCampaigns      LocalCampaign[]
+  productLicenses     CompanyProductLicense[]
+  broadcastBatches    LocalBroadcastExportBatch[]
+  leads               Lead[]
+  leadInteractions    LeadInteraction[]
+  physicalCardDesigns PhysicalCardDesign[]
+  physicalCardOrders  PhysicalCardOrder[]
 
   // Control de licencias y capacidades (Requisito 9)
   maxIdentities Int       @default(5)
@@ -81,9 +83,11 @@ model User {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
-  cards            Card[]
-  activationTokens UserActivationToken[]
-  resetTokens      PasswordResetToken[]
+  cards               Card[]
+  activationTokens    UserActivationToken[]
+  resetTokens         PasswordResetToken[]
+  physicalCardDesigns PhysicalCardDesign[]  @relation("PhysicalDesignCreator")
+  physicalCardOrders  PhysicalCardOrder[]   @relation("PhysicalOrderRequester")
 
   // Relaciones de difusión de WhatsApp
   createdBatches    LocalBroadcastExportBatch[] @relation("BatchCreatedByUser")
@@ -108,9 +112,9 @@ model Card {
   bannerStyle String @default("classic")
   photoStyle  String @default("circle")
 
-  logoUrl   String?
-  avatarUrl String?
-  coverUrl  String?
+  logoUrl      String?
+  avatarUrl    String?
+  coverUrl     String?
   heroImageUrl String?
 
   profileName String?
@@ -147,10 +151,11 @@ model Card {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
-  events           Event[]
-  leads            Lead[]
-  links            CardLink[]
-  leadInteractions LeadInteraction[]
+  events              Event[]
+  leads               Lead[]
+  links               CardLink[]
+  leadInteractions    LeadInteraction[]
+  physicalCardDesigns PhysicalCardDesign[]
 
   // Configuración de "Compárteme tus datos"
   shareContactEnabled    Boolean @default(false)
@@ -164,6 +169,103 @@ model Card {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum PhysicalDesignCategory {
+  PROFESSIONAL
+  LOCAL
+}
+
+enum PhysicalDesignStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum PhysicalOrderStatus {
+  REQUESTED
+  IN_REVIEW
+  QUOTED
+  APPROVED
+  IN_PRODUCTION
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model CardDesignTemplate {
+  id             String                 @id @default(cuid())
+  name           String
+  slug           String                 @unique
+  category       PhysicalDesignCategory
+  description    String?
+  orientation    String                 @default("LANDSCAPE")
+  frontSchema    Json
+  backSchema     Json
+  editableFields Json
+  isActive       Boolean                @default(true)
+  isPremium      Boolean                @default(false)
+  sortOrder      Int                    @default(0)
+  designs        PhysicalCardDesign[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([category, isActive, sortOrder])
+}
+
+model PhysicalCardDesign {
+  id               String                 @id @default(cuid())
+  companyId        String
+  company          Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  cardId           String
+  card             Card                   @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  createdById      String
+  createdBy        User                   @relation("PhysicalDesignCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  templateId       String
+  template         CardDesignTemplate     @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  name             String
+  category         PhysicalDesignCategory
+  orientation      String                 @default("LANDSCAPE")
+  widthMm          Float                  @default(85.6)
+  heightMm         Float                  @default(53.98)
+  bleedMm          Float                  @default(3)
+  safeMarginMm     Float                  @default(3)
+  frontDesign      Json
+  backDesign       Json
+  productionConfig Json?
+  status           PhysicalDesignStatus   @default(DRAFT)
+  version          Int                    @default(1)
+  orders           PhysicalCardOrder[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([companyId, status, updatedAt])
+  @@index([companyId, cardId])
+}
+
+model PhysicalCardOrder {
+  id               String              @id @default(cuid())
+  companyId        String
+  company          Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  designId         String
+  design           PhysicalCardDesign  @relation(fields: [designId], references: [id], onDelete: Restrict)
+  requestedById    String
+  requestedBy      User                @relation("PhysicalOrderRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  quantity         Int
+  productionMethod String
+  printSides       String
+  finish           String
+  status           PhysicalOrderStatus @default(REQUESTED)
+  notes            String?
+  internalNotes    String?
+  estimatedAmount  Decimal?            @db.Decimal(12, 2)
+  approvedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([companyId, status, createdAt])
+  @@index([designId])
 }
 
 model CardLink {

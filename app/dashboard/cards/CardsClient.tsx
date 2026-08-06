@@ -196,6 +196,12 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
                         >
                           📷 QR
                         </Link>
+                        <Link
+                          href={`/dashboard/physical-designs?cardId=${item.id}`}
+                          className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-300 text-xs font-semibold py-1.5 px-3 rounded-lg border border-blue-500/20 transition active:scale-95 inline-block cursor-pointer"
+                        >
+                          ✦ Diseño físico
+                        </Link>
                       </div>
                     )}
                   </td>

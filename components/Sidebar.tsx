@@ -50,6 +50,12 @@ export default function Sidebar({ user, activeProducts = ["EMPRESAS"] }: Sidebar
       show: isAdmin && (isSuper || activeProducts.includes("EMPRESAS")),
     },
     {
+      title: "Diseños físicos",
+      href: "/dashboard/physical-designs",
+      icon: "✦",
+      show: isAdmin && (isSuper || activeProducts.includes("EMPRESAS")),
+    },
+    {
       title: "Smart NFC Local",
       href: "/dashboard/local",
       icon: <Store className="h-4.5 w-4.5" />,

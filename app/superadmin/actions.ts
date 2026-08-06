@@ -187,7 +187,7 @@ export async function createCompanyAction(data: {
       const token = crypto.randomBytes(32).toString("hex");
       const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
+      expiresAt.setHours(expiresAt.getHours() + 48);
 
       await prisma.userActivationToken.create({
         data: {
@@ -255,28 +255,29 @@ export async function resendInvitationAction(userId: string) {
     throw new Error("Usuario no encontrado.");
   }
 
-  if (user.status !== "PENDING") {
-    throw new Error("El usuario ya se encuentra activo.");
+  if (user.password) {
+    throw new Error("Este usuario ya completó su enrolamiento. Si no recuerda su contraseña, debe usar la recuperación de acceso.");
   }
 
   // Invalidar tokens previos de activación
-  await prisma.userActivationToken.updateMany({
-    where: { userId: user.id, usedAt: null },
-    data: { expiresAt: new Date() }
-  });
-
   // Generar nuevo token
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 24);
+  expiresAt.setHours(expiresAt.getHours() + 48);
 
-  await prisma.userActivationToken.create({
-    data: {
-      userId: user.id,
-      tokenHash,
-      expiresAt
-    }
+  await prisma.$transaction(async (tx) => {
+    await tx.userActivationToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { expiresAt: new Date() }
+    });
+    await tx.userActivationToken.create({
+      data: { userId: user.id, tokenHash, expiresAt }
+    });
+    await tx.user.update({
+      where: { id: user.id },
+      data: { status: "PENDING", isActive: false }
+    });
   });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -314,10 +315,12 @@ export async function resendInvitationAction(userId: string) {
       entityType: "USER",
       entityId: user.id,
       companyId: user.companyId,
-      metadata: JSON.stringify({ email: user.email })
+      metadata: JSON.stringify({ email: user.email, expiresAt: expiresAt.toISOString() })
     }
   });
 
+  revalidatePath("/superadmin/usuarios");
+  revalidatePath(`/superadmin/empresas/${user.companyId}`);
   return { success: true };
 }
 
@@ -551,12 +554,14 @@ export async function updateUserRoleAndStatusAction(userId: string, data: {
       return { success: false, error: "No es posible asignar el rol SUPERADMIN desde este formulario." };
     }
 
-    const newStatus = !data.isActive ? "SUSPENDED" : "ACTIVE";
+    const enrollmentPending = !targetUser.password;
+    const effectiveIsActive = data.isActive && !enrollmentPending;
+    const newStatus = !data.isActive ? "SUSPENDED" : enrollmentPending ? "PENDING" : "ACTIVE";
 
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
-        isActive: data.isActive,
+        isActive: effectiveIsActive,
         role: data.role,
         companyId: data.companyId,
         status: newStatus
@@ -582,7 +587,8 @@ export async function updateUserRoleAndStatusAction(userId: string, data: {
     return {
       success: true,
       userId: updated.id,
-      email: updated.email
+      email: updated.email,
+      enrollmentPending
     };
   } catch (err: any) {
     console.error("Error al modificar usuario:", err);

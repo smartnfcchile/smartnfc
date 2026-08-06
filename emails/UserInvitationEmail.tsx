@@ -13,7 +13,7 @@ export default function UserInvitationEmail({
   companyName,
   role,
   activationUrl,
-  expiresInHours = 24,
+  expiresInHours = 48,
 }: UserInvitationEmailProps) {
   return (
     <div style={{ fontFamily: "sans-serif", color: "#1e293b", padding: "20px", maxWidth: "600px", margin: "0 auto", border: "1px solid #e2e8f0", borderRadius: "12px" }}>

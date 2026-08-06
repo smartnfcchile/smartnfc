@@ -65,7 +65,7 @@ export async function createVendorUser(
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 24);
+  expiresAt.setHours(expiresAt.getHours() + 48);
 
   await prisma.userActivationToken.create({
     data: {
@@ -138,28 +138,29 @@ export async function resendInvitationFromDashboardAction(userId: string) {
     throw new Error("No autorizado. El usuario pertenece a otra empresa.");
   }
 
-  if (user.status !== "PENDING") {
-    throw new Error("El usuario ya se encuentra activo.");
+  if (user.password) {
+    throw new Error("El usuario ya completó su enrolamiento. Debe usar la recuperación de contraseña.");
   }
 
   // Invalidar tokens anteriores
-  await prisma.userActivationToken.updateMany({
-    where: { userId: user.id, usedAt: null },
-    data: { expiresAt: new Date() }
-  });
-
   // Generar nuevo token
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 24);
+  expiresAt.setHours(expiresAt.getHours() + 48);
 
-  await prisma.userActivationToken.create({
-    data: {
-      userId: user.id,
-      tokenHash,
-      expiresAt
-    }
+  await prisma.$transaction(async (tx) => {
+    await tx.userActivationToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { expiresAt: new Date() }
+    });
+    await tx.userActivationToken.create({
+      data: { userId: user.id, tokenHash, expiresAt }
+    });
+    await tx.user.update({
+      where: { id: user.id },
+      data: { status: "PENDING", isActive: false }
+    });
   });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

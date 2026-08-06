@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateUserRoleAndStatusAction } from "../actions";
+import { resendInvitationAction, updateUserRoleAndStatusAction } from "../actions";
 
 interface UserItem {
   id: string;
@@ -10,6 +10,8 @@ interface UserItem {
   email: string;
   role: string;
   isActive: boolean;
+  status: string;
+  hasPassword: boolean;
   createdAt: string;
   companyId: string;
   company: {
@@ -74,18 +76,40 @@ export default function UsuariosListClient({ initialUsers, companies }: Usuarios
     setSuccess(null);
 
     try {
-      await updateUserRoleAndStatusAction(selectedUser.id, {
+      const result = await updateUserRoleAndStatusAction(selectedUser.id, {
         isActive: editIsActive,
         role: editRole as "SUPERADMIN" | "COMPANY_OWNER" | "COMPANY_ADMIN" | "COLLABORATOR",
         companyId: editCompanyId,
       });
 
-      setSuccess("Usuario actualizado con éxito.");
+      if (!result.success) {
+        throw new Error(result.error || "Error al actualizar el usuario.");
+      }
+
+      setSuccess(result.enrollmentPending
+        ? "Usuario actualizado. Aún debe aceptar una invitación para crear su contraseña."
+        : "Usuario actualizado con éxito.");
       setSelectedUser(null);
       router.refresh();
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Error al actualizar el usuario.";
       setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendInvitation = async (user: UserItem) => {
+    if (!window.confirm(`Se invalidarán los enlaces anteriores y se enviará una invitación nueva a ${user.email}. ¿Continuar?`)) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await resendInvitationAction(user.id);
+      setSuccess(`Invitación renovada y enviada a ${user.email}. El enlace será válido durante 48 horas.`);
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "No fue posible reenviar la invitación.");
     } finally {
       setLoading(false);
     }
@@ -218,24 +242,37 @@ export default function UsuariosListClient({ initialUsers, companies }: Usuarios
                     <td className="px-5 py-3.5">
                       <span
                         className={`inline-flex px-2 py-0.5 rounded text-[8px] font-extrabold uppercase leading-none ${
-                          user.isActive
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                          user.status === "PENDING"
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            : user.isActive
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
                         }`}
                       >
-                        {user.isActive ? "Activo" : "Suspendido"}
+                        {user.status === "PENDING" ? "Invitación pendiente" : user.isActive ? "Activo" : "Suspendido"}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-slate-400">
                       {new Date(user.createdAt).toLocaleDateString("es-CL")}
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <button
-                        onClick={() => openEditModal(user)}
-                        className="inline-flex px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 text-slate-650 dark:text-slate-350 text-[10px] font-extrabold transition-all cursor-pointer"
-                      >
-                        Modificar
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        {!user.hasPassword && (
+                          <button
+                            disabled={loading}
+                            onClick={() => handleResendInvitation(user)}
+                            className="inline-flex px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-extrabold transition-all disabled:opacity-50"
+                          >
+                            Reenviar invitación
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openEditModal(user)}
+                          className="inline-flex px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 text-slate-650 dark:text-slate-350 text-[10px] font-extrabold transition-all cursor-pointer"
+                        >
+                          Modificar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

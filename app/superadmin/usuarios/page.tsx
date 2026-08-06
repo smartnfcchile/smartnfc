@@ -33,6 +33,8 @@ export default async function SuperadminUsuariosPage() {
     email: u.email,
     role: u.role,
     isActive: u.isActive,
+    status: u.status,
+    hasPassword: Boolean(u.password),
     createdAt: u.createdAt.toISOString(),
     companyId: u.companyId,
     company: u.company,

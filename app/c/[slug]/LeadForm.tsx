@@ -39,7 +39,7 @@ export default function LeadForm({
     paragraph: isDark ? "text-sm leading-6 text-slate-400" : "text-sm leading-6 text-slate-500",
     input: isDark 
       ? "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-theme" 
-      : "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-955 outline-none placeholder:text-slate-400 focus:border-theme",
+      : "w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-500 focus:border-theme",
   };
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

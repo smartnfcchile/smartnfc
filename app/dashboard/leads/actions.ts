@@ -12,7 +12,7 @@ export async function updateLeadCRM(leadId: string, status: string, notes: strin
     throw new Error("No autorizado");
   }
 
-  const user = session.user as any;
+  const user = session.user as { id: string; companyId: string; role: string };
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   // Buscamos el lead y su tarjeta asociada para validar permisos de pertenencia
@@ -25,6 +25,11 @@ export async function updateLeadCRM(leadId: string, status: string, notes: strin
           userId: true,
         },
       },
+      interactions: {
+        where: { card: { userId: user.id } },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
 
@@ -33,7 +38,7 @@ export async function updateLeadCRM(leadId: string, status: string, notes: strin
   }
 
   // Validaciones estrictas de permisos
-  if (!isAdmin && lead.card.userId !== user.id) {
+  if (!isAdmin && lead.card.userId !== user.id && lead.interactions.length === 0) {
     throw new Error("No tienes permisos para modificar este prospecto.");
   }
 

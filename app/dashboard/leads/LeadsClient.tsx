@@ -21,7 +21,7 @@ type LeadWithCard = {
   name: string;
   company: string | null;
   position: string | null;
-  email: string;
+  email: string | null;
   phone: string | null;
   message: string | null;
   status: string;
@@ -62,6 +62,49 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
   const [statusInput, setStatusInput] = useState("");
   const [isPending, startTransition] = useTransition();
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  const formatPhoneForDisplay = (phone: string | null): string => {
+    if (!phone) return "";
+    // Si empieza con 56 y tiene 11 dígitos (Chile internacional normalizado, ej. 56912345678)
+    if (phone.startsWith("56") && phone.length === 11) {
+      return `+56 9 ${phone.substring(3, 7)} ${phone.substring(7)}`;
+    }
+    // Si empieza con 9 y tiene 9 dígitos (Chile local)
+    if (phone.startsWith("9") && phone.length === 9) {
+      return `+56 9 ${phone.substring(1, 5)} ${phone.substring(5)}`;
+    }
+    // Si ya empieza con +, dejarlo tal cual
+    if (phone.startsWith("+")) {
+      return phone;
+    }
+    // En otros casos de números largos sin +, agregar + para presentación segura
+    if (phone.length >= 10) {
+      return `+${phone}`;
+    }
+    return phone;
+  };
+
+  const getTelUrl = (phone: string): string => {
+    const digits = phone.replace(/[^\d]/g, "");
+    if (digits.startsWith("56") || (digits.length >= 10 && !phone.startsWith("+"))) {
+      return `tel:+${digits}`;
+    }
+    return `tel:${phone}`;
+  };
+
+  const handleCopy = async (text: string, type: "Teléfono" | "Correo") => {
+    if (!navigator?.clipboard) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFeedback(`${type} copiado`);
+      setTimeout(() => setCopyFeedback(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy text:", err);
+    }
+  };
 
   const handleSelectLead = (lead: LeadWithCard) => {
     setSelectedLead(lead);
@@ -322,10 +365,15 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
                         <td className="py-4 px-4">
                           <div className="font-bold text-white text-sm sm:text-base">{lead.name}</div>
                           <div className="text-[10px] text-slate-500 mt-1 space-y-0.5">
-                            {lead.company && (
+                            {lead.phone ? (
+                              <span>📱 {formatPhoneForDisplay(lead.phone)}</span>
+                            ) : lead.email ? (
+                              <span className="truncate block">📧 {lead.email}</span>
+                            ) : lead.company ? (
                               <span>🏢 {lead.company} {lead.position ? `(${lead.position})` : ""}</span>
+                            ) : (
+                              <span className="italic text-slate-600">Sin datos de contacto</span>
                             )}
-                             {lead.email && <div className="truncate">📧 {lead.email}</div>}
                           </div>
                         </td>
                         <td className="py-4 px-4 text-slate-400 font-medium text-xs sm:text-sm">
@@ -376,6 +424,113 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
                   {selectedLead.position} en <strong className="text-slate-300">{selectedLead.company}</strong>
                 </p>
               )}
+            </div>
+
+            {/* Datos del Prospecto */}
+            <div className="bg-slate-950/50 rounded-2xl p-4 border border-slate-850 space-y-3.5 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-850/60 pb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Datos del Prospecto
+                </span>
+                {copyFeedback && (
+                  <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 animate-pulse">
+                    {copyFeedback}
+                  </span>
+                )}
+              </div>
+
+              {/* Teléfono */}
+              {selectedLead.phone ? (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 font-medium">Teléfono:</span>
+                    <span className="font-mono text-white font-semibold">
+                      {formatPhoneForDisplay(selectedLead.phone)}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <a
+                      href={`https://wa.me/${selectedLead.phone.replace(/[^\d]/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-600/20 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      💬 WhatsApp
+                    </a>
+                    <a
+                      href={getTelUrl(selectedLead.phone)}
+                      className="bg-blue-600/10 border border-blue-500/20 text-blue-400 hover:bg-blue-600/20 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      📞 Llamar
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(formatPhoneForDisplay(selectedLead.phone), "Teléfono")}
+                      className="bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 px-2.5 py-1 rounded text-[10px] font-bold transition cursor-pointer"
+                    >
+                      📋 Copiar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Correo */}
+              {selectedLead.email ? (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 font-medium">Correo electrónico:</span>
+                    <span className="text-white font-semibold truncate max-w-[200px]" title={selectedLead.email}>
+                      {selectedLead.email}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <a
+                      href={`mailto:${selectedLead.email}`}
+                      className="bg-blue-600/10 border border-blue-500/20 text-blue-400 hover:bg-blue-600/20 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      📧 Enviar correo
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(selectedLead.email || "", "Correo")}
+                      className="bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 px-2.5 py-1 rounded text-[10px] font-bold transition cursor-pointer"
+                    >
+                      📋 Copiar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Si no hay teléfono ni correo */}
+              {!selectedLead.phone && !selectedLead.email && (
+                <p className="text-slate-500 italic text-center py-1">
+                  Sin datos de contacto adicionales
+                </p>
+              )}
+
+              {/* Mensaje inicial */}
+              {selectedLead.message && (
+                <div className="border-t border-slate-850/60 pt-2 space-y-1">
+                  <span className="text-slate-550 block text-[10px] uppercase font-bold tracking-wider">Mensaje inicial:</span>
+                  <p className="text-slate-300 italic bg-slate-950/60 p-2 rounded-lg border border-slate-850/80 leading-5">
+                    &quot;{selectedLead.message}&quot;
+                  </p>
+                </div>
+              )}
+
+              {/* Metadatos (Fecha e Identidad) */}
+              <div className="border-t border-slate-850/60 pt-2 flex flex-col gap-1 text-[10px] text-slate-500">
+                <div className="flex justify-between">
+                  <span>Registrado el:</span>
+                  <span className="text-slate-400">
+                    {new Date(selectedLead.createdAt).toLocaleDateString("es-CL")} a las {new Date(selectedLead.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tarjeta asociada:</span>
+                  <span className="text-slate-400 font-medium">{selectedLead.card.name}</span>
+                </div>
+              </div>
             </div>
 
             {/* Formulario CRM */}
@@ -439,40 +594,53 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
 
               {selectedLead.interactions && selectedLead.interactions.length > 0 ? (
                 <div className="space-y-3">
-                  {selectedLead.interactions.map((interaction) => (
-                    <div key={interaction.id} className="bg-slate-950/60 rounded-xl p-3 border border-slate-850 space-y-2 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          interaction.type === "CONTACT_CAPTURE" 
-                            ? "bg-blue-600/10 text-blue-400 border border-blue-600/20" 
-                            : "bg-purple-600/10 text-purple-400 border border-purple-600/20"
-                        }`}>
-                          {interaction.type === "CONTACT_CAPTURE" ? "Captura Inicial" : "Re-contacto"}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          Origen: <strong className="text-slate-200">{interaction.source}</strong>
-                        </span>
-                      </div>
-                      
-                      {interaction.message && (
-                        <p className="text-slate-355 italic bg-slate-900/40 p-2 rounded-lg border border-slate-800">
-                          &quot;{interaction.message}&quot;
-                        </p>
-                      )}
+                  {selectedLead.interactions.map((interaction) => {
+                    // Mapeo amigable de orígenes
+                    let friendlySource = "Origen no registrado";
+                    if (interaction.source === "NFC") friendlySource = "Tarjeta NFC";
+                    else if (interaction.source === "QR") friendlySource = "Código QR";
+                    else if (interaction.source === "DIRECT") friendlySource = "Enlace directo";
 
-                      <div className="text-[10px] text-slate-500 space-y-1">
-                        <div className="flex items-center gap-1.5 text-emerald-400/90">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span>Consentimiento Aceptado el {new Date(interaction.createdAt).toLocaleDateString("es-CL")}</span>
+                    return (
+                      <div key={interaction.id} className="bg-slate-950/60 rounded-xl p-3 border border-slate-850 space-y-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            interaction.type === "CONTACT_CAPTURE"
+                              ? "bg-blue-600/10 text-blue-400 border border-blue-600/20"
+                              : "bg-purple-600/10 text-purple-400 border border-purple-600/20"
+                          }`}>
+                            {interaction.type === "CONTACT_CAPTURE" ? "Captura Inicial" : "Re-contacto"}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Origen: <strong className="text-slate-200">{friendlySource}</strong>
+                          </span>
                         </div>
-                        {interaction.consentText && (
-                          <div className="pl-3 border-l border-slate-800 text-[9px] text-slate-550 max-h-12 overflow-y-auto scrollbar-thin">
-                            {interaction.consentText}
+
+                        <p className="text-slate-300 font-medium bg-slate-900/40 p-2 rounded-lg border border-slate-800">
+                          {interaction.type === "CONTACT_CAPTURE"
+                            ? `Datos compartidos desde ${friendlySource}`
+                            : `Re-contacto registrado desde ${friendlySource}`}
+                          {interaction.message && (
+                            <span className="block mt-1 font-normal italic text-slate-400">
+                              &quot;{interaction.message}&quot;
+                            </span>
+                          )}
+                        </p>
+
+                        <div className="text-[10px] text-slate-500 space-y-1">
+                          <div className="flex items-center gap-1.5 text-emerald-400/90">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>Consentimiento Aceptado el {new Date(interaction.createdAt).toLocaleDateString("es-CL")}</span>
                           </div>
-                        )}
+                          {interaction.consentText && (
+                            <div className="pl-3 border-l border-slate-800 text-[9px] text-slate-550 max-h-12 overflow-y-auto scrollbar-thin">
+                              {interaction.consentText}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-500 italic py-2">

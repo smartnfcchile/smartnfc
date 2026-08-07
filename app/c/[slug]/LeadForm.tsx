@@ -10,6 +10,7 @@ type LeadFormProps = {
   introText?: string | null;
   confirmText?: string | null;
   consentText?: string | null;
+  contactSource?: "NFC" | "QR" | "DIRECT";
   onSuccess?: () => void; // Optional callback when form succeeds
 };
 
@@ -21,6 +22,7 @@ export default function LeadForm({
   introText,
   confirmText,
   consentText,
+  contactSource = "DIRECT",
   onSuccess
 }: LeadFormProps) {
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">(
@@ -62,6 +64,7 @@ export default function LeadForm({
         nickname: String(formData.get("nickname") || ""), // Honeypot
         consentAccepted: !!consentText ? consentAccepted : true,
         consentText: consentText || null,
+        source: contactSource,
       };
 
       const response = await fetch("/api/public/leads", {

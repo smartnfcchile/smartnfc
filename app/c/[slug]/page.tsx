@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { headers } from "next/headers";
-import { hashIp } from "../../../lib/security";
 import CardProfileView from "@/components/card-profile/CardProfileView";
 
 type PageProps = {
@@ -32,27 +30,13 @@ export default async function PublicCardPage({ params, searchParams }: PageProps
     notFound();
   }
 
-  // 1. Detección de NFC Scan vs Vista regular
-  const headersList = await headers();
-  const ip =
-    headersList.get("x-forwarded-for")?.split(",")[0] ||
-    headersList.get("x-real-ip") ||
-    "local";
+  // Normalizar origen
+  let contactSource: "NFC" | "QR" | "DIRECT" = "DIRECT";
+  if (ref === "nfc" || ref === "nfc_scan") {
+    contactSource = "NFC";
+  } else if (ref === "qr" || ref === "qr_scan") {
+    contactSource = "QR";
+  }
 
-  const userAgent = headersList.get("user-agent") || "Desconocido";
-  const referer = headersList.get("referer") || null;
-
-  const isNfc = ref === "nfc" || ref === "nfc_scan";
-
-  await prisma.event.create({
-    data: {
-      cardId: card.id,
-      eventType: isNfc ? "NFC_SCAN" : "VIEW",
-      userAgent,
-      referer,
-      ipHash: hashIp(ip),
-    },
-  });
-
-  return <CardProfileView card={card} isPreview={false} />;
+  return <CardProfileView card={card} isPreview={false} contactSource={contactSource} />;
 }

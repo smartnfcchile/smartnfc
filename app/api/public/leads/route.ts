@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     const message = clean(body.message);
     const consentAccepted = !!body.consentAccepted;
     const consentText = clean(body.consentText) || null;
-    const sourceParam = clean(body.source) || "UNKNOWN";
+    const sourceParam = clean(body.source) || "";
 
     if (!cardId || !name || !phone) {
       return NextResponse.json(
@@ -106,13 +106,11 @@ export async function POST(request: Request) {
       const companyId = card.companyId;
 
       // Determinar Origen
-      let source: ContactSource = ContactSource.UNKNOWN;
+      let source: ContactSource = ContactSource.DIRECT;
       if (sourceParam === "NFC" || sourceParam === "nfc" || sourceParam === "nfc_scan") {
         source = ContactSource.NFC;
       } else if (sourceParam === "QR" || sourceParam === "qr" || sourceParam === "qr_scan") {
         source = ContactSource.QR;
-      } else if (sourceParam === "DIRECT" || sourceParam === "direct") {
-        source = ContactSource.DIRECT;
       }
 
       // Buscar leads existentes para desduplicación scoped por empresa (companyId)

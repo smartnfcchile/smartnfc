@@ -28,7 +28,12 @@ export default async function LeadsPage() {
   const leads = await prisma.lead.findMany({
     where: isAdmin
       ? { companyId: user.companyId }
-      : { card: { userId: user.id } },
+      : {
+          OR: [
+            { card: { userId: user.id } },
+            { interactions: { some: { card: { userId: user.id } } } },
+          ],
+        },
     include: {
       card: {
         select: {
@@ -62,8 +67,8 @@ export default async function LeadsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight font-sans">CRM y Prospectos</h1>
-          <p className="text-slate-400 text-xs sm:text-sm mt-1">
+          <h1 className="text-3xl font-bold text-slate-950 dark:text-white tracking-tight font-sans">CRM y Prospectos</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
             Gestión y seguimiento comercial de contactos registrados.
           </p>
         </div>

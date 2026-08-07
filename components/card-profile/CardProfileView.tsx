@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import LeadForm from "../../app/c/[slug]/LeadForm";
 import TrackButton from "../../app/c/[slug]/TrackButton";
+import PublicCardAnalytics from "./PublicCardAnalytics";
 import { 
   normalizeTemplate, 
   normalizePhotoStyle, 
@@ -80,6 +81,7 @@ export interface CardProfileData {
 export interface CardProfileViewProps {
   card: CardProfileData;
   isPreview?: boolean;
+  contactSource?: "NFC" | "QR" | "DIRECT";
 }
 
 function formatPhone(phone?: string | null) {
@@ -117,7 +119,7 @@ function getSafeVideoEmbedUrl(videoUrl?: string | null) {
   }
 }
 
-export default function CardProfileView({ card, isPreview = false }: CardProfileViewProps) {
+export default function CardProfileView({ card, isPreview = false, contactSource = "DIRECT" }: CardProfileViewProps) {
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
 
   // Normalizar opciones visuales mediante módulo centralizado
@@ -333,7 +335,9 @@ END:VCARD`;
   const hasHeroClass = card.heroImageUrl ? "has-hero" : "";
 
   return (
-    <main className={`nfc-landing-main ${hasHeroClass} ${mainClass}`}>
+    <>
+      <PublicCardAnalytics cardId={card.id} contactSource={contactSource} />
+      <main className={`nfc-landing-main ${hasHeroClass} ${mainClass}`}>
       {card.heroImageUrl && (
         <>
           <style dangerouslySetInnerHTML={{ __html: `
@@ -854,6 +858,7 @@ END:VCARD`;
               introText={card.shareContactIntro}
               confirmText={card.shareContactConfirm}
               consentText={card.shareContactConsent}
+              contactSource={contactSource}
               onSuccess={() => {
                 // Cerrar modal automáticamente tras 2 segundos del envío exitoso
                 setTimeout(() => {
@@ -865,5 +870,6 @@ END:VCARD`;
         </div>
       )}
     </main>
+    </>
   );
 }

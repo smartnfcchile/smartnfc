@@ -21,7 +21,7 @@ type LeadWithCard = {
   name: string;
   company: string | null;
   position: string | null;
-  email: string;
+  email: string | null;
   phone: string | null;
   message: string | null;
   status: string;
@@ -62,6 +62,49 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
   const [statusInput, setStatusInput] = useState("");
   const [isPending, startTransition] = useTransition();
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  const formatPhoneForDisplay = (phone: string | null): string => {
+    if (!phone) return "";
+    // Si empieza con 56 y tiene 11 dígitos (Chile internacional normalizado, ej. 56912345678)
+    if (phone.startsWith("56") && phone.length === 11) {
+      return `+56 9 ${phone.substring(3, 7)} ${phone.substring(7)}`;
+    }
+    // Si empieza con 9 y tiene 9 dígitos (Chile local)
+    if (phone.startsWith("9") && phone.length === 9) {
+      return `+56 9 ${phone.substring(1, 5)} ${phone.substring(5)}`;
+    }
+    // Si ya empieza con +, dejarlo tal cual
+    if (phone.startsWith("+")) {
+      return phone;
+    }
+    // En otros casos de números largos sin +, agregar + para presentación segura
+    if (phone.length >= 10) {
+      return `+${phone}`;
+    }
+    return phone;
+  };
+
+  const getTelUrl = (phone: string): string => {
+    const digits = phone.replace(/[^\d]/g, "");
+    if (digits.startsWith("56") || (digits.length >= 10 && !phone.startsWith("+"))) {
+      return `tel:+${digits}`;
+    }
+    return `tel:${phone}`;
+  };
+
+  const handleCopy = async (text: string, type: "Teléfono" | "Correo") => {
+    if (!navigator?.clipboard) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFeedback(`${type} copiado`);
+      setTimeout(() => setCopyFeedback(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy text:", err);
+    }
+  };
 
   const handleSelectLead = (lead: LeadWithCard) => {
     setSelectedLead(lead);
@@ -139,17 +182,17 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "NUEVO":
-        return "bg-blue-500/10 border-blue-500/30 text-blue-400";
+        return "bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30 text-blue-700 dark:text-blue-400";
       case "CONTACTADO":
-        return "bg-amber-500/10 border-amber-500/30 text-amber-400";
+        return "bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-400";
       case "NEGOCIACION":
-        return "bg-purple-500/10 border-purple-500/30 text-purple-400";
+        return "bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-400";
       case "GANADO":
-        return "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+        return "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400";
       case "PERDIDO":
-        return "bg-rose-500/10 border-rose-500/30 text-rose-400";
+        return "bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/30 text-rose-700 dark:text-rose-400";
       default:
-        return "bg-slate-500/10 border-slate-500/30 text-slate-400";
+        return "bg-slate-100 dark:bg-slate-500/10 border-slate-300 dark:border-slate-500/30 text-slate-700 dark:text-slate-400";
     }
   };
 
@@ -249,24 +292,24 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] gap-6 items-start">
       
       {/* SECCIÓN IZQUIERDA: Filtros y Lista de Leads */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className="min-w-0 space-y-4">
         
         {/* Barra de Filtros */}
-        <div className="bg-slate-900/40 border border-slate-900 p-4 rounded-2xl flex flex-col sm:flex-row gap-3 items-stretch sm:items-center shadow-sm">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-[minmax(14rem,1fr)_minmax(11rem,auto)_auto_auto] gap-3 items-stretch shadow-sm">
           <input
             type="text"
             placeholder="Buscar por nombre, email o tarjeta..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 p-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs sm:text-sm text-white transition-all"
+            className="min-w-0 p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-500 transition-all"
           />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 transition-all cursor-pointer"
+            className="min-w-0 p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-all cursor-pointer"
           >
             <option value="TODOS">Todos los Estados</option>
             <option value="NUEVO">Nuevos</option>
@@ -291,7 +334,7 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
         </div>
  
         {/* Tabla / Lista de Prospectos */}
-        <div className="bg-slate-900/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
           {filteredLeads.length === 0 ? (
             <div className="text-center py-20 text-slate-500 space-y-2">
               <span className="text-4xl block">👤</span>
@@ -300,7 +343,7 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-slate-950/40 text-slate-400 uppercase text-[9px] tracking-widest border-b border-slate-850">
+                <thead className="bg-slate-100 dark:bg-slate-950/40 text-slate-600 dark:text-slate-400 uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-slate-800">
                   <tr>
                     <th className="py-3 px-4">Prospecto</th>
                     <th className="py-3 px-4">Tarjeta Asociada</th>
@@ -308,27 +351,32 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
                     <th className="py-3 px-4 text-right">Registrado</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-850/30">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
                   {filteredLeads.map((lead) => {
                     const isSelected = selectedLead?.id === lead.id;
                     return (
                       <tr
                         key={lead.id}
                         onClick={() => handleSelectLead(lead)}
-                        className={`hover:bg-slate-900/40 cursor-pointer transition-colors ${
-                          isSelected ? "bg-slate-900/60 border-l-4 border-l-blue-600" : ""
+                        className={`hover:bg-slate-50 dark:hover:bg-slate-900/60 cursor-pointer transition-colors ${
+                          isSelected ? "bg-blue-50 dark:bg-slate-900/80 border-l-4 border-l-blue-600" : ""
                         }`}
                       >
                         <td className="py-4 px-4">
-                          <div className="font-bold text-white text-sm sm:text-base">{lead.name}</div>
-                          <div className="text-[10px] text-slate-500 mt-1 space-y-0.5">
-                            {lead.company && (
+                          <div className="font-bold text-slate-950 dark:text-white text-sm sm:text-base">{lead.name}</div>
+                          <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 space-y-0.5">
+                            {lead.phone ? (
+                              <span>📱 {formatPhoneForDisplay(lead.phone)}</span>
+                            ) : lead.email ? (
+                              <span className="truncate block">📧 {lead.email}</span>
+                            ) : lead.company ? (
                               <span>🏢 {lead.company} {lead.position ? `(${lead.position})` : ""}</span>
+                            ) : (
+                              <span className="italic text-slate-600">Sin datos de contacto</span>
                             )}
-                             {lead.email && <div className="truncate">📧 {lead.email}</div>}
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-slate-400 font-medium text-xs sm:text-sm">
+                        <td className="py-4 px-4 text-slate-700 dark:text-slate-300 font-medium text-xs sm:text-sm">
                           {lead.card.name}
                         </td>
                         <td className="py-4 px-4 text-center">
@@ -340,7 +388,7 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
                             {lead.status}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-right text-xs text-slate-500 font-medium">
+                        <td className="py-4 px-4 text-right text-xs text-slate-600 dark:text-slate-400 font-medium">
                           {new Date(lead.createdAt).toLocaleDateString("es-CL")}
                         </td>
                       </tr>
@@ -355,7 +403,7 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
       </div>
 
       {/* SECCIÓN DERECHA: Ficha CRM del Lead */}
-      <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 shadow-sm min-h-[400px]">
+      <div className="min-w-0 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm min-h-[400px] xl:sticky xl:top-6">
         {!selectedLead ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-slate-500 py-16 space-y-3">
             <span className="text-4xl">🗂️</span>
@@ -368,14 +416,121 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
           <div className="space-y-6">
             
             {/* Cabecera Ficha */}
-            <div className="border-b border-slate-850 pb-4">
-              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Ficha de CRM</span>
-              <h2 className="text-xl font-black text-white truncate mt-1">{selectedLead.name}</h2>
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
+              <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-widest">Ficha de CRM</span>
+              <h2 className="text-xl font-black text-slate-950 dark:text-white break-words mt-1">{selectedLead.name}</h2>
               {selectedLead.company && (
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {selectedLead.position} en <strong className="text-slate-300">{selectedLead.company}</strong>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  {selectedLead.position} en <strong className="text-slate-800 dark:text-slate-300">{selectedLead.company}</strong>
                 </p>
               )}
+            </div>
+
+            {/* Datos del Prospecto */}
+            <div className="bg-slate-50 dark:bg-slate-950/50 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 space-y-3.5 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                  Datos del Prospecto
+                </span>
+                {copyFeedback && (
+                  <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 animate-pulse">
+                    {copyFeedback}
+                  </span>
+                )}
+              </div>
+
+              {/* Teléfono */}
+              {selectedLead.phone ? (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap justify-between items-center gap-2">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Teléfono:</span>
+                    <span className="font-mono text-slate-950 dark:text-white font-semibold">
+                      {formatPhoneForDisplay(selectedLead.phone)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <a
+                      href={`https://wa.me/${selectedLead.phone.replace(/[^\d]/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-emerald-50 dark:bg-emerald-600/10 border border-emerald-300 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-600/20 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      💬 WhatsApp
+                    </a>
+                    <a
+                      href={getTelUrl(selectedLead.phone)}
+                      className="bg-blue-50 dark:bg-blue-600/10 border border-blue-300 dark:border-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-600/20 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      📞 Llamar
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(formatPhoneForDisplay(selectedLead.phone), "Teléfono")}
+                      className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 px-2.5 py-1 rounded text-[10px] font-bold transition cursor-pointer"
+                    >
+                      📋 Copiar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Correo */}
+              {selectedLead.email ? (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap justify-between items-center gap-2">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Correo electrónico:</span>
+                    <span className="text-slate-950 dark:text-white font-semibold break-all" title={selectedLead.email}>
+                      {selectedLead.email}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <a
+                      href={`mailto:${selectedLead.email}`}
+                      className="bg-blue-50 dark:bg-blue-600/10 border border-blue-300 dark:border-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-600/20 px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      📧 Enviar correo
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(selectedLead.email || "", "Correo")}
+                      className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 px-2.5 py-1 rounded text-[10px] font-bold transition cursor-pointer"
+                    >
+                      📋 Copiar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Si no hay teléfono ni correo */}
+              {!selectedLead.phone && !selectedLead.email && (
+                <p className="text-slate-500 italic text-center py-1">
+                  Sin datos de contacto adicionales
+                </p>
+              )}
+
+              {/* Mensaje inicial */}
+              {selectedLead.message && (
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-2 space-y-1">
+                  <span className="text-slate-550 block text-[10px] uppercase font-bold tracking-wider">Mensaje inicial:</span>
+                  <p className="text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-950/60 p-2 rounded-lg border border-slate-200 dark:border-slate-800 leading-5">
+                    &quot;{selectedLead.message}&quot;
+                  </p>
+                </div>
+              )}
+
+              {/* Metadatos (Fecha e Identidad) */}
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex flex-col gap-1 text-[10px] text-slate-600 dark:text-slate-500">
+                <div className="flex justify-between">
+                  <span>Registrado el:</span>
+                  <span className="text-slate-700 dark:text-slate-400">
+                    {new Date(selectedLead.createdAt).toLocaleDateString("es-CL")} a las {new Date(selectedLead.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tarjeta asociada:</span>
+                  <span className="text-slate-700 dark:text-slate-400 font-medium">{selectedLead.card.name}</span>
+                </div>
+              </div>
             </div>
 
             {/* Formulario CRM */}
@@ -383,13 +538,13 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
               
               {/* Cambiar Estado */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Estado del Lead
                 </label>
                 <select
                   value={statusInput}
                   onChange={(e) => setStatusInput(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 transition-all cursor-pointer font-semibold"
+                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-all cursor-pointer font-semibold"
                 >
                   <option value="NUEVO">🔵 Nuevo</option>
                   <option value="CONTACTADO">🟡 Contactado</option>
@@ -401,7 +556,7 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
 
               {/* Editar Notas */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Notas de Seguimiento
                 </label>
                 <textarea
@@ -409,12 +564,12 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
                   onChange={(e) => setNotesInput(e.target.value)}
                   rows={4}
                   placeholder="Añade notas del cliente, llamadas, acuerdos..."
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-850 focus:border-blue-500 focus:outline-none text-xs text-slate-300 transition-all resize-none"
+                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 focus:border-blue-500 focus:outline-none text-xs text-slate-900 dark:text-slate-300 placeholder:text-slate-500 transition-all resize-none"
                 />
               </div>
 
               {/* Botón Guardar */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <button
                   onClick={handleSaveCRM}
                   disabled={isPending}
@@ -432,47 +587,60 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
             </div>
 
             {/* Bitácora de Interacciones de Contacto */}
-            <div className="space-y-3 pt-4 border-t border-slate-850">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                 Bitácora de Prospecto (CRM Histórico)
               </label>
 
               {selectedLead.interactions && selectedLead.interactions.length > 0 ? (
                 <div className="space-y-3">
-                  {selectedLead.interactions.map((interaction) => (
-                    <div key={interaction.id} className="bg-slate-950/60 rounded-xl p-3 border border-slate-850 space-y-2 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          interaction.type === "CONTACT_CAPTURE" 
-                            ? "bg-blue-600/10 text-blue-400 border border-blue-600/20" 
-                            : "bg-purple-600/10 text-purple-400 border border-purple-600/20"
-                        }`}>
-                          {interaction.type === "CONTACT_CAPTURE" ? "Captura Inicial" : "Re-contacto"}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          Origen: <strong className="text-slate-200">{interaction.source}</strong>
-                        </span>
-                      </div>
-                      
-                      {interaction.message && (
-                        <p className="text-slate-355 italic bg-slate-900/40 p-2 rounded-lg border border-slate-800">
-                          &quot;{interaction.message}&quot;
-                        </p>
-                      )}
+                  {selectedLead.interactions.map((interaction) => {
+                    // Mapeo amigable de orígenes
+                    let friendlySource = "Origen no registrado";
+                    if (interaction.source === "NFC") friendlySource = "Tarjeta NFC";
+                    else if (interaction.source === "QR") friendlySource = "Código QR";
+                    else if (interaction.source === "DIRECT") friendlySource = "Enlace directo";
 
-                      <div className="text-[10px] text-slate-500 space-y-1">
-                        <div className="flex items-center gap-1.5 text-emerald-400/90">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span>Consentimiento Aceptado el {new Date(interaction.createdAt).toLocaleDateString("es-CL")}</span>
+                    return (
+                      <div key={interaction.id} className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-3 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                        <div className="flex flex-wrap justify-between items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            interaction.type === "CONTACT_CAPTURE"
+                              ? "bg-blue-600/10 text-blue-400 border border-blue-600/20"
+                              : "bg-purple-600/10 text-purple-400 border border-purple-600/20"
+                          }`}>
+                            {interaction.type === "CONTACT_CAPTURE" ? "Captura Inicial" : "Re-contacto"}
+                          </span>
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">
+                            Origen: <strong className="text-slate-800 dark:text-slate-200">{friendlySource}</strong>
+                          </span>
                         </div>
-                        {interaction.consentText && (
-                          <div className="pl-3 border-l border-slate-800 text-[9px] text-slate-550 max-h-12 overflow-y-auto scrollbar-thin">
-                            {interaction.consentText}
+
+                        <p className="text-slate-700 dark:text-slate-300 font-medium bg-white dark:bg-slate-900/40 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
+                          {interaction.type === "CONTACT_CAPTURE"
+                            ? `Datos compartidos desde ${friendlySource}`
+                            : `Re-contacto registrado desde ${friendlySource}`}
+                          {interaction.message && (
+                            <span className="block mt-1 font-normal italic text-slate-400">
+                              &quot;{interaction.message}&quot;
+                            </span>
+                          )}
+                        </p>
+
+                        <div className="text-[10px] text-slate-500 space-y-1">
+                          <div className="flex items-center gap-1.5 text-emerald-400/90">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>Consentimiento Aceptado el {new Date(interaction.createdAt).toLocaleDateString("es-CL")}</span>
                           </div>
-                        )}
+                          {interaction.consentText && (
+                            <div className="pl-3 border-l border-slate-800 text-[9px] text-slate-550 max-h-12 overflow-y-auto scrollbar-thin">
+                              {interaction.consentText}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-500 italic py-2">
@@ -482,8 +650,8 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
             </div>
 
             {/* Historial Analítico (Timeline) */}
-            <div className="space-y-3 pt-4 border-t border-slate-850">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                 Línea de Tiempo Analítica (Por IP)
               </label>
 
@@ -492,14 +660,14 @@ export default function LeadsClient({ initialLeads, allEvents }: LeadsClientProp
                   No hay interacciones analíticas anteriores detectadas bajo el mismo dispositivo IP.
                 </p>
               ) : (
-                <div className="relative border-l border-slate-800 pl-4 space-y-4 ml-1 pt-1">
+                <div className="relative border-l border-slate-300 dark:border-slate-800 pl-4 space-y-4 ml-1 pt-1">
                   {leadEvents.slice(0, 8).map((event) => (
                     <div key={event.id} className="relative">
                       {/* Círculo indicador */}
-                      <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-600 ring-4 ring-slate-950" />
+                      <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-600 ring-4 ring-white dark:ring-slate-950" />
                       
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-200">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                           {getEventLabel(event.eventType)}
                         </span>
                         <span className="text-[9px] text-slate-500 mt-0.5">

@@ -117,10 +117,10 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
     <div className="space-y-6">
       
       {/* Barra de Acciones */}
-      <div className="flex justify-between items-center bg-slate-900/40 border border-slate-800 p-4 rounded-2xl">
+      <div className="flex justify-between items-center bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
         <div>
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Total Integrantes</span>
-          <span className="text-2xl font-black text-white">{users.length}</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider block">Total Integrantes</span>
+          <span className="text-2xl font-black text-slate-950 dark:text-white">{users.length}</span>
         </div>
         <button
           onClick={() => {
@@ -136,11 +136,11 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
       </div>
 
       {/* LISTADO DE USUARIOS */}
-      <div className="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-450 bg-slate-950/20 font-black">
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-950/20 font-black">
                 <th className="py-3.5 px-4">Vendedor</th>
                 <th className="py-3.5 px-4">Correo</th>
                 <th className="py-3.5 px-4 text-center">Rol</th>
@@ -153,17 +153,17 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
               {users.map((item) => {
                 const isSelf = item.id === currentUserId;
                 return (
-                  <tr key={item.id} className="hover:bg-slate-900/20">
-                    <td className="py-4 px-4 font-bold text-white text-sm sm:text-base">
+                  <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20">
+                    <td className="py-4 px-4 font-bold text-slate-950 dark:text-white text-sm sm:text-base">
                       {item.name || "Sin nombre"}
                     </td>
-                    <td className="py-4 px-4 text-slate-300 font-medium">{item.email}</td>
+                    <td className="py-4 px-4 text-slate-700 dark:text-slate-300 font-medium">{item.email}</td>
                     <td className="py-4 px-4 text-center">
                       <span
                         className={`inline-block px-2.5 py-0.5 rounded-full border text-[9px] font-bold ${
                           item.role === "COMPANY_OWNER" || item.role === "COMPANY_ADMIN" || item.role === "SUPERADMIN"
-                            ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
-                            : "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                            ? "bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-400"
+                            : "bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30 text-blue-700 dark:text-blue-400"
                         }`}
                       >
                         {item.role === "SUPERADMIN"
@@ -173,15 +173,15 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                             : "Vendedor")}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center font-bold text-slate-400">
+                    <td className="py-4 px-4 text-center font-bold text-slate-700 dark:text-slate-400">
                       {item._count.cards}
                     </td>
-                    <td className="py-4 px-4 text-right text-xs text-slate-500 font-medium font-mono">
+                    <td className="py-4 px-4 text-right text-xs text-slate-600 dark:text-slate-400 font-medium font-mono">
                       {new Date(item.createdAt).toLocaleDateString("es-CL")}
                     </td>
                     <td className="py-4 px-4 text-center">
                       {isSelf ? (
-                        <span className="text-xs text-slate-500 font-bold italic">Tú (Admin)</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400 font-bold italic">Tú (Admin)</span>
                       ) : (
                         <div className="flex items-center justify-center gap-2">
                           {item.status === "PENDING" && (

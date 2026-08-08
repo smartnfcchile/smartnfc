@@ -55,8 +55,8 @@ export default async function CardsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Tarjetas Virtuales</h1>
-        <p className="text-slate-400 text-xs sm:text-sm mt-1">
+        <h1 className="text-3xl font-bold text-slate-950 dark:text-white tracking-tight">Tarjetas Virtuales</h1>
+        <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
           Crea perfiles corporativos de marca y activa o inactiva las tarjetas virtuales de tu equipo.
         </p>
       </div>

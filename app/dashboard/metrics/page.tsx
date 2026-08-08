@@ -171,8 +171,8 @@ export default async function MetricsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Métricas y Analíticas</h1>
-        <p className="text-slate-400 text-xs sm:text-sm mt-1">
+        <h1 className="text-3xl font-bold text-slate-950 dark:text-white tracking-tight">Métricas y Analíticas</h1>
+        <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
           {isAdmin
             ? "Reporte en tiempo real de interacciones consolidadas de tu marca."
             : "Reporte en tiempo real de tu rendimiento e interacciones comerciales."}

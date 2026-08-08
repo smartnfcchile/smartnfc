@@ -90,7 +90,7 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
       title: "Visitas Totales",
       value: totalVisitas,
       icon: "👁️",
-      colorClass: "bg-blue-500/10 border-blue-500/20 text-blue-400",
+      colorClass: "bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/20 text-blue-700 dark:text-blue-400",
       description: "Clic para ver quiénes visitaron las tarjetas",
     },
     {
@@ -98,7 +98,7 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
       title: "Lecturas NFC",
       value: totalNfcScans,
       icon: "⚡",
-      colorClass: "bg-orange-500/10 border-orange-500/20 text-orange-400",
+      colorClass: "bg-orange-50 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/20 text-orange-700 dark:text-orange-400",
       description: "Clic para ver escaneos físicos de tarjetas",
     },
     {
@@ -106,7 +106,7 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
       title: "Leads Capturados",
       value: totalLeads,
       icon: "💰",
-      colorClass: "bg-yellow-500/10 border-yellow-500/20 text-yellow-400",
+      colorClass: "bg-yellow-50 dark:bg-yellow-500/10 border-yellow-300 dark:border-yellow-500/20 text-yellow-700 dark:text-yellow-400",
       description: "Ver todos los leads en la pestaña CRM",
     },
     {
@@ -114,7 +114,7 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
       title: "Clics WhatsApp",
       value: totalWhatsapp,
       icon: "💬",
-      colorClass: "bg-green-500/10 border-green-500/20 text-green-400",
+      colorClass: "bg-green-50 dark:bg-green-500/10 border-green-300 dark:border-green-500/20 text-green-700 dark:text-green-400",
       description: "Clic para ver quiénes abrieron WhatsApp",
     },
     {
@@ -122,7 +122,7 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
       title: "Contactos Guardados",
       value: totalContactos,
       icon: "📥",
-      colorClass: "bg-amber-500/10 border-amber-500/20 text-amber-400",
+      colorClass: "bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/20 text-amber-700 dark:text-amber-400",
       description: "Clic para ver descargas de tarjeta de contacto",
     },
     {
@@ -130,7 +130,7 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
       title: "Conversión",
       value: `${tasaConversion}%`,
       icon: "🎯",
-      colorClass: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
+      colorClass: "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-300 dark:border-cyan-500/20 text-cyan-700 dark:text-cyan-400",
       description: "Tasa de interacción por visita (No clickable)",
       disabled: true,
     },
@@ -147,9 +147,9 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
               key={card.title}
               disabled={!isClickable}
               onClick={() => handleMetricClick(card.type, card.title)}
-              className={`bg-slate-900/40 p-6 rounded-2xl border border-slate-900 text-left flex flex-col justify-between shadow-sm select-none ${
+              className={`bg-white dark:bg-slate-900/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 text-left flex flex-col justify-between shadow-sm select-none ${
                 isClickable
-                  ? "hover:border-slate-800 hover:bg-slate-900 transition-all cursor-pointer group active:scale-[0.99]"
+                  ? "hover:border-blue-300 hover:bg-blue-50/40 dark:hover:border-slate-700 dark:hover:bg-slate-900 transition-all cursor-pointer group active:scale-[0.99]"
                   : "cursor-default opacity-85"
               }`}
             >
@@ -158,7 +158,7 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
                   <div className={`p-2.5 rounded-xl border ${card.colorClass}`}>
                     <span className="text-xl">{card.icon}</span>
                   </div>
-                  <h3 className="text-slate-400 font-bold text-sm tracking-wide">{card.title}</h3>
+                  <h3 className="text-slate-700 dark:text-slate-300 font-bold text-sm tracking-wide">{card.title}</h3>
                 </div>
                 {isClickable && (
                   <span className="text-xs font-semibold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
@@ -167,8 +167,8 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
                 )}
               </div>
               <div className="mt-4">
-                <p className="text-3xl sm:text-4xl font-black text-white">{card.value}</p>
-                <p className="text-[10px] text-slate-500 mt-1 font-medium italic">
+                <p className="text-3xl sm:text-4xl font-black text-slate-950 dark:text-white">{card.value}</p>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 font-medium italic">
                   {card.description}
                 </p>
               </div>
@@ -181,14 +181,14 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Tabla Global de Tarjetas (Rank) */}
-        <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 lg:col-span-2 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 lg:col-span-2 shadow-sm space-y-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-200">Rendimiento por Tarjeta</h2>
-            <p className="text-xs text-slate-500">Métricas analíticas desglosadas por perfil virtual.</p>
+            <h2 className="text-lg font-bold text-slate-950 dark:text-slate-200">Rendimiento por Tarjeta</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Métricas analíticas desglosadas por perfil virtual.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-950/40 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-850">
+              <thead className="bg-slate-100 dark:bg-slate-950/40 text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className="py-3 px-4 font-bold text-center">Rank</th>
                   <th className="py-3 px-4 font-bold">Tarjeta</th>
@@ -198,19 +198,19 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
                   <th className="py-3 px-4 font-bold text-center">Conv.</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-850/50">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
                 {cardsRanking.map((card: any, index: number) => (
-                  <tr key={card.id} className="hover:bg-slate-900/20">
+                  <tr key={card.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20">
                     <td className="py-3 px-4 text-center text-base">
                       {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}°`}
                     </td>
-                    <td className="py-3 px-4 text-slate-200 font-semibold">{card.name}</td>
-                    <td className="py-3 px-4 text-center text-slate-400">
+                    <td className="py-3 px-4 text-slate-900 dark:text-slate-200 font-semibold">{card.name}</td>
+                    <td className="py-3 px-4 text-center text-slate-700 dark:text-slate-400">
                       {card.visitas} <span className="text-[10px] text-orange-400 font-bold ml-0.5">(⚡{card.nfcScans})</span>
                     </td>
-                    <td className="py-3 px-4 text-center text-slate-400">{card.whatsapp}</td>
-                    <td className="py-3 px-4 text-center text-slate-400 font-medium">{card.leads}</td>
-                    <td className="py-3 px-4 text-center text-blue-400 font-bold">{card.conversion}%</td>
+                    <td className="py-3 px-4 text-center text-slate-700 dark:text-slate-400">{card.whatsapp}</td>
+                    <td className="py-3 px-4 text-center text-slate-700 dark:text-slate-400 font-medium">{card.leads}</td>
+                    <td className="py-3 px-4 text-center text-blue-700 dark:text-blue-400 font-bold">{card.conversion}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -219,10 +219,10 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
         </div>
 
         {/* Análisis de Dispositivos */}
-        <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-200">Dispositivos</h2>
-            <p className="text-xs text-slate-500">Sistemas operativos de los clientes.</p>
+            <h2 className="text-lg font-bold text-slate-950 dark:text-slate-200">Dispositivos</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Sistemas operativos de los clientes.</p>
           </div>
           <div className="space-y-3">
             {deviceRanking.length === 0 ? (
@@ -232,13 +232,13 @@ export default function MetricsClient({ initialData, isAdmin }: MetricsClientPro
                 const percentage = totalVisitas > 0 ? Math.round((device.count / totalVisitas) * 100) : 0;
                 return (
                   <div key={device.name} className="space-y-1">
-                    <div className="flex justify-between text-xs font-semibold text-slate-300">
+                    <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
                       <span>{device.name}</span>
                       <span>
                         {device.count} <span className="text-[10px] text-slate-500 ml-1">({percentage}%)</span>
                       </span>
                     </div>
-                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-slate-200 dark:bg-slate-950 rounded-full h-1.5 overflow-hidden">
                       <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${percentage}%` }} />
                     </div>
                   </div>

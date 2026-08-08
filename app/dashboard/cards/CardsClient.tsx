@@ -118,7 +118,7 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
   return (
     <div className="space-y-4">
       {/* Barra de Control */}
-      <div className="flex justify-end bg-slate-900/40 border border-slate-900 p-4 rounded-2xl shadow-sm">
+      <div className="flex justify-end bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
         <button
           onClick={() => setModalOpen(true)}
           className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-blue-600/10 active:scale-95 cursor-pointer"
@@ -128,10 +128,10 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
       </div>
 
       {/* Tabla de Tarjetas */}
-      <div className="bg-slate-900/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-slate-950/40 text-slate-400 uppercase text-[9px] tracking-widest border-b border-slate-850">
+            <thead className="bg-slate-100 dark:bg-slate-950/40 text-slate-600 dark:text-slate-400 uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-3 px-4">Tarjeta / Perfil</th>
                 <th className="py-3 px-4">Asignada A</th>
@@ -140,25 +140,25 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
                 <th className="py-3 px-4 text-center">Configurar</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-850/30">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
               {cards.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-900/20">
+                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20">
                   <td className="py-4 px-4">
-                    <div className="font-bold text-white text-sm sm:text-base">{item.name}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <div className="font-bold text-slate-950 dark:text-white text-sm sm:text-base">{item.name}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">
                       Enlace interno: c/{item.slug}
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-slate-300 font-medium">
+                  <td className="py-4 px-4 text-slate-700 dark:text-slate-300 font-medium">
                     <div>{item.user.name || "Vendedor"}</div>
-                    <div className="text-[10px] text-slate-500">{item.user.email}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-slate-400">{item.user.email}</div>
                   </td>
                   <td className="py-4 px-4 text-center">
                     <a
                       href={`/c/${item.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-semibold text-blue-400 hover:text-blue-300 hover:underline transition"
+                      className="text-xs font-semibold text-blue-700 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 hover:underline transition"
                     >
                       🔗 smartnfc.cl/c/{item.slug}
                     </a>
@@ -186,19 +186,19 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
                       <div className="flex justify-center items-center gap-2">
                         <Link
                           href={`/dashboard/editor/${item.id}`}
-                          className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-700 transition active:scale-95 inline-block cursor-pointer"
+                          className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-800 transition active:scale-95 inline-block cursor-pointer"
                         >
                           ✏️ Configurar Perfil
                         </Link>
                         <Link
                           href={`/dashboard/qr/${item.id}`}
-                          className="bg-orange-600/10 hover:bg-orange-650/20 text-orange-400 text-xs font-semibold py-1.5 px-3 rounded-lg border border-orange-500/20 transition active:scale-95 inline-block cursor-pointer"
+                          className="bg-orange-50 dark:bg-orange-600/10 hover:bg-orange-100 dark:hover:bg-orange-600/20 text-orange-700 dark:text-orange-400 text-xs font-semibold py-1.5 px-3 rounded-lg border border-orange-300 dark:border-orange-500/20 transition active:scale-95 inline-block cursor-pointer"
                         >
                           📷 QR
                         </Link>
                         <Link
                           href={`/dashboard/physical-designs?cardId=${item.id}`}
-                          className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-300 text-xs font-semibold py-1.5 px-3 rounded-lg border border-blue-500/20 transition active:scale-95 inline-block cursor-pointer"
+                          className="bg-blue-50 dark:bg-blue-600/10 hover:bg-blue-100 dark:hover:bg-blue-600/20 text-blue-700 dark:text-blue-300 text-xs font-semibold py-1.5 px-3 rounded-lg border border-blue-300 dark:border-blue-500/20 transition active:scale-95 inline-block cursor-pointer"
                         >
                           ✦ Diseño físico
                         </Link>

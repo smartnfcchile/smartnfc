@@ -47,8 +47,8 @@ export default async function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Gestionar Vendedores</h1>
-        <p className="text-slate-400 text-xs sm:text-sm mt-1">
+        <h1 className="text-3xl font-bold text-slate-950 dark:text-white tracking-tight">Gestionar Vendedores</h1>
+        <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
           Crea perfiles para tus vendedores, genera claves de acceso y administra sus cuentas.
         </p>
       </div>

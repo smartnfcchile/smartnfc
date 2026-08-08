@@ -59,3 +59,35 @@ body {
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
 }
 
+/* Superficies corporativas claras para el selector de diseños físicos. */
+.physical-design-picker .text-slate-400,
+.physical-designs-screen > section > h2 {
+  color: #334155;
+}
+
+.physical-design-picker select {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.physical-design-picker button.bg-slate-800 {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.dark .physical-design-picker .text-slate-400,
+.dark .physical-designs-screen > section > h2 {
+  color: #94a3b8;
+}
+
+.dark .physical-design-picker select {
+  background: #020617;
+  border-color: #334155;
+  color: #ffffff;
+}
+
+.dark .physical-design-picker button.bg-slate-800 {
+  background: #1e293b;
+  color: #cbd5e1;
+}

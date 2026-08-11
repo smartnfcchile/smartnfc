@@ -14,8 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SmartNFC | Identidad Profesional Inteligente para Empresas",
-  description: "Centraliza y administra la identidad digital de tus colaboradores.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://smartnfc.cl"),
+  title: { default: "SmartNFC | Tarjetas NFC e identidad digital", template: "%s | SmartNFC" },
+  description: "Tarjetas NFC, perfiles digitales y gestión de identidad profesional para empresas y negocios en Chile.",
+  applicationName: "SmartNFC",
+  authors: [{ name: "SmartNFC", url: "https://smartnfc.cl" }],
+  creator: "SmartNFC",
+  publisher: "SmartNFC",
+  formatDetection: { email: false, address: false, telephone: false },
+  verification: { google: process.env.GOOGLE_SITE_VERIFICATION },
 };
 
 export default function RootLayout({
@@ -25,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="es" suppressHydrationWarning
+      lang="es-CL" suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

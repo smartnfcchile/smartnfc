@@ -1,84 +1,107 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useTheme } from "next-themes";
-import { ArrowRight, BarChart3, Building2, Check, Menu, Moon, QrCode, Smartphone, Sun, Users, X, Zap } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, BarChart3, Check, ChevronDown, ContactRound, Menu, Radio, ShieldCheck, Sparkles, Users, X } from "lucide-react";
 import SmartNFCLogo from "./brand/SmartNFCLogo";
-import DashboardMockup from "./DashboardMockup";
 
-const whatsapp = "https://wa.me/56944891518?text=Hola,%20quiero%20conocer%20SmartNFC%20para%20mi%20empresa.";
-const benefits = [
-  { icon: Smartphone, title: "Identidad digital actualizable", text: "Cambia cargos, teléfonos o enlaces una sola vez, sin volver a imprimir tarjetas." },
-  { icon: Users, title: "Gestión para todo el equipo", text: "Centraliza perfiles, permisos, diseños y contactos desde un dashboard corporativo." },
-  { icon: BarChart3, title: "Interacciones medibles", text: "Conoce visitas, lecturas NFC y prospectos compartidos para dar seguimiento comercial." },
-];
-const steps = [
-  { icon: QrCode, title: "Acerca o escanea", text: "La persona abre tu identidad digital mediante NFC o código QR." },
-  { icon: Smartphone, title: "Comparte información", text: "Guarda tus datos o deja los suyos directamente desde el teléfono." },
-  { icon: Building2, title: "Gestiona y mide", text: "Tu equipo visualiza contactos e interacciones desde el dashboard." },
-];
+const demoUrl = "https://wa.me/56944891518?text=Hola%2C%20quiero%20ver%20c%C3%B3mo%20SmartNFC%20puede%20ayudar%20a%20mi%20equipo.";
+
 const faqs = [
-  ["¿Qué es una tarjeta NFC?", "Es una tarjeta física con un chip de proximidad. Al acercarla a un teléfono compatible, abre tu perfil digital para compartir datos de contacto, enlaces y canales comerciales."],
-  ["¿La otra persona necesita instalar una aplicación?", "No. El perfil se abre directamente en el navegador del teléfono mediante NFC o código QR."],
-  ["¿Qué diferencia hay entre una tarjeta NFC y una tarjeta digital?", "La tarjeta NFC activa la experiencia. La tarjeta digital es el perfil web actualizable donde viven tus datos, enlaces y acciones de contacto."],
-  ["¿SmartNFC sirve para empresas con varios colaboradores?", "Sí. Permite administrar identidades digitales, diseños e interacciones para equipos, y visualizar los prospectos que comparten sus datos."],
+  ["¿Qué es una tarjeta NFC?", "Es una tarjeta física reutilizable que, al acercarse a un teléfono compatible, abre un perfil digital. También incluye un código QR para asegurar compatibilidad con cualquier smartphone."],
+  ["¿La otra persona debe instalar una aplicación?", "No. El perfil se abre directamente en el navegador. La persona puede ver tus datos, guardarte como contacto o compartir los suyos en segundos."],
+  ["¿Puedo cambiar mis datos después de imprimir la tarjeta?", "Sí. El contenido vive en tu perfil digital, por lo que puedes actualizar cargo, teléfono, enlaces o imagen sin reemplazar la tarjeta física."],
+  ["¿Cómo funciona para equipos y empresas?", "Un administrador gestiona perfiles, imagen corporativa y usuarios desde un panel central. Además, el equipo puede revisar interacciones y prospectos captados."],
+  ["¿Funciona con iPhone y Android?", "Sí. Funciona por NFC en teléfonos compatibles y mediante QR en el resto, sin depender de una aplicación."],
 ];
+
+function ProductStory() {
+  return (
+    <div className="product-story" aria-label="Demostración visual: una tarjeta SmartNFC abre un perfil digital y captura un contacto">
+      <div className="signal signal-one" /><div className="signal signal-two" />
+      <div className="nfc-card">
+        <div className="card-top"><span className="brand-s">S</span><Radio size={24} /></div>
+        <div><b>SmartNFC</b><span>Conecta sin papel</span></div>
+      </div>
+      <div className="phone-shell">
+        <div className="phone-notch" />
+        <div className="profile-cover" />
+        <div className="profile-avatar">CM</div>
+        <p className="profile-name">Camila Muñoz</p>
+        <p className="profile-role">Directora comercial · Nexo</p>
+        <div className="profile-actions"><span>Llamar</span><span>WhatsApp</span><span>Guardar</span></div>
+        <button>Guardar contacto</button>
+        <div className="lead-toast"><Check size={16} /> Nuevo contacto captado</div>
+      </div>
+      <div className="story-label story-label-one"><span>01</span> Acerca</div>
+      <div className="story-label story-label-two"><span>02</span> Comparte</div>
+      <div className="story-label story-label-three"><span>03</span> Convierte</div>
+    </div>
+  );
+}
 
 export default function HomeLanding() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const toggleTheme = () => setTheme(resolvedTheme === "dark" ? "light" : "dark");
-
+  const [open, setOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-white text-slate-950 dark:bg-[#07101f] dark:text-white">
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-slate-800 dark:bg-[#07101f]/90">
-        <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" aria-label="SmartNFC, inicio"><SmartNFCLogo size={30} variant="default" className="dark:hidden" /><SmartNFCLogo size={30} variant="dark" className="hidden dark:flex" /></Link>
-          <nav aria-label="Navegación principal" className="hidden items-center gap-7 md:flex">
-            <a href="#beneficios" className="text-sm font-semibold text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300">Beneficios</a>
-            <a href="#como-funciona" className="text-sm font-semibold text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300">Cómo funciona</a>
-            <a href="#preguntas" className="text-sm font-semibold text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300">Preguntas frecuentes</a>
+    <div className="marketing-page">
+      <header className="site-header">
+        <div className="nav-wrap">
+          <Link href="/" aria-label="SmartNFC, inicio"><SmartNFCLogo size={30} variant="dark" /></Link>
+          <nav className="desktop-nav" aria-label="Navegación principal">
+            <a href="#solucion">Solución</a><a href="#empresas">Para empresas</a><a href="#como-funciona">Cómo funciona</a><Link href="/blog">Recursos</Link>
           </nav>
-          <div className="hidden items-center gap-3 md:flex">
-            <button onClick={toggleTheme} aria-label="Cambiar tema" className="rounded-xl border border-slate-300 p-2.5 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">{mounted && resolvedTheme === "dark" ? <Sun size={17} /> : <Moon size={17} />}</button>
-            <Link href="/login" className="px-2 text-sm font-bold">Ingresar</Link>
-            <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">Solicitar demostración</a>
-          </div>
-          <button onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="mobile-menu" aria-label="Abrir menú" className="rounded-xl border border-slate-300 p-2.5 md:hidden dark:border-slate-700">{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
+          <div className="nav-actions"><Link href="/login" className="login-link">Ingresar</Link><a className="button button-small" href={demoUrl} target="_blank" rel="noreferrer">Solicitar demo</a></div>
+          <button className="menu-button" onClick={() => setOpen(!open)} aria-label="Abrir menú" aria-expanded={open}>{open ? <X /> : <Menu />}</button>
         </div>
-        {menuOpen && <nav id="mobile-menu" aria-label="Navegación móvil" className="border-t border-slate-200 bg-white px-5 py-5 md:hidden dark:border-slate-800 dark:bg-[#07101f]"><div className="flex flex-col gap-4"><a href="#beneficios" onClick={() => setMenuOpen(false)} className="font-semibold">Beneficios</a><a href="#como-funciona" onClick={() => setMenuOpen(false)} className="font-semibold">Cómo funciona</a><a href="#preguntas" onClick={() => setMenuOpen(false)} className="font-semibold">Preguntas frecuentes</a><Link href="/login" className="font-semibold">Ingresar</Link><a href={whatsapp} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-blue-600 px-5 py-3 text-center font-bold text-white">Solicitar demostración</a></div></nav>}
+        {open && <nav className="mobile-nav"><a href="#solucion" onClick={() => setOpen(false)}>Solución</a><a href="#empresas" onClick={() => setOpen(false)}>Para empresas</a><a href="#como-funciona" onClick={() => setOpen(false)}>Cómo funciona</a><Link href="/blog">Recursos</Link><Link href="/login">Ingresar</Link><a className="button" href={demoUrl}>Solicitar demo</a></nav>}
       </header>
 
       <main>
-        <section className="relative overflow-hidden border-b border-slate-200 dark:border-slate-800">
-          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(37,99,235,0.13),transparent_34%),radial-gradient(circle_at_85%_40%,rgba(234,179,8,0.10),transparent_30%)]" />
-          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-2 lg:py-28">
-            <div>
-              <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.16em] text-blue-800 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-200"><Zap size={13} /> Tecnología NFC para empresas</p>
-              <h1 className="max-w-3xl text-4xl font-black leading-[1.08] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl dark:text-white">Tarjetas NFC e identidad digital para conectar mejor.</h1>
-              <p className="mt-6 max-w-xl text-lg leading-8 text-slate-700 dark:text-slate-300">Comparte datos de contacto en segundos, administra las tarjetas digitales de tu equipo y convierte cada encuentro en una oportunidad medible.</p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row"><a href={whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-4 font-extrabold text-white shadow-xl shadow-blue-600/20 hover:bg-blue-700">Ver una demostración <ArrowRight size={18} /></a><Link href="/empresas" className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-4 font-extrabold text-slate-900 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white">Soluciones para empresas</Link></div>
-              <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-700 dark:text-slate-300"><li className="flex items-center gap-2"><Check size={16} className="text-emerald-600" /> Sin aplicación</li><li className="flex items-center gap-2"><Check size={16} className="text-emerald-600" /> NFC y QR</li><li className="flex items-center gap-2"><Check size={16} className="text-emerald-600" /> Gestión centralizada</li></ul>
+        <section className="hero">
+          <div className="hero-grid">
+            <div className="hero-copy">
+              <div className="eyebrow"><Sparkles size={15} /> Networking inteligente para empresas</div>
+              <h1>Un toque.<br /><span>Una conexión real.</span></h1>
+              <p className="hero-lead">Reemplaza las tarjetas de papel por una experiencia que comparte tus datos, captura prospectos y mide cada interacción.</p>
+              <div className="hero-actions"><a className="button" href={demoUrl} target="_blank" rel="noreferrer">Ver SmartNFC en acción <ArrowRight size={18} /></a><a className="text-link" href="#como-funciona">Descubrir cómo funciona</a></div>
+              <div className="trust-row"><span><Check /> Sin aplicaciones</span><span><Check /> NFC + QR</span><span><Check /> Datos editables</span></div>
             </div>
-            <div className="rounded-[2rem] border border-slate-200 bg-slate-50 p-3 shadow-2xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900"><DashboardMockup /></div>
+            <ProductStory />
           </div>
         </section>
 
-        <section id="beneficios" className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
-          <div className="max-w-2xl"><p className="text-sm font-extrabold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">Más que una tarjeta de presentación</p><h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Una plataforma simple para una identidad profesional consistente.</h2></div>
-          <div className="mt-10 grid gap-5 md:grid-cols-3">{benefits.map(({ icon: Icon, title, text }) => <article key={title} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm dark:border-slate-700 dark:bg-slate-900"><span className="inline-flex rounded-xl bg-blue-50 p-3 text-blue-700 dark:bg-blue-950 dark:text-blue-300"><Icon size={23} /></span><h3 className="mt-5 text-xl font-extrabold">{title}</h3><p className="mt-3 leading-7 text-slate-700 dark:text-slate-300">{text}</p></article>)}</div>
+        <section className="proof-strip" aria-label="Beneficios destacados"><p>Diseñado para equipos que convierten conversaciones en oportunidades.</p><div><span>Ventas</span><span>Eventos</span><span>Servicios profesionales</span><span>Retail</span></div></section>
+
+        <section id="solucion" className="section solution-section">
+          <div className="section-heading"><span className="kicker">Todo conectado</span><h2>Tu presentación profesional.<br />Ahora trabaja para ti.</h2><p>SmartNFC une una tarjeta física premium, un perfil siempre actualizado y herramientas para hacer seguimiento comercial.</p></div>
+          <div className="feature-grid">
+            <article className="feature feature-large profile-feature"><div><span className="icon-box"><ContactRound /></span><p className="feature-number">01 · PERFIL DIGITAL</p><h3>Comparte más que un número.</h3><p>Contacto, redes, catálogo, documentos y llamados a la acción en una experiencia con tu marca.</p></div><div className="mini-profile"><div className="mini-cover"/><div className="mini-avatar">AM</div><b>Antonia Martínez</b><small>Consultora de negocios</small><div className="mini-buttons"><i/><i/><i/></div></div></article>
+            <article className="feature"><span className="icon-box lime"><Users /></span><p className="feature-number">02 · CONTROL DE EQUIPO</p><h3>Una marca consistente, en cada persona.</h3><p>Administra perfiles, roles y cambios desde un único lugar.</p><div className="team-list"><span>CM</span><span>JP</span><span>MV</span><b>+12</b></div></article>
+            <article className="feature dark-feature"><span className="icon-box"><BarChart3 /></span><p className="feature-number">03 · RESULTADOS</p><h3>De “mucho gusto” a un dato accionable.</h3><p>Visualiza aperturas, contactos captados y desempeño.</p><div className="chart"><i/><i/><i/><i/><i/><i/></div></article>
+          </div>
         </section>
 
-        <section id="como-funciona" className="scroll-mt-24 border-y border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60"><div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 sm:px-8 sm:py-24 lg:grid-cols-[0.8fr_1.2fr]"><div><p className="text-sm font-extrabold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">Cómo funciona SmartNFC</p><h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">De la presentación al seguimiento, en tres pasos.</h2><p className="mt-5 leading-7 text-slate-700 dark:text-slate-300">La tecnología se ocupa del intercambio; tu equipo conserva el control de la relación comercial.</p></div><ol className="grid gap-4 sm:grid-cols-3">{steps.map(({ icon: Icon, title, text }, index) => <li key={title} className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900"><div className="flex items-center justify-between"><Icon size={24} className="text-blue-700 dark:text-blue-300" /><span className="text-3xl font-black text-slate-200 dark:text-slate-700">0{index + 1}</span></div><h3 className="mt-5 text-lg font-extrabold">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">{text}</p></li>)}</ol></div></section>
+        <section id="como-funciona" className="section how-section">
+          <div className="how-intro"><span className="kicker">Así de simple</span><h2>Tres segundos para dejar una impresión.</h2><p>No hay apps, claves ni instrucciones. Solo acercar, descubrir y conectar.</p></div>
+          <ol className="steps">
+            <li><span>01</span><div className="step-visual tap-visual"><div className="small-card">S</div><Radio /></div><h3>Acerca</h3><p>Tu contacto acerca el teléfono a la tarjeta o escanea el QR.</p></li>
+            <li><span>02</span><div className="step-visual"><div className="small-phone"><b>Camila Muñoz</b><i/><i/></div></div><h3>Comparte</h3><p>Tu perfil abre al instante, listo para llamar, guardar o explorar.</p></li>
+            <li><span>03</span><div className="step-visual"><div className="success-ring"><Check /></div></div><h3>Convierte</h3><p>Captura los datos del prospecto y continúa la conversación.</p></li>
+          </ol>
+        </section>
 
-        <section id="preguntas" className="mx-auto max-w-4xl scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24"><div className="text-center"><p className="text-sm font-extrabold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">Respuestas claras</p><h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Preguntas sobre tarjetas NFC e identidad digital</h2></div><div className="mt-10 space-y-4">{faqs.map(([question, answer]) => <details key={question} className="rounded-2xl border border-slate-200 bg-white p-6 open:shadow-sm dark:border-slate-700 dark:bg-slate-900"><summary className="cursor-pointer list-none pr-8 text-lg font-extrabold">{question}</summary><p className="mt-4 max-w-3xl leading-7 text-slate-700 dark:text-slate-300">{answer}</p></details>)}</div></section>
+        <section id="empresas" className="section business-section">
+          <div className="business-card"><div><span className="kicker kicker-light">SmartNFC para equipos</span><h2>Tu equipo crece.<br />Tu identidad no se fragmenta.</h2><p>Centraliza la presencia digital de cada colaborador y convierte el networking en un canal medible.</p><ul><li><ShieldCheck /> Perfiles administrados y siempre actualizados</li><li><Users /> Altas y cambios sin reimprimir tarjetas</li><li><BarChart3 /> Métricas y prospectos en un solo panel</li></ul><Link className="button button-light" href="/empresas">Explorar solución para empresas <ArrowRight size={18}/></Link></div><div className="dashboard-card"><div className="dash-top"><span>Resumen del equipo</span><small>Últimos 30 días</small></div><div className="metric-row"><div><small>Interacciones</small><b>1.284</b><em>+24%</em></div><div><small>Contactos</small><b>318</b><em>+18%</em></div></div><div className="dash-chart"><i/><i/><i/><i/><i/><i/><i/><i/></div><div className="dash-users"><span>Equipo comercial</span><b>24 perfiles activos</b></div></div></div>
+        </section>
 
-        <section className="px-5 pb-20 sm:px-8"><div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-7 rounded-3xl bg-slate-950 p-8 text-white sm:p-12 lg:flex-row lg:items-center dark:bg-blue-950"><div><h2 className="text-3xl font-black tracking-tight">Haz que cada contacto sea más fácil de compartir y recordar.</h2><p className="mt-3 text-slate-300">Conoce la solución adecuada para tu empresa o negocio local.</p></div><div className="flex shrink-0 flex-col gap-3 sm:flex-row"><Link href="/empresas" className="rounded-xl bg-blue-600 px-6 py-4 text-center font-extrabold text-white">SmartNFC Empresas</Link><Link href="/local" className="rounded-xl border border-slate-600 px-6 py-4 text-center font-extrabold">SmartNFC Local</Link></div></div></section>
+        <section className="section blog-preview"><div className="blog-head"><div><span className="kicker">Ideas para conectar mejor</span><h2>Recursos para equipos que venden en persona.</h2></div><Link href="/blog">Ver todos los recursos <ArrowRight size={17}/></Link></div><div className="article-grid"><Link href="/blog/que-es-una-tarjeta-nfc"><span>GUÍA · 7 MIN</span><h3>¿Qué es una tarjeta NFC y cómo funciona?</h3><p>Todo lo que necesitas saber antes de digitalizar tu tarjeta de presentación.</p></Link><Link href="/blog/tarjeta-nfc-vs-codigo-qr"><span>COMPARATIVA · 5 MIN</span><h3>Tarjeta NFC vs. código QR: ¿cuál conviene?</h3><p>Diferencias, ventajas y por qué funcionan mejor cuando están juntos.</p></Link><Link href="/blog/networking-empresarial"><span>ESTRATEGIA · 6 MIN</span><h3>Cómo medir el retorno del networking empresarial</h3><p>Convierte conversaciones, ferias y eventos en oportunidades trazables.</p></Link></div></section>
+
+        <section id="preguntas" className="section faq-section"><div><span className="kicker">Preguntas frecuentes</span><h2>Lo esencial,<br />respondido.</h2><p>¿Tienes una necesidad específica? <a href={demoUrl}>Conversemos.</a></p></div><div className="faq-list">{faqs.map(([q,a]) => <details key={q}><summary>{q}<ChevronDown /></summary><p>{a}</p></details>)}</div></section>
+
+        <section className="final-cta"><div><span className="eyebrow dark-eyebrow">Hecho para conexiones reales</span><h2>Tu próxima oportunidad<br />puede empezar con un toque.</h2><p>Descubre cómo SmartNFC puede transformar la forma en que tu equipo se presenta, conecta y crece.</p><a className="button" href={demoUrl} target="_blank" rel="noreferrer">Solicitar una demostración <ArrowRight size={18}/></a></div><div className="cta-card"><span className="brand-s">S</span><div><b>SmartNFC</b><small>Tap to connect</small></div><Radio/></div></section>
       </main>
 
-      <footer className="border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"><div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-10 sm:px-8 md:flex-row md:items-center md:justify-between"><div><SmartNFCLogo size={26} variant="default" className="dark:hidden" /><SmartNFCLogo size={26} variant="dark" className="hidden dark:flex" /><p className="mt-3 text-sm text-slate-600 dark:text-slate-400">Tarjetas NFC e identidad digital desde Valdivia, Chile.</p></div><div className="flex flex-wrap gap-5 text-sm font-semibold text-slate-700 dark:text-slate-300"><a href="mailto:smartnfcchile@gmail.com">Contacto</a><Link href="/empresas">Empresas</Link><Link href="/local">Negocios locales</Link></div></div></footer>
+      <footer className="site-footer"><div className="footer-main"><div><SmartNFCLogo size={29} variant="dark"/><p>La forma inteligente de conectar<br/>personas, marcas y oportunidades.</p></div><div><b>Producto</b><a href="#solucion">Solución</a><Link href="/empresas">Empresas</Link><Link href="/local">Negocios locales</Link></div><div><b>Recursos</b><Link href="/blog">Blog</Link><a href="#preguntas">Preguntas frecuentes</a><a href={demoUrl}>Contacto</a></div></div><div className="footer-bottom"><span>© 2026 SmartNFC · Valdivia, Chile</span><span>Conectamos sin papel.</span></div></footer>
     </div>
   );
 }

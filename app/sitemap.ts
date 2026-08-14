@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { posts } from "../lib/blog";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://smartnfc.cl";
+  const baseUrl = "https://www.smartnfc.cl";
   return [
     { url: `${baseUrl}/`, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
     { url: `${baseUrl}/empresas`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.9 },

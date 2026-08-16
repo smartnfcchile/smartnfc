@@ -48,12 +48,12 @@ export default function HomeLanding() {
         <div className="nav-wrap">
           <Link href="/" aria-label="SmartNFC, inicio"><SmartNFCLogo size={30} variant="dark" /></Link>
           <nav className="desktop-nav" aria-label="Navegación principal">
-            <a href="#solucion">Solución</a><a href="#empresas">Para empresas</a><a href="#como-funciona">Cómo funciona</a><Link href="/blog">Recursos</Link>
+            <a href="#solucion">Solución</a><Link href="/local">Para locales</Link><a href="#empresas">Para empresas</a><a href="#como-funciona">Cómo funciona</a><Link href="/blog">Recursos</Link>
           </nav>
           <div className="nav-actions"><Link href="/login" className="login-link">Ingresar</Link><a className="button button-small" href={demoUrl} target="_blank" rel="noreferrer">Solicitar demo</a></div>
           <button className="menu-button" onClick={() => setOpen(!open)} aria-label="Abrir menú" aria-expanded={open}>{open ? <X /> : <Menu />}</button>
         </div>
-        {open && <nav className="mobile-nav"><a href="#solucion" onClick={() => setOpen(false)}>Solución</a><a href="#empresas" onClick={() => setOpen(false)}>Para empresas</a><a href="#como-funciona" onClick={() => setOpen(false)}>Cómo funciona</a><Link href="/blog">Recursos</Link><Link href="/login">Ingresar</Link><a className="button" href={demoUrl}>Solicitar demo</a></nav>}
+        {open && <nav className="mobile-nav"><a href="#solucion" onClick={() => setOpen(false)}>Solución</a><Link href="/local" onClick={() => setOpen(false)}>Para locales</Link><a href="#empresas" onClick={() => setOpen(false)}>Para empresas</a><a href="#como-funciona" onClick={() => setOpen(false)}>Cómo funciona</a><Link href="/blog" onClick={() => setOpen(false)}>Recursos</Link><Link href="/login" onClick={() => setOpen(false)}>Ingresar</Link><a className="button" href={demoUrl}>Solicitar demo</a></nav>}
       </header>
 
       <main>

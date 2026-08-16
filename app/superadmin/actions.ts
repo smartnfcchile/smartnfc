@@ -227,6 +227,7 @@ export async function createCompanyAction(data: {
     }
 
     revalidatePath("/superadmin/empresas");
+    revalidatePath("/superadmin/locales");
     return {
       success: true,
       companyId: result.company.id,

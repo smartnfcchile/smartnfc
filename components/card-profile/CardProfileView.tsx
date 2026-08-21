@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { CalendarDays, ExternalLink, FileText, Globe2, Link2, Mail, MessageCircle, Phone, Share2, ShoppingBag, UserPlus } from "lucide-react";
 import LeadForm from "../../app/c/[slug]/LeadForm";
 import TrackButton from "../../app/c/[slug]/TrackButton";
 import PublicCardAnalytics from "./PublicCardAnalytics";
@@ -119,6 +120,26 @@ function getSafeVideoEmbedUrl(videoUrl?: string | null) {
   }
 }
 
+type SocialNetwork = "linkedin" | "instagram" | "facebook" | "tiktok" | "youtube";
+
+function SocialBrandIcon({ network }: { network: SocialNetwork }) {
+  if (network === "instagram") return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>;
+  if (network === "facebook") return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14.4 8.1h3V4.3c-.5-.1-2.3-.3-4.3-.3-4.2 0-7.1 2.6-7.1 7.3v4.1H2v4.3h4V24h4.9v-4.3h4.2l.7-4.3h-4.9v-3.7c0-1.2.3-2.1 2.5-2.1h1z"/></svg>;
+  if (network === "linkedin") return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5.4 7.8A2.4 2.4 0 1 0 5.4 3a2.4 2.4 0 0 0 0 4.8zM3.3 21h4.2V9.3H3.3V21zm6.8-11.7V21h4.2v-6.5c0-1.7.3-3.4 2.5-3.4 2.2 0 2.2 2 2.2 3.5V21h4.2v-7.2c0-3.5-.8-6.2-4.9-6.2-2 0-3.4 1.1-4 2.1h-.1V9.3h-4.1z"/></svg>;
+  if (network === "youtube") return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4L15.8 12l-6.2 3.6z"/></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.7 2c.3 2.3 1.6 3.7 3.8 3.9v3.3a10 10 0 0 1-3.8-.9v6.1a6.4 6.4 0 1 1-5.5-6.3v3.4a3.1 3.1 0 1 0 2.1 2.9V2h3.4z"/></svg>;
+}
+
+function getLinkVisual(link: CardLinkData) {
+  const value = `${link.title} ${link.url}`.toLowerCase();
+  if (/whatsapp|wa\.me/.test(value)) return { Icon: MessageCircle, className: "from-emerald-500 to-green-600", label: "WhatsApp" };
+  if (/tienda|shop|catálogo|catalogo|productos/.test(value)) return { Icon: ShoppingBag, className: "from-orange-500 to-amber-500", label: "Catálogo" };
+  if (/agenda|reserva|calendar|calendly|reunión|reunion/.test(value)) return { Icon: CalendarDays, className: "from-teal-500 to-cyan-600", label: "Agenda" };
+  if (/\.pdf|documento|brochure|presentación|presentacion/.test(value)) return { Icon: FileText, className: "from-violet-500 to-purple-600", label: "Documento" };
+  if (/web|sitio|página|pagina|www\.|https?:\/\//.test(value)) return { Icon: Globe2, className: "from-blue-500 to-cyan-500", label: "Sitio web" };
+  return { Icon: Link2, className: "from-indigo-500 to-blue-600", label: "Enlace" };
+}
+
 export default function CardProfileView({ card, isPreview = false, contactSource = "DIRECT" }: CardProfileViewProps) {
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
 
@@ -152,11 +173,11 @@ END:VCARD`;
 
   // Enlaces sociales visibles
   const socialLinks = [
-    { label: "LinkedIn", href: card.showLinkedin ? card.linkedin : null },
-    { label: "Instagram", href: card.showInstagram ? card.instagram : null },
-    { label: "Facebook", href: card.showFacebook ? card.facebook : null },
-    { label: "TikTok", href: card.showTiktok ? card.tiktok : null },
-    { label: "YouTube", href: card.showYoutube ? card.youtube : null },
+    { network: "linkedin" as const, label: "LinkedIn", href: card.showLinkedin ? card.linkedin : null, className: "from-[#0A66C2] to-[#004182]" },
+    { network: "instagram" as const, label: "Instagram", href: card.showInstagram ? card.instagram : null, className: "from-[#F58529] via-[#DD2A7B] to-[#8134AF]" },
+    { network: "facebook" as const, label: "Facebook", href: card.showFacebook ? card.facebook : null, className: "from-[#1877F2] to-[#0866FF]" },
+    { network: "tiktok" as const, label: "TikTok", href: card.showTiktok ? card.tiktok : null, className: "from-[#111827] to-[#FE2C55]" },
+    { network: "youtube" as const, label: "YouTube", href: card.showYoutube ? card.youtube : null, className: "from-[#FF0000] to-[#C90000]" },
   ].filter((item) => Boolean(item.href));
 
   // Control de imágenes rotas en producción
@@ -624,7 +645,7 @@ END:VCARD`;
                 style={{ backgroundColor: themeColor }}
                 onClick={(e) => e.preventDefault()}
               >
-                Contactar ahora
+                <MessageCircle size={20} strokeWidth={2.4} /> Contactar ahora
               </button>
             ) : (
               <TrackButton
@@ -634,7 +655,7 @@ END:VCARD`;
                 className={primaryBtnClass}
                 style={{ backgroundColor: themeColor }}
               >
-                Contactar ahora
+                <MessageCircle size={20} strokeWidth={2.4} /> Contactar ahora
               </TrackButton>
             )
           )}
@@ -646,7 +667,7 @@ END:VCARD`;
                 className={secondaryBtnClass}
                 onClick={(e) => e.preventDefault()}
               >
-                Guardar contacto
+                <span className="flex items-center justify-center gap-2"><UserPlus size={19} />Guardar contacto</span>
               </button>
             ) : (
               <TrackButton
@@ -655,7 +676,7 @@ END:VCARD`;
                 href={vcardUrl}
                 className={secondaryBtnClass}
               >
-                Guardar contacto
+                <span className="flex items-center justify-center gap-2"><UserPlus size={19} />Guardar contacto</span>
               </TrackButton>
             )}
 
@@ -665,7 +686,7 @@ END:VCARD`;
               onClick={handleShareCard}
               className={secondaryBtnClass}
             >
-              Compartir tarjeta
+              <span className="flex items-center justify-center gap-2"><Share2 size={19} />Compartir tarjeta</span>
             </button>
           </div>
 
@@ -677,7 +698,7 @@ END:VCARD`;
                   className={smallSecondaryBtnClass}
                   onClick={(e) => e.preventDefault()}
                 >
-                  Llamar
+                  <span className="flex items-center justify-center gap-2"><Phone size={18} />Llamar</span>
                 </button>
               ) : (
                 <TrackButton
@@ -686,7 +707,7 @@ END:VCARD`;
                   href={`tel:${phone}`}
                   className={smallSecondaryBtnClass}
                 >
-                  Llamar
+                  <span className="flex items-center justify-center gap-2"><Phone size={18} />Llamar</span>
                 </TrackButton>
               )
             )}
@@ -697,7 +718,7 @@ END:VCARD`;
                   className={smallSecondaryBtnClass}
                   onClick={(e) => e.preventDefault()}
                 >
-                  Email
+                  <span className="flex items-center justify-center gap-2"><Mail size={18} />Email</span>
                 </button>
               ) : (
                 <TrackButton
@@ -706,7 +727,7 @@ END:VCARD`;
                   href={`mailto:${card.email}`}
                   className={smallSecondaryBtnClass}
                 >
-                  Email
+                  <span className="flex items-center justify-center gap-2"><Mail size={18} />Email</span>
                 </TrackButton>
               )
             )}
@@ -715,16 +736,18 @@ END:VCARD`;
 
         {/* Enlaces Sociales */}
         {socialLinks.length > 0 && (
-          <section className="mx-6 mt-5 flex flex-wrap justify-center gap-2">
+          <section className="mx-6 mt-6">
+            <p className={`${linkSectionLabelClass} text-center`}>Conecta conmigo</p>
+            <div className="grid grid-cols-2 gap-3">
             {socialLinks.map((social) => (
               isPreview ? (
                 <button
                   key={social.label}
                   type="button"
-                  className={socialBtnClass}
+                  className={`${socialBtnClass} flex min-h-14 items-center gap-3 border-0 bg-gradient-to-br ${social.className} px-4 py-3 text-left text-white shadow-lg shadow-black/10 hover:-translate-y-0.5 hover:brightness-110`}
                   onClick={(e) => e.preventDefault()}
                 >
-                  {social.label}
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/20 p-1.5 [&_svg]:h-full [&_svg]:w-full"><SocialBrandIcon network={social.network} /></span><span>{social.label}</span>
                 </button>
               ) : (
                 <TrackButton
@@ -732,12 +755,13 @@ END:VCARD`;
                   cardId={card.id}
                   eventType="LINK_CLICK"
                   href={social.href ?? "#"}
-                  className={socialBtnClass}
+                  className={`${socialBtnClass} flex min-h-14 items-center gap-3 border-0 bg-gradient-to-br ${social.className} px-4 py-3 text-left text-white shadow-lg shadow-black/10 hover:-translate-y-0.5 hover:brightness-110`}
                 >
-                  {social.label}
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/20 p-1.5 [&_svg]:h-full [&_svg]:w-full"><SocialBrandIcon network={social.network} /></span><span>{social.label}</span>
                 </TrackButton>
               )
             ))}
+            </div>
           </section>
         )}
 
@@ -749,16 +773,18 @@ END:VCARD`;
             </p>
 
             <div className="space-y-3">
-              {card.links.filter(l => l.isActive).map((link) => (
-                isPreview ? (
+              {card.links.filter(l => l.isActive).map((link) => {
+                const visual = getLinkVisual(link);
+                const Icon = visual.Icon;
+                const content = <><span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${visual.className} text-white shadow-md`}><Icon size={21} /></span><span className="min-w-0 flex-1 text-left"><span className="block text-[10px] font-extrabold uppercase tracking-wider opacity-55">{visual.label}</span><span className="mt-0.5 block truncate">{link.title}</span></span><ExternalLink size={18} className="shrink-0 opacity-55" /></>;
+                return isPreview ? (
                   <button
                     key={link.id}
                     type="button"
                     className={documentBtnClass}
                     onClick={(e) => e.preventDefault()}
                   >
-                    <span>{link.title}</span>
-                    <span style={{ color: themeColor }}>↗</span>
+                    {content}
                   </button>
                 ) : (
                   <TrackButton
@@ -768,11 +794,10 @@ END:VCARD`;
                     href={link.url}
                     className={documentBtnClass}
                   >
-                    <span>{link.title}</span>
-                    <span style={{ color: themeColor }}>↗</span>
+                    {content}
                   </TrackButton>
-                )
-              ))}
+                );
+              })}
             </div>
           </section>
         )}

@@ -1,4 +1,4 @@
-import React from "react";
+import Image from "next/image";
 import SmartNFCIcon from "./SmartNFCIcon";
 
 interface SmartNFCLogoProps {
@@ -8,41 +8,16 @@ interface SmartNFCLogoProps {
   showText?: boolean;
 }
 
-export default function SmartNFCLogo({
-  size = 28,
-  variant = "default",
-  className = "",
-  showText = true,
-}: SmartNFCLogoProps) {
-  // Configuración del color del texto "Smart"
-  let smartTextColor = "text-slate-900 dark:text-white";
-  if (variant === "dark") {
-    smartTextColor = "text-white";
-  } else if (variant === "default") {
-    smartTextColor = "text-slate-900";
-  } else if (variant === "monochrome") {
-    smartTextColor = "text-current";
-  }
+export default function SmartNFCLogo({ size = 28, variant = "default", className = "", showText = true }: SmartNFCLogoProps) {
+  if (variant === "icon" || !showText) return <SmartNFCIcon size={size} variant={variant} className={className} />;
 
-  // NFC es siempre azul brillante en variantes no monocromas
-  const nfcTextColor = variant === "monochrome" ? "text-current" : "text-blue-600";
-
-  if (variant === "icon") {
-    return <SmartNFCIcon size={size} variant={variant} className={className} />;
-  }
-
-  return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      {/* Isotipo vectorial */}
-      <SmartNFCIcon size={size} variant={variant} className="shrink-0" />
-      
-      {/* Texto Imagotipo */}
-      {showText && (
-        <span className="font-black tracking-tight text-lg select-none leading-none">
-          <span className={smartTextColor}>Smart</span>
-          <span className={nfcTextColor}>NFC</span>
-        </span>
-      )}
-    </div>
-  );
+  const width = typeof size === "number" ? size * 3.35 : `calc(${size} * 3.35)`;
+  return <span
+    className={`relative inline-block shrink-0 ${variant === "dark" ? "brightness-0 invert" : ""} ${variant === "monochrome" ? "grayscale" : ""} ${className}`}
+    style={{ width, height: size }}
+    role="img"
+    aria-label="SmartNFC"
+  >
+    <Image src="/brand/smartnfc-logo-nav.png" alt="SmartNFC" fill sizes="240px" className="object-contain object-left" priority />
+  </span>;
 }

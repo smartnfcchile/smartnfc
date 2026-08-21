@@ -3,6 +3,7 @@
 
 import React, { useState } from "react";
 import { CalendarDays, ExternalLink, FileText, Globe2, Link2, Mail, MessageCircle, Phone, Share2, ShoppingBag, UserPlus } from "lucide-react";
+import { getPublicUrl } from "../../lib/public-url";
 import LeadForm from "../../app/c/[slug]/LeadForm";
 import TrackButton from "../../app/c/[slug]/TrackButton";
 import PublicCardAnalytics from "./PublicCardAnalytics";
@@ -195,7 +196,7 @@ END:VCARD`;
   const handleShareCard = async () => {
     if (isPreview) return; // En vista previa, no realizar ninguna acción
 
-    const canonicalUrl = `${window.location.protocol}//${window.location.host}/c/${card.slug || card.id}`;
+    const canonicalUrl = getPublicUrl(`/c/${card.slug || card.id}`);
     const shareData = {
       title: card.profileName || card.name,
       text: `${card.profileName || card.name}${card.role ? ` — ${card.role}` : ""}${card.companyName ? ` en ${card.companyName}` : ""}`,

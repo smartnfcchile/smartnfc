@@ -1,16 +1,15 @@
 import React from "react";
-import { headers } from "next/headers";
 import { prisma } from "../../../lib/prisma";
 import { requireSuperAdmin } from "../../../lib/permissions";
 import TarjetasClient from "./TarjetasClient";
+import { PUBLIC_APP_ORIGIN } from "../../../lib/public-url";
 
 export const dynamic = "force-dynamic";
 
 export default async function SuperadminTarjetasPage() {
   await requireSuperAdmin();
 
-  const headersList = await headers();
-  const originHost = headersList.get("host") || "localhost:3000";
+  const originHost = new URL(PUBLIC_APP_ORIGIN).host;
 
   // Consultar todas las empresas para asociar o filtrar
   const companies = await prisma.company.findMany({

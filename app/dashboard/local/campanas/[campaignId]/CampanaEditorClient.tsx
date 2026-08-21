@@ -11,6 +11,7 @@ import {
   disassociateNfcCardAction
 } from "../../actions";
 import MobilePreview from "../../../../../components/local/MobilePreview";
+import { PUBLIC_APP_ORIGIN } from "../../../../../lib/public-url";
 
 type LocalCampaignRecord = {
   id: string;
@@ -425,11 +426,9 @@ export default function CampanaEditorClient({
                   ) : (
                     initialTouchpoints.map((tp: any) => {
                       const assignedCard = tp.physicalNfcCard;
-                      const host = typeof window !== "undefined" ? window.location.host : "localhost:3000";
-                      const protocol = host.includes("localhost") ? "http" : "https";
-                      const qrRedirectUrl = `${protocol}://${host}/q/${tp.code}`;
+                      const qrRedirectUrl = `${PUBLIC_APP_ORIGIN}/q/${tp.code}`;
                       const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrRedirectUrl)}`;
-                      const targetChipUrl = assignedCard ? `${protocol}://${host}/t/${assignedCard.token}` : null;
+                      const targetChipUrl = assignedCard ? `${PUBLIC_APP_ORIGIN}/t/${assignedCard.token}` : null;
 
                       return (
                         <div key={tp.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

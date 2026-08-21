@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "2mb",
     },
   },
+  async redirects() {
+    return [{
+      source: "/:path*",
+      has: [{ type: "host", value: "smartnfc-8ndu.vercel.app" }],
+      destination: "https://www.smartnfc.cl/:path*",
+      permanent: true,
+    }];
+  },
   async headers() {
     const csp = [
       "default-src 'self'",

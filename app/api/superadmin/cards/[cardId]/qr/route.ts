@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import QRCode from "qrcode";
 import { prisma } from "../../../../../../lib/prisma";
 import { requireSuperAdmin } from "../../../../../../lib/permissions";
+import { getPublicUrl } from "../../../../../../lib/public-url";
 
 export async function GET(request: Request, { params }: { params: Promise<{ cardId: string }> }) {
   const session = await requireSuperAdmin().catch(() => null);
@@ -12,8 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ card
   if (!card) return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 404 });
 
   const url = new URL(request.url);
-  const origin = process.env.NEXTAUTH_URL || url.origin;
-  const target = `${origin}/c/${card.slug}`;
+  const target = getPublicUrl(`/c/${card.slug}`);
   const format = url.searchParams.get("format") === "svg" ? "svg" : "png";
   const disposition = url.searchParams.get("download") === "1" ? "attachment" : "inline";
 

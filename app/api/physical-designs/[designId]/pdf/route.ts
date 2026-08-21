@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { requireScopedDesign } from "../../../../../lib/physical-card/auth";
 import type { CardSideDesign } from "../../../../../lib/physical-card/templates";
+import { getPublicUrl } from "../../../../../lib/public-url";
 
 const mm = (value: number) => value * 72 / 25.4;
 const color = (hex: string) => { const value = hex.replace("#", "").padEnd(6, "0"); return rgb(parseInt(value.slice(0, 2), 16) / 255, parseInt(value.slice(2, 4), 16) / 255, parseInt(value.slice(4, 6), 16) / 255); };
@@ -10,7 +11,7 @@ const color = (hex: string) => { const value = hex.replace("#", "").padEnd(6, "0
 export async function GET(request: Request, { params }: { params: Promise<{ designId: string }> }) {
   const { designId } = await params; const scoped = await requireScopedDesign(designId).catch(() => null);
   if (!scoped) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-  const origin = process.env.NEXTAUTH_URL || new URL(request.url).origin; const target = `${origin}/c/${scoped.design.card.slug}`;
+  const target = getPublicUrl(`/c/${scoped.design.card.slug}`);
   const pdf = await PDFDocument.create(); const regular = await pdf.embedFont(StandardFonts.Helvetica); const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const qrData = await QRCode.toDataURL(target, { width: 1200, margin: 4, errorCorrectionLevel: "M", color: { dark: "#0F172A", light: "#FFFFFF" } });
   const qr = await pdf.embedPng(qrData); const width = mm(91.6); const height = mm(59.98);

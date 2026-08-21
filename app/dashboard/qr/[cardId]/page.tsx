@@ -2,10 +2,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
-import { headers } from "next/headers";
 import DownloadButton from "./DownloadButton";
 import Link from "next/link";
 import { getProductLicense, isLicenseValid } from "../../../../lib/product-access";
+import { getPublicUrl } from "../../../../lib/public-url";
 
 interface PageProps {
   params: Promise<{
@@ -44,10 +44,7 @@ export default async function QrPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
-  const headersList = await headers();
-  const host = headersList.get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  const cardUrl = `${protocol}://${host}/c/${card.slug}`;
+  const cardUrl = getPublicUrl(`/c/${card.slug}`);
   
   // We request a high quality 500x500 QR code
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(cardUrl)}`;

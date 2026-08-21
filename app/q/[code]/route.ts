@@ -3,6 +3,7 @@ import { prisma } from "../../../lib/prisma";
 import { LocalEventType } from "@prisma/client";
 import { hashIp } from "../../../lib/security";
 import { checkRateLimit } from "../../../lib/rateLimit";
+import { getPublicUrl } from "../../../lib/public-url";
 
 type Params = {
   params: Promise<{
@@ -122,8 +123,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     // 4. Redirigir exitosamente a la landing
-    const redirectUrl = new URL(`/club/${tp.campaign.slug}?ref=${tp.code}`, request.url);
-    return NextResponse.redirect(redirectUrl.toString(), 302);
+    return NextResponse.redirect(getPublicUrl(`/club/${tp.campaign.slug}?ref=${tp.code}`), 302);
 
   } catch (error: any) {
     console.error("Error en resolución QR:", error);

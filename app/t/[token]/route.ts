@@ -3,6 +3,7 @@ import { prisma } from "../../../lib/prisma";
 import { EventType, LocalEventType } from "@prisma/client";
 import { hashIp } from "../../../lib/security";
 import { checkRateLimit } from "../../../lib/rateLimit";
+import { getPublicUrl } from "../../../lib/public-url";
 
 type Params = {
   params: Promise<{
@@ -266,8 +267,7 @@ export async function GET(request: Request, { params }: Params) {
         console.error("Error silencioso (fail-open) en registro de evento NFC Local:", trackErr);
       }
 
-      const redirectUrl = new URL(`/club/${tp.campaign.slug}?ref=${tp.code}`, request.url);
-      return NextResponse.redirect(redirectUrl.toString(), 302);
+      return NextResponse.redirect(getPublicUrl(`/club/${tp.campaign.slug}?ref=${tp.code}`), 302);
     }
 
     // 7. Ruta B2B
@@ -320,8 +320,7 @@ export async function GET(request: Request, { params }: Params) {
         console.error("Error silencioso (fail-open) en registro de evento NFC B2B:", trackErr);
       }
 
-      const redirectUrl = new URL(`/c/${physicalCard.card.slug}`, request.url);
-      return NextResponse.redirect(redirectUrl.toString(), 302);
+      return NextResponse.redirect(getPublicUrl(`/c/${physicalCard.card.slug}`), 302);
     }
 
     // 8. Tarjeta no asignada

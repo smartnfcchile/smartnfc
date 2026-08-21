@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { ArrowRight, BarChart3, Check, ChevronDown, ContactRound, Menu, Radio, ShieldCheck, Sparkles, Users, X } from "lucide-react";
 import SmartNFCLogo from "./brand/SmartNFCLogo";
@@ -17,25 +18,13 @@ const faqs = [
 
 function ProductStory() {
   return (
-    <div className="product-story" aria-label="Demostración visual: una tarjeta SmartNFC abre un perfil digital y captura un contacto">
-      <div className="signal signal-one" /><div className="signal signal-two" />
-      <div className="nfc-card">
-        <div className="card-top"><span className="brand-s">S</span><Radio size={24} /></div>
-        <div><b>SmartNFC</b><span>Conecta sin papel</span></div>
-      </div>
-      <div className="phone-shell">
-        <div className="phone-notch" />
-        <div className="profile-cover" />
-        <div className="profile-avatar">CM</div>
-        <p className="profile-name">Camila Muñoz</p>
-        <p className="profile-role">Directora comercial · Nexo</p>
-        <div className="profile-actions"><span>Llamar</span><span>WhatsApp</span><span>Guardar</span></div>
-        <button>Guardar contacto</button>
-        <div className="lead-toast"><Check size={16} /> Nuevo contacto captado</div>
-      </div>
+    <div className="product-story product-photo" aria-label="Una tarjeta SmartNFC se acerca a un teléfono para compartir un perfil digital">
+      <Image src="/images/smartnfc-tap-hero.webp" alt="Persona acercando una tarjeta NFC premium a un teléfono móvil" fill priority sizes="(max-width: 900px) 100vw, 54vw" />
+      <div className="photo-vignette" />
+      <div className="photo-brand"><span className="brand-s">S</span><div><b>SmartNFC</b><small>Conecta sin papel</small></div></div>
       <div className="story-label story-label-one"><span>01</span> Acerca</div>
       <div className="story-label story-label-two"><span>02</span> Comparte</div>
-      <div className="story-label story-label-three"><span>03</span> Convierte</div>
+      <div className="story-label story-label-three"><Check size={13}/> Contacto captado</div>
     </div>
   );
 }
@@ -91,7 +80,7 @@ export default function HomeLanding() {
         </section>
 
         <section id="empresas" className="section business-section">
-          <div className="business-card"><div><span className="kicker kicker-light">SmartNFC para equipos</span><h2>Tu equipo crece.<br />Tu identidad no se fragmenta.</h2><p>Centraliza la presencia digital de cada colaborador y convierte el networking en un canal medible.</p><ul><li><ShieldCheck /> Perfiles administrados y siempre actualizados</li><li><Users /> Altas y cambios sin reimprimir tarjetas</li><li><BarChart3 /> Métricas y prospectos en un solo panel</li></ul><Link className="button button-light" href="/empresas">Explorar solución para empresas <ArrowRight size={18}/></Link></div><div className="dashboard-card"><div className="dash-top"><span>Resumen del equipo</span><small>Últimos 30 días</small></div><div className="metric-row"><div><small>Interacciones</small><b>1.284</b><em>+24%</em></div><div><small>Contactos</small><b>318</b><em>+18%</em></div></div><div className="dash-chart"><i/><i/><i/><i/><i/><i/><i/><i/></div><div className="dash-users"><span>Equipo comercial</span><b>24 perfiles activos</b></div></div></div>
+          <div className="business-card"><div><span className="kicker kicker-light">SmartNFC para equipos</span><h2>Tu equipo crece.<br />Tu identidad no se fragmenta.</h2><p>Centraliza la presencia digital de cada colaborador y convierte el networking en un canal medible.</p><ul><li><ShieldCheck /> Perfiles administrados y siempre actualizados</li><li><Users /> Altas y cambios sin reimprimir tarjetas</li><li><BarChart3 /> Métricas y prospectos en un solo panel</li></ul><Link className="button button-light" href="/empresas">Explorar solución para empresas <ArrowRight size={18}/></Link></div><div className="dashboard-card"><div className="dash-browser"><i/><i/><i/><span>app.smartnfc.cl/dashboard</span></div><div className="dash-layout"><aside><span className="dash-logo">S</span><i className="active"/><i/><i/><i/></aside><div className="dash-content"><div className="dash-top"><div><small>Panel general</small><span>Resumen del equipo</span></div><em>Últimos 30 días</em></div><div className="metric-row"><div><small>Interacciones</small><b>1.284</b><em>↗ 24%</em></div><div><small>Contactos</small><b>318</b><em>↗ 18%</em></div><div><small>Conversión</small><b>24,8%</b><em>↗ 6%</em></div></div><div className="dash-graph"><div className="graph-head"><span>Actividad del equipo</span><small>Interacciones</small></div><svg viewBox="0 0 460 130" role="img" aria-label="Gráfica ascendente de interacciones"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#246bfd" stopOpacity=".28"/><stop offset="1" stopColor="#246bfd" stopOpacity="0"/></linearGradient></defs><path className="area" d="M0 112 C45 104 54 82 91 89 S151 69 184 74 S243 40 278 52 S345 38 376 27 S427 33 460 8 L460 130 L0 130Z"/><path className="line" d="M0 112 C45 104 54 82 91 89 S151 69 184 74 S243 40 278 52 S345 38 376 27 S427 33 460 8"/></svg></div><div className="dash-activity"><div><span className="activity-avatar">CM</span><p><b>Camila Muñoz</b><small>Compartió su perfil · Evento Retail</small></p><em>Ahora</em></div><div><span className="activity-avatar lime">JP</span><p><b>Javier Pérez</b><small>Nuevo contacto captado</small></p><em>Hace 8 min</em></div></div></div></div></div></div>
         </section>
 
         <section className="section blog-preview"><div className="blog-head"><div><span className="kicker">Ideas para conectar mejor</span><h2>Recursos para equipos que venden en persona.</h2></div><Link href="/blog">Ver todos los recursos <ArrowRight size={17}/></Link></div><div className="article-grid"><Link href="/blog/que-es-una-tarjeta-nfc"><span>GUÍA · 7 MIN</span><h3>¿Qué es una tarjeta NFC y cómo funciona?</h3><p>Todo lo que necesitas saber antes de digitalizar tu tarjeta de presentación.</p></Link><Link href="/blog/tarjeta-nfc-vs-codigo-qr"><span>COMPARATIVA · 5 MIN</span><h3>Tarjeta NFC vs. código QR: ¿cuál conviene?</h3><p>Diferencias, ventajas y por qué funcionan mejor cuando están juntos.</p></Link><Link href="/blog/networking-empresarial"><span>ESTRATEGIA · 6 MIN</span><h3>Cómo medir el retorno del networking empresarial</h3><p>Convierte conversaciones, ferias y eventos en oportunidades trazables.</p></Link></div></section>

@@ -23,7 +23,7 @@ export function isCompanyAdmin(role: string) {
 export async function requireScopedDesign(designId: string) {
   const user = await requirePhysicalDesignUser();
   const design = await prisma.physicalCardDesign.findFirst({
-    where: { id: designId, companyId: user.companyId }, include: { card: { select: { userId: true, slug: true } } },
+    where: { id: designId, ...(user.role === "SUPERADMIN" ? {} : { companyId: user.companyId }) }, include: { card: { select: { userId: true, slug: true } } },
   });
   if (!design || (!isCompanyAdmin(user.role) && design.card.userId !== user.id)) throw new Error("Diseño no encontrado.");
   return { user, design };

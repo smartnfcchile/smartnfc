@@ -41,6 +41,11 @@ export default function SuperadminSidebar() {
       href: "/superadmin/tarjetas",
       icon: "🎴",
     },
+    {
+      title: "Producción",
+      href: "/superadmin/produccion",
+      icon: "🖨️",
+    },
   ];
 
   return (

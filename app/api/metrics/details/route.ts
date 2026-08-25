@@ -1,7 +1,6 @@
 // app/api/metrics/details/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../lib/auth";
+import { getCurrentUserContext } from "../../../../lib/permissions";
 import { prisma } from "../../../../lib/prisma";
 import { EventType } from "@prisma/client";
 
@@ -16,12 +15,12 @@ function formatUserAgent(ua: string | null): string {
 }
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
+  let user;
+  try {
+    user = await getCurrentUserContext();
+  } catch {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-
-  const user = session.user as any;
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   const { searchParams } = new URL(request.url);
@@ -109,10 +108,10 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, data: results });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, data: results }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+  } catch {
     return NextResponse.json(
-      { error: "Error al obtener detalles: " + error.message },
+      { error: "No fue posible obtener los detalles." },
       { status: 500 }
     );
   }

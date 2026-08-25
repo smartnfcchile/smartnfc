@@ -2,8 +2,7 @@
 "use server";
 
 import { prisma } from "../../../lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../lib/auth";
+import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import React from "react";
@@ -14,12 +13,7 @@ export async function createVendorUser(
   name: string,
   email: string
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    throw new Error("No autorizado");
-  }
-
-  const admin = session.user as { id: string; role: string; companyId: string };
+  const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -112,12 +106,7 @@ export async function createVendorUser(
 
 // 5. Reenviar invitación desde el Dashboard (Requisito 5)
 export async function resendInvitationFromDashboardAction(userId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    throw new Error("No autorizado");
-  }
-
-  const admin = session.user as { id: string; role: string; companyId: string };
+  const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -206,12 +195,7 @@ export async function resendInvitationFromDashboardAction(userId: string) {
 }
 
 export async function deleteVendorUser(userId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    throw new Error("No autorizado");
-  }
-
-  const admin = session.user as { id: string; role: string; companyId: string };
+  const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {

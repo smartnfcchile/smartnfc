@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="180" fill="#08111F"/>
+  <g transform="translate(352 210) scale(10)">
+    <path d="M16 16C12.5 16 9.5 14 9.5 11C9.5 8 12.5 6 16 6C19.5 6 22.5 8 22.5 11C22.5 12.5 21 13.5 19 14.5" stroke="#2563EB" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <path d="M16 16C19.5 16 22.5 18 22.5 21C22.5 24 19.5 26 16 26C12.5 26 9.5 24 9.5 21C9.5 19.5 11 18.5 13 17.5" stroke="#D4AF37" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <circle cx="16" cy="11" r="1.8" fill="#D4AF37"/>
+    <circle cx="16" cy="21" r="1.8" fill="#2563EB"/>
+  </g>
+  <text x="512" y="680" text-anchor="middle" font-family="Arial, sans-serif" font-size="112" font-weight="800" fill="white">Smart<tspan fill="#2563EB">NFC</tspan></text>
+</svg>

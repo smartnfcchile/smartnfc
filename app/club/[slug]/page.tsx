@@ -119,6 +119,7 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
   // 5. Mapear datos seguros del snapshot para renderizado (Requisito E-5)
   const templateData = {
     logoUrl: snapshot.logoUrl,
+    heroImageUrl: snapshot.heroImageUrl,
     businessName: snapshot.businessName,
     clubName: snapshot.clubName,
     headline: snapshot.headline,
@@ -135,7 +136,12 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+    <main
+      style={{
+        background: `radial-gradient(circle at 15% 10%, ${snapshot.primaryColor}20, transparent 34%), radial-gradient(circle at 90% 90%, ${snapshot.secondaryColor}22, transparent 32%), #f8fafc`
+      }}
+      className="min-h-screen flex items-center justify-center p-4 sm:py-8"
+    >
       <ClubLandingClient
         slug={slug}
         touchpointCode={ref}

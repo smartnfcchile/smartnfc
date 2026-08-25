@@ -20,6 +20,7 @@ type LocalCampaignRecord = {
   status: string;
   template: string;
   logoUrl: string | null;
+  heroImageUrl: string | null;
   primaryColor: string;
   secondaryColor: string;
   businessName: string | null;
@@ -61,6 +62,7 @@ export default function CampanaEditorClient({
   // Estados del formulario
   const [name, setName] = useState(campaign.name);
   const [logoUrl, setLogoUrl] = useState(campaign.logoUrl);
+  const [heroImageUrl, setHeroImageUrl] = useState(campaign.heroImageUrl);
   const [businessName, setBusinessName] = useState(campaign.businessName || "");
   const [clubName, setClubName] = useState(campaign.clubName || "");
   const [address, setAddress] = useState(campaign.address || "");
@@ -86,6 +88,7 @@ export default function CampanaEditorClient({
 
   // Control de subida de archivos
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
 
   // Control de navegación del editor (Secciones)
   const [activeTab, setActiveTab] = useState<"identidad" | "presentacion" | "beneficio" | "whatsapp" | "privacidad" | "touchpoints">("identidad");
@@ -107,6 +110,7 @@ export default function CampanaEditorClient({
   const currentFormState = {
     name,
     logoUrl,
+    heroImageUrl,
     businessName,
     clubName,
     address,
@@ -129,6 +133,7 @@ export default function CampanaEditorClient({
     const isDifferent =
       name !== campaign.name ||
       logoUrl !== campaign.logoUrl ||
+      heroImageUrl !== campaign.heroImageUrl ||
       businessName !== (campaign.businessName || "") ||
       clubName !== (campaign.clubName || "") ||
       address !== (campaign.address || "") ||
@@ -149,7 +154,7 @@ export default function CampanaEditorClient({
       Boolean(!benefitEndAt && campaign.benefitEndAt);
 
     setHasUnsavedChanges(!!isDifferent);
-  }, [name, logoUrl, businessName, clubName, address, headline, subheadline, primaryColor, secondaryColor, benefitLabel, benefitTitle, benefitDescription, benefitConditions, benefitStartAt, benefitEndAt, whatsappNumber, whatsappMessage, consentText, campaign]);
+  }, [name, logoUrl, heroImageUrl, businessName, clubName, address, headline, subheadline, primaryColor, secondaryColor, benefitLabel, benefitTitle, benefitDescription, benefitConditions, benefitStartAt, benefitEndAt, whatsappNumber, whatsappMessage, consentText, campaign]);
 
   // Protección antes de cerrar o recargar la pestaña del navegador
   useEffect(() => {
@@ -206,6 +211,31 @@ export default function CampanaEditorClient({
       alert("Error al subir imagen.");
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  // Subida de imagen de portada
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 4 * 1024 * 1024) {
+      alert("La imagen de portada no puede pesar más de 4MB.");
+      e.target.value = "";
+      return;
+    }
+
+    try {
+      setUploadingHero(true);
+      const newBlob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob/upload"
+      });
+      setHeroImageUrl(newBlob.url);
+    } catch {
+      alert("No se pudo subir la imagen de portada.");
+    } finally {
+      setUploadingHero(false);
     }
   };
 
@@ -338,7 +368,7 @@ export default function CampanaEditorClient({
       {/* Alertas de Estado */}
       {hasUnsavedChanges && (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm">
-          <span>⚠️ Tienes cambios en el editor sin guardar. Haz clic en "Guardar Borrador".</span>
+          <span>⚠️ Tienes cambios en el editor sin guardar. Haz clic en &quot;Guardar Borrador&quot;.</span>
         </div>
       )}
 
@@ -535,6 +565,40 @@ export default function CampanaEditorClient({
                     />
                   </div>
                   {uploadingLogo && <span className="text-xs text-blue-600 font-bold animate-pulse">Subiendo...</span>}
+                </div>
+
+                <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase block tracking-wider">Imagen de portada</label>
+                    <p className="text-[10px] text-slate-500 mt-1">Será lo primero que verán tus clientes. Recomendado: imagen horizontal 1600 × 640 px, máximo 4 MB.</p>
+                  </div>
+                  {heroImageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={heroImageUrl}
+                      alt="Vista previa de la portada"
+                      className="w-full h-32 object-cover rounded-xl border border-slate-300 dark:border-slate-700"
+                    />
+                  )}
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleHeroUpload}
+                      disabled={uploadingHero}
+                      className="flex-1 text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
+                    />
+                    {heroImageUrl && !uploadingHero && (
+                      <button
+                        type="button"
+                        onClick={() => setHeroImageUrl(null)}
+                        className="text-[10px] font-bold text-rose-600 border border-rose-500/30 bg-rose-500/10 px-3 py-2 rounded-lg hover:bg-rose-500/20"
+                      >
+                        Quitar portada
+                      </button>
+                    )}
+                    {uploadingHero && <span className="text-xs text-blue-600 font-bold animate-pulse">Subiendo...</span>}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

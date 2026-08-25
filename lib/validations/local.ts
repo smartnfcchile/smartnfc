@@ -57,6 +57,7 @@ export const createCampaignSchema = z.object({
 export const updateCampaignSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres.").max(100),
   logoUrl: z.string().url("El logo debe ser una URL válida.").nullable().optional(),
+  heroImageUrl: z.string().url("La imagen de portada debe ser una URL válida.").nullable().optional(),
   primaryColor: hexColorSchema,
   secondaryColor: hexColorSchema,
   businessName: z.string().max(100).nullable().optional(),

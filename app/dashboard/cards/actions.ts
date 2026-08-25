@@ -2,18 +2,12 @@
 "use server";
 
 import { prisma } from "../../../lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../lib/auth";
+import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
 import { canCreateIdentity } from "../../../lib/product-access";
 
 export async function toggleCardActive(cardId: string, isActive: boolean) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    throw new Error("No autorizado");
-  }
-
-  const admin = session.user as any;
+  const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -51,12 +45,7 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
 }
 
 export async function createVirtualCard(name: string, slug: string, userId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    throw new Error("No autorizado");
-  }
-
-  const admin = session.user as any;
+  const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -75,6 +64,9 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
 
   if (!normalizedSlug) {
     throw new Error("El enlace de la tarjeta (slug) no es válido.");
+  }
+  if (name.trim().length < 2 || name.trim().length > 120 || normalizedSlug.length > 80) {
+    throw new Error("El nombre o enlace excede el tamaño permitido.");
   }
 
   const existingCard = await prisma.card.findUnique({

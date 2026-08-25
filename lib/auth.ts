@@ -5,6 +5,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
+const INVALID_PASSWORD_HASH = "$2b$12$s4Q7twpmn.CVd1mJvzSqbuzLdAcA4rMqyt0HE34ANuUwLgiv0G2Pa";
+
+if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+  throw new Error("NEXTAUTH_SECRET es obligatorio en producción.");
+}
+
 export const authOptions: NextAuthOptions = {
   // 1. ¿Cómo van a iniciar sesión? (En nuestro caso: Correo y Contraseña)
   providers: [
@@ -14,37 +20,28 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Correo", type: "email", placeholder: "tu@empresa.com" },
         password: { label: "Contraseña", type: "password" }
       },
-      // 2. La función que verifica si el usuario existe y la contraseña es correcta
       async authorize(credentials) {
-        console.log("--- INICIANDO DIAGNÓSTICO DE LOGIN ---");
-        console.log("1. Correo:", credentials?.email);
-        
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Faltan datos.");
+          return null;
         }
 
         try {
-          console.log("--> Intentando buscar en la base de datos...");
-          
-          // Aquí es donde sospechamos que el código se rompe
+          const email = credentials.email.trim().toLowerCase();
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email }
+            where: { email },
+            include: { company: { select: { isActive: true } } },
           });
-          
-          console.log("3. ¿Usuario encontrado?:", user ? "SÍ" : "NO");
 
-          if (!user || !user.password) {
-            throw new Error("Usuario no encontrado.");
+          // La comparación ficticia evita revelar por tiempo de respuesta si el
+          // correo existe. Todos los fallos producen la misma respuesta.
+          const isValid = await bcrypt.compare(
+            credentials.password,
+            user?.password || INVALID_PASSWORD_HASH
+          );
+          if (!user || !user.password || !isValid || !user.isActive || user.status !== "ACTIVE" || !user.company.isActive) {
+            return null;
           }
 
-          console.log("--> Intentando comparar contraseñas...");
-          const isValid = await bcrypt.compare(credentials.password, user.password);
-          
-          console.log("4. ¿Contraseña válida?:", isValid ? "SÍ" : "NO");
-
-          if (!isValid) throw new Error("Contraseña incorrecta.");
-
-          console.log("✅ Acceso concedido a:", user.email);
           return {
             id: user.id,
             email: user.email,
@@ -53,12 +50,8 @@ export const authOptions: NextAuthOptions = {
             companyId: user.companyId,
           };
 
-        } catch (error) {
-          // ¡Aquí atrapamos al culpable!
-          console.log("\n🚨 ALERTA ROJA - ERROR INTERNO CAPTURADO:");
-          console.log(error);
-          console.log("----------------------------------------\n");
-          throw error;
+        } catch {
+          return null;
         }
       }
     })
@@ -92,7 +85,8 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login", // Más adelante crearemos nuestra propia pantalla bonita de login aquí
   },
   session: {
-    strategy: "jwt", // Usamos tokens web seguros
+    strategy: "jwt",
+    maxAge: 8 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET, // Nuestra contraseña maestra
 };

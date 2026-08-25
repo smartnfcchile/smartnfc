@@ -101,6 +101,7 @@ export async function updateLocalCampaignAction(campaignId: string, payload: any
     data: {
       name: validated.name,
       logoUrl: validated.logoUrl,
+      heroImageUrl: validated.heroImageUrl,
       primaryColor: validated.primaryColor,
       secondaryColor: validated.secondaryColor,
       businessName: validated.businessName,
@@ -159,6 +160,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
       data: {
         name: validated.name,
         logoUrl: validated.logoUrl,
+        heroImageUrl: validated.heroImageUrl,
         primaryColor: validated.primaryColor,
         secondaryColor: validated.secondaryColor,
         businessName: validated.businessName,
@@ -188,6 +190,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
       schemaVersion: 1,
       name: campaign.name,
       logoUrl: campaign.logoUrl,
+      heroImageUrl: campaign.heroImageUrl,
       primaryColor: campaign.primaryColor,
       secondaryColor: campaign.secondaryColor,
       businessName: campaign.businessName,
@@ -387,7 +390,7 @@ export async function subscribeToCampaignAction(slug: string, payload: any) {
         bizMsg = snap.whatsappMessage || bizMsg;
       }
       const cleanBizWhatsapp = bizWhatsapp.replace(/[^\d]/g, "");
-      let personalizedMessage = bizMsg
+      const personalizedMessage = bizMsg
         .replace(/{nombre}/gi, validated.name)
         .replace(/{name}/gi, validated.name);
       const whatsappLink = `https://wa.me/${cleanBizWhatsapp}?text=${encodeURIComponent(personalizedMessage)}`;
@@ -1124,4 +1127,3 @@ export async function confirmBroadcastRemovalAction(removalId: string) {
     return { success: false, error: "Error al confirmar el retiro de la lista." };
   }
 }
-

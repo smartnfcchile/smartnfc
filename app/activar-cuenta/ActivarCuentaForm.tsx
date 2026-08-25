@@ -27,7 +27,7 @@ export default function ActivarCuentaForm({
 
   // Reglas de política de contraseña (Requisito 6)
   const rules = {
-    length: password.length >= 10,
+    length: password.length >= 12 && password.length <= 128,
     uppercase: /[A-Z]/.test(password),
     lowercase: /[a-z]/.test(password),
     number: /[0-9]/.test(password),
@@ -132,7 +132,7 @@ export default function ActivarCuentaForm({
               </span>
               <div className="flex items-center gap-2">
                 <span>{rules.length ? "🟢" : "⚫"}</span>
-                <span className={rules.length ? "text-slate-700 dark:text-slate-300 font-bold" : ""}>Mínimo 10 caracteres</span>
+                <span className={rules.length ? "text-slate-700 dark:text-slate-300 font-bold" : ""}>Entre 12 y 128 caracteres</span>
               </div>
               <div className="flex items-center gap-2">
                 <span>{rules.uppercase ? "🟢" : "⚫"}</span>

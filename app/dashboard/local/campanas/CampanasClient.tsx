@@ -79,7 +79,7 @@ export default function CampanasClient({ initialCampaigns }: CampanasClientProps
               {campaigns.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-500 dark:text-slate-400 text-xs font-semibold">
-                    No se encontraron campañas. Haz clic en "Registrar Nueva Campaña" para empezar.
+                    No se encontraron campañas. Haz clic en &quot;Registrar Nueva Campaña&quot; para empezar.
                   </td>
                 </tr>
               ) : (

@@ -425,6 +425,7 @@ model LocalCampaign {
 
   // Configuración de borrador
   logoUrl            String?
+  heroImageUrl       String?
   primaryColor       String    @default("#2563eb")
   secondaryColor     String    @default("#d4af37")
   businessName       String?

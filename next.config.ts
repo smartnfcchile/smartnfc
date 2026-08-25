@@ -31,7 +31,7 @@ const nextConfig: NextConfig = {
       "frame-ancestors 'none'",
       "upgrade-insecure-requests",
     ].join("; ");
-    return [{ source: "/:path*", headers: [
+    const securityHeaders = [
       { key: "Content-Security-Policy", value: csp },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-Content-Type-Options", value: "nosniff" },
@@ -39,7 +39,16 @@ const nextConfig: NextConfig = {
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
       { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-    ] }];
+      { key: "Cross-Origin-Resource-Policy", value: "same-site" },
+      { key: "Origin-Agent-Cluster", value: "?1" },
+      { key: "X-DNS-Prefetch-Control", value: "off" },
+    ];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
+      { source: "/dashboard/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
+      { source: "/superadmin/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
+    ];
   },
 };
 

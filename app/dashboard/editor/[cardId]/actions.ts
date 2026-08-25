@@ -11,6 +11,20 @@ import path from "path";
 import { requireCompanyAdmin, assertCardBelongsToCompany } from "../../../../lib/permissions";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function validateImageFile(file: File): string {
+  const extension = IMAGE_EXTENSIONS[file.type];
+  if (!extension || file.size <= 0 || file.size > 2_000_000) {
+    throw new Error("Las imágenes deben ser JPG, PNG o WebP y pesar hasta 2 MB.");
+  }
+  return extension;
+}
+
 // 1. EL MOTOR DE GUARDADO (Server Action)
 export async function updateCard(formData: FormData) {
   try {
@@ -166,7 +180,7 @@ export async function updateCard(formData: FormData) {
   const coverFile = formData.get("coverFile") as File | null;
   if (coverFile && coverFile.size > 0) {
     try {
-      const ext = coverFile.name.split(".").pop() || "jpg";
+      const ext = validateImageFile(coverFile);
       const filename = `cover-${cardId}-${Date.now()}.${ext}`;
 
       if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -194,7 +208,7 @@ export async function updateCard(formData: FormData) {
   const heroFile = formData.get("heroImageFile") as File | null;
   if (heroFile && heroFile.size > 0) {
     try {
-      const ext = heroFile.name.split(".").pop() || "jpg";
+      const ext = validateImageFile(heroFile);
       const filename = `hero-${cardId}-${Date.now()}.${ext}`;
 
       if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -222,7 +236,7 @@ export async function updateCard(formData: FormData) {
   const avatarFile = formData.get("avatarFile") as File | null;
   if (avatarFile && avatarFile.size > 0) {
     try {
-      const ext = avatarFile.name.split(".").pop() || "jpg";
+      const ext = validateImageFile(avatarFile);
       const filename = `avatar-${cardId}-${Date.now()}.${ext}`;
 
       if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -250,7 +264,7 @@ export async function updateCard(formData: FormData) {
   const logoFile = formData.get("logoFile") as File | null;
   if (logoFile && logoFile.size > 0) {
     try {
-      const ext = logoFile.name.split(".").pop() || "png";
+      const ext = validateImageFile(logoFile);
       const filename = `logo-${cardId}-${Date.now()}.${ext}`;
 
       if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -336,8 +350,14 @@ export async function deleteLink(formData: FormData) {
     await assertCardBelongsToCompany(cardId, admin.companyId);
   }
 
+  const ownedLink = await prisma.cardLink.findFirst({
+    where: { id: linkId, cardId },
+    select: { id: true },
+  });
+  if (!ownedLink) throw new Error("Enlace no encontrado.");
+
   await prisma.cardLink.delete({
-    where: { id: linkId }
+    where: { id: ownedLink.id }
   });
   
   if (cardId) {
@@ -347,11 +367,20 @@ export async function deleteLink(formData: FormData) {
 
 // Acción para agregar un nuevo enlace personalizado
 export async function addLink(formData: FormData) {
-  const title = formData.get("title") as string;
-  const url = formData.get("url") as string;
+  const title = String(formData.get("title") || "").trim();
+  const url = String(formData.get("url") || "").trim();
   const cardId = formData.get("cardId") as string;
 
-  if (!title || !url || !cardId) return;
+  if (!title || title.length > 80 || !url || url.length > 500 || !cardId) return;
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error("El enlace no es válido.");
+  }
+  if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+    throw new Error("Solo se permiten enlaces HTTP o HTTPS.");
+  }
 
   const admin = await requireCompanyAdmin();
   if (admin.role !== "SUPERADMIN") {

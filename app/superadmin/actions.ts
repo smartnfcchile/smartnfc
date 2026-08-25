@@ -11,8 +11,16 @@ import { sendEmail } from "../../lib/email/send-email";
 import UserInvitationEmail from "../../emails/UserInvitationEmail";
 import CompanyCreatedEmail from "../../emails/CompanyCreatedEmail";
 import PasswordResetEmail from "../../emails/PasswordResetEmail";
+import { headers } from "next/headers";
+import { checkRateLimit } from "../../lib/rateLimit";
 
 import { ProductPlanCode, ProductLicenseStatus, SmartNfcProduct } from "@prisma/client";
+
+function assertStrongPassword(password: string) {
+  if (password.length < 12 || password.length > 128 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    throw new Error("La contraseña debe tener entre 12 y 128 caracteres e incluir mayúscula, minúscula, número y símbolo.");
+  }
+}
 
 function mapPlanCodeToLegacyPlan(code: ProductPlanCode): PlanType {
   switch (code) {
@@ -634,6 +642,7 @@ export async function validateActivationTokenAction(token: string) {
 
 // 7. Completar la Activación de Cuenta (Requisito 6)
 export async function activateUserAccountAction(token: string, passwordPlain: string) {
+  assertStrongPassword(passwordPlain);
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
   const activationToken = await prisma.userActivationToken.findUnique({
@@ -650,7 +659,7 @@ export async function activateUserAccountAction(token: string, passwordPlain: st
   }
 
   // Cifrar la contraseña
-  const hash = await bcrypt.hash(passwordPlain, 10);
+  const hash = await bcrypt.hash(passwordPlain, 12);
 
   // Ejecutar actualización
   await prisma.$transaction(async (tx) => {
@@ -704,6 +713,10 @@ export async function activateUserAccountAction(token: string, passwordPlain: st
 // 8. Solicitar Recuperación de Contraseña (Requisito 7)
 export async function requestPasswordResetAction(email: string) {
   const emailNorm = email.trim().toLowerCase();
+
+  const headerStore = await headers();
+  const ip = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() || headerStore.get("x-real-ip") || "unknown";
+  const { allowed } = await checkRateLimit(ip, "PASSWORD_RESET", emailNorm);
   
   const user = await prisma.user.findUnique({
     where: { email: emailNorm },
@@ -712,6 +725,8 @@ export async function requestPasswordResetAction(email: string) {
 
   // Respuesta pública genérica para evitar enumeración de usuarios (Requisito 7)
   const genericResponse = { success: true, message: "Si el correo está registrado, recibirás un enlace de restablecimiento pronto." };
+
+  if (!allowed) return genericResponse;
 
   if (!user || user.status === "SUSPENDED" || !user.isActive) {
     return genericResponse;
@@ -778,6 +793,7 @@ export async function requestPasswordResetAction(email: string) {
 
 // 9. Completar el Restablecimiento de Contraseña (Requisito 7)
 export async function completePasswordResetAction(token: string, passwordPlain: string) {
+  assertStrongPassword(passwordPlain);
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
   const resetToken = await prisma.passwordResetToken.findUnique({
@@ -791,7 +807,7 @@ export async function completePasswordResetAction(token: string, passwordPlain: 
     throw new Error("El enlace es inválido o ha expirado.");
   }
 
-  const hash = await bcrypt.hash(passwordPlain, 10);
+  const hash = await bcrypt.hash(passwordPlain, 12);
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({

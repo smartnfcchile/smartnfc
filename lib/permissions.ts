@@ -5,16 +5,27 @@ import { UserRole } from "@prisma/client";
 
 export async function getCurrentUserContext() {
   const session = await getServerSession(authOptions);
-  if (!session) {
+  const sessionUser = session?.user as { id?: string; companyId?: string } | undefined;
+  if (!sessionUser?.id || !sessionUser.companyId) {
     throw new Error("No autorizado");
   }
-  return session.user as {
-    id: string;
-    email: string;
-    name?: string;
-    role: UserRole;
-    companyId: string;
-  };
+
+  // Nunca confiar solamente en el rol/empresa guardados dentro del JWT. Se
+  // revalidan contra la base de datos para cortar sesiones de usuarios
+  // suspendidos y evitar privilegios obsoletos después de un cambio de rol.
+  const user = await prisma.user.findFirst({
+    where: {
+      id: sessionUser.id,
+      companyId: sessionUser.companyId,
+      isActive: true,
+      status: "ACTIVE",
+      company: { isActive: true },
+    },
+    select: { id: true, email: true, name: true, role: true, companyId: true },
+  });
+
+  if (!user) throw new Error("No autorizado");
+  return user;
 }
 
 export async function requireCompanyAdmin() {

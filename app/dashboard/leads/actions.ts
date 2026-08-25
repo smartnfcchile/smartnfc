@@ -2,17 +2,11 @@
 "use server";
 
 import { prisma } from "../../../lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../lib/auth";
+import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
 
 export async function updateLeadCRM(leadId: string, status: string, notes: string | null) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    throw new Error("No autorizado");
-  }
-
-  const user = session.user as { id: string; companyId: string; role: string };
+  const user = await getCurrentUserContext();
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
   // Buscamos el lead y su tarjeta asociada para validar permisos de pertenencia

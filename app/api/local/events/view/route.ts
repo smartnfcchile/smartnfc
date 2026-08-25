@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Validar touchpoint si se provee (Requisito H-4)
     let touchpointId: string | null = null;
-    let isNfcScan = false;
+    const isNfcScan = false;
     
     if (touchpointCode) {
       const tp = await prisma.localTouchpoint.findUnique({

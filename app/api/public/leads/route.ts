@@ -32,6 +32,10 @@ function normalizePhone(phone: string): string {
 
 export async function POST(request: Request) {
   try {
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > 20_000) {
+      return NextResponse.json({ error: "Solicitud demasiado grande." }, { status: 413 });
+    }
     const body = await request.json();
     const cardId = clean(body.cardId);
 
@@ -42,7 +46,6 @@ export async function POST(request: Request) {
 
     const { allowed } = await checkRateLimit(ip, "PUBLIC_LEAD_CAPTURE", cardId || undefined);
     if (!allowed) {
-      console.warn(`[RATE_LIMIT] IP bloqueada por exceso de peticiones: ${ip}`);
       return NextResponse.json(
         { error: "Límite de solicitudes excedido. Intente nuevamente en unos minutos." },
         { status: 429 }
@@ -52,12 +55,7 @@ export async function POST(request: Request) {
     // 2. Comprobar campo trampa (Honeypot)
     const nickname = clean(body.nickname);
     if (nickname !== "") {
-      console.warn(`[HONEYPOT] Intento de bot descartado silenciosamente. IP: ${ip}, nickname: ${nickname}`);
-      // Responder de forma neutra y no crear ningún registro (silent discard)
-      return NextResponse.json({
-        ok: true,
-        leadId: "honeypot-discarded",
-      });
+      return NextResponse.json({ ok: true });
     }
 
     const name = clean(body.name);
@@ -67,8 +65,11 @@ export async function POST(request: Request) {
     const phone = clean(body.phone);
     const message = clean(body.message);
     const consentAccepted = !!body.consentAccepted;
-    const consentText = clean(body.consentText) || null;
     const sourceParam = clean(body.source) || "";
+
+    if (cardId.length > 64 || name.length > 120 || company.length > 120 || position.length > 120 || email.length > 254 || phone.length > 32 || message.length > 2000) {
+      return NextResponse.json({ error: "Uno o más campos exceden el tamaño permitido." }, { status: 400 });
+    }
 
     if (!cardId || !name || !phone) {
       return NextResponse.json(
@@ -93,14 +94,18 @@ export async function POST(request: Request) {
     }
 
     // 3. Ejecutar transacciones analíticas y persistencia
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       const card = await tx.card.findUnique({
         where: { id: cardId },
-        select: { id: true, isActive: true, companyId: true },
+        select: { id: true, isActive: true, companyId: true, shareContactConsent: true, company: { select: { isActive: true } } },
       });
 
-      if (!card || !card.isActive) {
+      if (!card || !card.isActive || !card.company.isActive) {
         throw new Error("NOT_FOUND");
+      }
+
+      if (card.shareContactConsent && !consentAccepted) {
+        throw new Error("CONSENT_REQUIRED");
       }
 
       const companyId = card.companyId;
@@ -220,7 +225,7 @@ export async function POST(request: Request) {
           source,
           message: message || null,
           consentAccepted,
-          consentText,
+          consentText: card.shareContactConsent || null,
           consentAt: consentAccepted ? new Date() : null,
         },
       });
@@ -239,10 +244,7 @@ export async function POST(request: Request) {
       return targetLeadId;
     });
 
-    return NextResponse.json({
-      ok: true,
-      leadId: result,
-    });
+    return NextResponse.json({ ok: true });
   } catch (error: any) {
     if (error.message === "NOT_FOUND") {
       return NextResponse.json(
@@ -250,7 +252,10 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
-    console.error("Error creando lead:", error);
+    if (error.message === "CONSENT_REQUIRED") {
+      return NextResponse.json({ error: "Debes aceptar el tratamiento de datos." }, { status: 400 });
+    }
+    console.error("No se pudo crear el prospecto.");
     return NextResponse.json(
       { error: "No pudimos guardar tus datos." },
       { status: 500 }

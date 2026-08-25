@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { hashIp } from "../../../../lib/security";
 import { EventType } from "@prisma/client";
+import { checkRateLimit } from "../../../../lib/rateLimit";
 
 export async function POST(request: Request) {
   try {
@@ -27,6 +28,11 @@ export async function POST(request: Request) {
     const userAgent = headersList.get("user-agent") || "Desconocido";
     const referer = headersList.get("referer") || null;
     const ipHash = hashIp(ip);
+
+    const { allowed } = await checkRateLimit(ip, "PUBLIC_EVENT_TRACK", cardId);
+    if (!allowed) {
+      return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 });
+    }
 
     // 2. Operación transaccional con deduplicación de 5 segundos
     const result = await prisma.$transaction(async (tx) => {

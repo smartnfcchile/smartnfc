@@ -113,7 +113,7 @@ export default function ConfiguracionPage() {
             Identidad Visual de SmartNFC
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-            Vista previa del nuevo imagotipo oficial y el isotipo vectorial "S" sobre fondos claros y oscuros.
+            Vista previa del nuevo imagotipo oficial y el isotipo vectorial &quot;S&quot; sobre fondos claros y oscuros.
           </p>
         </div>
 

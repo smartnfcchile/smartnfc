@@ -2,8 +2,7 @@
 
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../lib/auth";
+import { getCurrentUserContext } from "../../../../lib/permissions";
 
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
@@ -12,34 +11,30 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async () => {
-        // 1. Verificamos quién está conectado en la sesión para seguridad
-        const session = await getServerSession(authOptions);
-        if (!session) {
-          throw new Error("No autorizado");
+      onBeforeGenerateToken: async (pathname) => {
+        const user = await getCurrentUserContext();
+        if (!pathname || pathname.length > 240 || pathname.startsWith("/") || pathname.includes("..")) {
+          throw new Error("Ruta de archivo inválida");
         }
-
-        const user = session.user as { id?: string };
-        if (!user.id) throw new Error("Sesión inválida");
         return {
           allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
           maximumSizeInBytes: 5_000_000,
+          validUntil: Date.now() + 5 * 60 * 1000,
+          addRandomSuffix: true,
+          allowOverwrite: false,
           tokenPayload: JSON.stringify({
             userId: user.id,
+            companyId: user.companyId,
           }),
         };
       },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        // Se ejecuta una vez que la subida termina en el servidor
-        console.log("Subida de Vercel Blob completada:", blob.url, tokenPayload);
-      },
+      onUploadCompleted: async () => {},
     });
 
     return NextResponse.json(jsonResponse);
-  } catch (error) {
-    console.error("Error en API de blob upload:", error);
+  } catch {
     return NextResponse.json(
-      { error: (error as Error).message },
+      { error: "No fue posible autorizar la carga." },
       { status: 400 }
     );
   }

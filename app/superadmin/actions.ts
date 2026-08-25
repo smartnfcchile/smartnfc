@@ -836,6 +836,7 @@ export async function getActiveLocalFounderLicensesCountAction(): Promise<number
 export async function registerPhysicalCardSuperadminAction(data: {
   token?: string;
   companyId: string;
+  destinationCardId?: string;
   status?: "PENDIENTE_GRABACION" | "GRABADA" | "ENVIADA" | "ENTREGADA" | "ACTIVA" | "SUSPENDIDA";
   batchCode?: string;
 }) {
@@ -869,32 +870,39 @@ export async function registerPhysicalCardSuperadminAction(data: {
       return { success: false, error: "El token ingresado ya existe en la base de datos." };
     }
 
+    let destinationCard = null;
+    if (data.destinationCardId) {
+      destinationCard = await prisma.card.findUnique({ where: { id: data.destinationCardId } });
+      if (!destinationCard) return { success: false, error: "La identidad B2B seleccionada no existe." };
+      if (destinationCard.companyId !== data.companyId) {
+        return { success: false, error: "La identidad B2B no pertenece a la empresa seleccionada." };
+      }
+    }
+
     const cardStatus = data.status || "ENTREGADA";
-
-    const newCard = await prisma.physicalNfcCard.create({
-      data: {
-        token: finalToken,
-        companyId: data.companyId,
-        status: cardStatus as any,
-        batchCode: data.batchCode ? data.batchCode.trim() : null,
-        deliveredAt: cardStatus === "ENTREGADA" || cardStatus === "ACTIVA" ? new Date() : null,
-        activatedAt: cardStatus === "ACTIVA" ? new Date() : null
-      }
-    });
-
-    await prisma.adminAuditLog.create({
-      data: {
-        actorUserId: superadmin.id,
-        action: "PHYSICAL_CARD_REGISTERED",
-        entityType: "PHYSICAL_CARD",
-        entityId: newCard.id,
-        companyId: data.companyId,
-        metadata: JSON.stringify({
+    const newCard = await prisma.$transaction(async (tx) => {
+      const created = await tx.physicalNfcCard.create({
+        data: {
           token: finalToken,
-          status: cardStatus,
-          companyId: data.companyId
-        })
-      }
+          companyId: data.companyId,
+          cardId: destinationCard?.id || null,
+          status: cardStatus as any,
+          batchCode: data.batchCode ? data.batchCode.trim() : null,
+          deliveredAt: cardStatus === "ENTREGADA" || cardStatus === "ACTIVA" ? new Date() : null,
+          activatedAt: cardStatus === "ACTIVA" ? new Date() : null
+        }
+      });
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "PHYSICAL_CARD_REGISTERED",
+          entityType: "PHYSICAL_CARD",
+          entityId: created.id,
+          companyId: data.companyId,
+          metadata: JSON.stringify({ token: finalToken, status: cardStatus, companyId: data.companyId, destinationCardId: destinationCard?.id || null })
+        }
+      });
+      return created;
     });
 
     revalidatePath("/superadmin/tarjetas");
@@ -910,6 +918,47 @@ export async function registerPhysicalCardSuperadminAction(data: {
       success: false,
       error: err.message || "Error interno al registrar la tarjeta física."
     };
+  }
+}
+
+export async function associatePhysicalCardToB2BSuperadminAction(data: {
+  physicalCardId: string;
+  destinationCardId: string;
+}) {
+  try {
+    const superadmin = await requireSuperAdmin();
+    const [physicalCard, destinationCard] = await Promise.all([
+      prisma.physicalNfcCard.findUnique({ where: { id: data.physicalCardId } }),
+      prisma.card.findUnique({ where: { id: data.destinationCardId } })
+    ]);
+    if (!physicalCard) return { success: false, error: "La tarjeta física no existe." };
+    if (!destinationCard) return { success: false, error: "La identidad B2B no existe." };
+    if (physicalCard.cardId || physicalCard.localTouchpointId) {
+      return { success: false, error: "La tarjeta ya tiene un destino. Desvincúlala antes de asignar uno nuevo." };
+    }
+    if (physicalCard.companyId !== destinationCard.companyId) {
+      return { success: false, error: "La tarjeta física y la identidad B2B deben pertenecer a la misma empresa." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.physicalNfcCard.update({ where: { id: physicalCard.id }, data: { cardId: destinationCard.id } });
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "PHYSICAL_CARD_ASSOCIATED_B2B",
+          entityType: "PHYSICAL_CARD",
+          entityId: physicalCard.id,
+          companyId: physicalCard.companyId,
+          metadata: JSON.stringify({ physicalCardId: physicalCard.id, destinationCardId: destinationCard.id, slug: destinationCard.slug })
+        }
+      });
+    });
+    revalidatePath("/superadmin/tarjetas");
+    revalidatePath(`/superadmin/empresas/${physicalCard.companyId}`);
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al vincular tarjeta física a B2B:", err);
+    return { success: false, error: err.message || "Error interno al vincular la identidad B2B." };
   }
 }
 

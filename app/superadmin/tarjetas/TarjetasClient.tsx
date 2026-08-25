@@ -2,10 +2,12 @@
 
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   registerPhysicalCardSuperadminAction,
   assignPhysicalCardSuperadminAction,
-  disassociatePhysicalCardSuperadminAction
+  disassociatePhysicalCardSuperadminAction,
+  associatePhysicalCardToB2BSuperadminAction
 } from "../actions";
 
 type PhysicalCardItem = {
@@ -46,13 +48,27 @@ type CompanyItem = {
   slug: string | null;
 };
 
+type DigitalCardItem = {
+  id: string;
+  companyId: string;
+  slug: string;
+  name: string;
+  profileName: string | null;
+  isActive: boolean;
+  user: { name: string | null; email: string };
+};
+
+type NfcStatus = "PENDIENTE_GRABACION" | "GRABADA" | "ENVIADA" | "ENTREGADA" | "ACTIVA" | "SUSPENDIDA";
+
 type TarjetasClientProps = {
   cards: PhysicalCardItem[];
   companies: CompanyItem[];
+  digitalCards: DigitalCardItem[];
   originHost: string;
 };
 
-export default function TarjetasClient({ cards: initialCards, companies, originHost }: TarjetasClientProps) {
+export default function TarjetasClient({ cards: initialCards, companies, digitalCards, originHost }: TarjetasClientProps) {
+  const router = useRouter();
   const [cards, setCards] = useState<PhysicalCardItem[]>(initialCards);
   const [isPending, startTransition] = useTransition();
 
@@ -65,14 +81,19 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [newToken, setNewToken] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(companies[0]?.id || "");
-  const [selectedStatus, setSelectedStatus] = useState<any>("ENTREGADA");
+  const [selectedStatus, setSelectedStatus] = useState<NfcStatus>("ENTREGADA");
   const [batchCode, setBatchCode] = useState("");
+  const [selectedDestinationCardId, setSelectedDestinationCardId] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Reasignación rápida
   const [reassigningCardId, setReassigningCardId] = useState<string | null>(null);
   const [targetCompanyId, setTargetCompanyId] = useState("");
+  const [linkingPhysicalCardId, setLinkingPhysicalCardId] = useState<string | null>(null);
+  const [targetDigitalCardId, setTargetDigitalCardId] = useState("");
+
+  const profilesForCompany = (companyId: string) => digitalCards.filter(card => card.companyId === companyId);
 
   // Registrar nueva tarjeta
   const handleRegisterCard = async (e: React.FormEvent) => {
@@ -89,6 +110,7 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
       const res = await registerPhysicalCardSuperadminAction({
         token: newToken || undefined,
         companyId: selectedCompanyId,
+        destinationCardId: selectedDestinationCardId || undefined,
         status: selectedStatus,
         batchCode: batchCode || undefined
       });
@@ -97,7 +119,9 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
         setSuccessMsg(`¡Tarjeta registrada con éxito! Token: ${res.token}`);
         setNewToken("");
         setBatchCode("");
+        setSelectedDestinationCardId("");
         setShowRegisterModal(false);
+        router.refresh();
         setTimeout(() => setSuccessMsg(null), 4000);
       } else {
         setErrorMsg(res.error || "Error al registrar la tarjeta física.");
@@ -120,6 +144,7 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
         setCards(prev =>
           prev.map(c => (c.id === cardId ? { ...c, cardId: null, localTouchpointId: null, card: null, localTouchpoint: null } : c))
         );
+        router.refresh();
       } else {
         setErrorMsg(res.error || "Error al desvincular la tarjeta.");
       }
@@ -139,9 +164,27 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
         setSuccessMsg("Empresa reasignada correctamente.");
         setReassigningCardId(null);
         setTargetCompanyId("");
+        router.refresh();
         setTimeout(() => setSuccessMsg(null), 3000);
       } else {
         setErrorMsg(res.error || "No se pudo reasignar la empresa.");
+      }
+    });
+  };
+
+  const handleAssociateB2B = async (physicalCardId: string) => {
+    if (!targetDigitalCardId) return;
+    setErrorMsg(null);
+    startTransition(async () => {
+      const res = await associatePhysicalCardToB2BSuperadminAction({ physicalCardId, destinationCardId: targetDigitalCardId });
+      if (res.success) {
+        setSuccessMsg("Identidad B2B vinculada correctamente. El NFC y el QR ya redirigen al perfil.");
+        setLinkingPhysicalCardId(null);
+        setTargetDigitalCardId("");
+        router.refresh();
+        setTimeout(() => setSuccessMsg(null), 4000);
+      } else {
+        setErrorMsg(res.error || "No se pudo vincular la identidad B2B.");
       }
     });
   };
@@ -318,6 +361,10 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
                         <span className="text-[10px] text-slate-600 dark:text-slate-400 block font-mono mt-0.5">
                           Lote: {card.batchCode || "Sin lote"} | ID: {card.id.substring(0, 10)}...
                         </span>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <a href={`/api/superadmin/physical-cards/${card.id}/qr?download=1`} className="text-[9.5px] font-bold text-purple-700 dark:text-purple-400 hover:underline">Descargar QR PNG</a>
+                          <a href={`/api/superadmin/physical-cards/${card.id}/qr?format=svg&download=1`} className="text-[9.5px] font-bold text-purple-700 dark:text-purple-400 hover:underline">QR SVG</a>
+                        </div>
                       </td>
                       <td className="px-5 py-3.5">
                         <Link
@@ -395,9 +442,26 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
                             Desvincular Destino
                           </button>
                         ) : (
-                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">
-                            ✓ Tarjeta Libre
-                          </span>
+                          linkingPhysicalCardId === card.id ? (
+                            <div className="flex flex-col items-end gap-2">
+                              <select value={targetDigitalCardId} onChange={(e) => setTargetDigitalCardId(e.target.value)} className="max-w-64 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-[10px] text-slate-900 dark:text-slate-200">
+                                <option value="">Seleccionar perfil B2B</option>
+                                {profilesForCompany(card.companyId).map(profile => <option key={profile.id} value={profile.id}>{profile.profileName || profile.name} · /c/{profile.slug}</option>)}
+                              </select>
+                              <div className="flex gap-2">
+                                <button onClick={() => handleAssociateB2B(card.id)} disabled={isPending || !targetDigitalCardId} className="bg-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded disabled:opacity-50">Vincular</button>
+                                <button onClick={() => { setLinkingPhysicalCardId(null); setTargetDigitalCardId(""); }} className="text-[9px] text-slate-500 font-bold">Cancelar</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-end gap-1.5">
+                              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">✓ Tarjeta Libre</span>
+                              <button onClick={() => { setLinkingPhysicalCardId(card.id); setTargetDigitalCardId(""); }} disabled={profilesForCompany(card.companyId).length === 0} className="bg-blue-500/10 text-blue-700 dark:text-blue-400 text-[9.5px] font-extrabold py-1.5 px-2.5 rounded-lg border border-blue-500/30 disabled:opacity-40">
+                                Vincular a perfil B2B
+                              </button>
+                              {profilesForCompany(card.companyId).length === 0 && <span className="text-[9px] text-amber-600 dark:text-amber-400">La empresa aún no tiene perfiles</span>}
+                            </div>
+                          )
                         )}
                       </td>
                     </tr>
@@ -431,13 +495,22 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
                 <select
                   required
                   value={selectedCompanyId}
-                  onChange={(e) => setSelectedCompanyId(e.target.value)}
+                  onChange={(e) => { setSelectedCompanyId(e.target.value); setSelectedDestinationCardId(""); }}
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-blue-500"
                 >
                   {companies.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase block tracking-wider">Perfil B2B de destino (opcional)</label>
+                <select value={selectedDestinationCardId} onChange={(e) => setSelectedDestinationCardId(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-blue-500">
+                  <option value="">Dejar libre para vincular después</option>
+                  {profilesForCompany(selectedCompanyId).map(profile => <option key={profile.id} value={profile.id}>{profile.profileName || profile.name} · /c/{profile.slug} · {profile.user.email}</option>)}
+                </select>
+                <p className="text-[9.5px] text-slate-500 dark:text-slate-400">Si eliges un perfil, la tarjeta quedará operativa al terminar el registro.</p>
               </div>
 
               <div className="space-y-1.5">
@@ -460,7 +533,7 @@ export default function TarjetasClient({ cards: initialCards, companies, originH
                   </label>
                   <select
                     value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value as any)}
+                    onChange={(e) => setSelectedStatus(e.target.value as NfcStatus)}
                     className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-blue-500"
                   >
                     <option value="PENDIENTE_GRABACION">Pendiente Grabación</option>

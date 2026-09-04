@@ -129,7 +129,72 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
 
       {/* Tabla de Tarjetas */}
       <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        {/* Vista móvil: las acciones siempre quedan visibles, sin desplazamiento horizontal. */}
+        <div className="divide-y divide-slate-200 dark:divide-slate-800 md:hidden">
+          {cards.map((item) => (
+            <article key={item.id} className="space-y-4 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-bold text-slate-950 dark:text-white">{item.name}</h2>
+                  <p className="mt-0.5 truncate text-[11px] text-slate-600 dark:text-slate-400">
+                    {item.user.name || "Vendedor"} · {item.user.email}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleActive(item.id, item.isActive)}
+                  aria-label={`${item.isActive ? "Desactivar" : "Activar"} ${item.name}`}
+                  aria-pressed={item.isActive}
+                  className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
+                    item.isActive ? "bg-blue-600" : "bg-slate-600"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      item.isActive ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <a
+                href={`/c/${item.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block truncate rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-slate-950/60 dark:text-blue-400"
+              >
+                🔗 smartnfc.cl/c/{item.slug}
+              </a>
+
+              {item.id.includes("0.") ? (
+                <p className="text-center text-xs italic text-slate-500">Sincronizando...</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href={`/dashboard/editor/${item.id}`}
+                    className="col-span-2 flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition active:scale-[0.98]"
+                  >
+                    ✏️ Editar perfil
+                  </Link>
+                  <Link
+                    href={`/dashboard/qr/${item.id}`}
+                    className="flex min-h-11 items-center justify-center rounded-xl border border-orange-300 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 dark:border-orange-500/20 dark:bg-orange-600/10 dark:text-orange-400"
+                  >
+                    📷 Ver QR
+                  </Link>
+                  <Link
+                    href={`/dashboard/physical-designs?cardId=${item.id}`}
+                    className="flex min-h-11 items-center justify-center rounded-xl border border-blue-300 bg-blue-50 px-3 py-2 text-center text-xs font-semibold text-blue-700 dark:border-blue-500/20 dark:bg-blue-600/10 dark:text-blue-300"
+                  >
+                    ✦ Diseño físico
+                  </Link>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-left text-xs sm:text-sm">
             <thead className="bg-slate-100 dark:bg-slate-950/40 text-slate-600 dark:text-slate-400 uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-slate-800">
               <tr>

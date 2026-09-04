@@ -213,10 +213,10 @@ export default function CardEditorClient({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white pb-16">
+    <div className="min-h-screen bg-slate-950 text-white pb-24 lg:pb-16">
       {/* Barra de Estado Superior */}
-      <div className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="sticky top-16 lg:top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 sm:px-6 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Link 
             href="/dashboard" 
             className="p-2 hover:bg-slate-800 rounded-lg transition text-slate-400 hover:text-white"
@@ -228,25 +228,25 @@ export default function CardEditorClient({
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div>
-            <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="truncate text-base sm:text-xl font-bold text-white flex items-center gap-2">
               Editor de Perfil
-              <span className="text-xs font-normal text-slate-500 font-mono">/{cardData.slug}</span>
+              <span className="hidden sm:inline text-xs font-normal text-slate-500 font-mono">/{cardData.slug}</span>
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex w-full sm:w-auto items-center justify-between sm:justify-end gap-2 sm:gap-4">
           {/* Indicador de cambios sin guardar */}
           {isDirty ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium animate-pulse">
+            <div className="flex min-w-0 items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] sm:text-xs font-medium animate-pulse">
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Cambios sin guardar</span>
+              <span className="truncate">Cambios sin guardar</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+            <div className="flex min-w-0 items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-xs font-medium">
               <CheckCircle className="w-3.5 h-3.5" />
-              <span>Todos los cambios guardados</span>
+              <span className="truncate"><span className="sm:hidden">Guardado</span><span className="hidden sm:inline">Todos los cambios guardados</span></span>
             </div>
           )}
 
@@ -271,7 +271,7 @@ export default function CardEditorClient({
           <button
             type="button"
             onClick={() => formRef.current?.requestSubmit()}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 transition cursor-pointer"
+            className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-blue-500/20 transition cursor-pointer"
           >
             Guardar Cambios
           </button>
@@ -285,7 +285,7 @@ export default function CardEditorClient({
           <div className="lg:col-span-7 space-y-6">
             
             {/* Navegación por Pestañas */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-wrap gap-1">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain">
               {[
                 { id: "basics", label: "Información", icon: User },
                 { id: "design", label: "Diseño", icon: Palette },
@@ -300,7 +300,7 @@ export default function CardEditorClient({
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    className={`flex shrink-0 items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                       isActive 
                         ? "bg-blue-600 text-white shadow-md shadow-blue-600/10" 
                         : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
@@ -318,7 +318,7 @@ export default function CardEditorClient({
               ref={formRef}
               onChange={handleFormChange}
               onSubmit={handleFormSubmit}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6"
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-8 shadow-xl space-y-6"
             >
               <input type="hidden" name="cardId" value={card.id} />
               <input type="hidden" name="shareContactFields" value={JSON.stringify(cardData.shareContactFields || {

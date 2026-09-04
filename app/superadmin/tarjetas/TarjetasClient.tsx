@@ -9,6 +9,7 @@ import {
   disassociatePhysicalCardSuperadminAction,
   associatePhysicalCardToB2BSuperadminAction
 } from "../actions";
+import CreateCardWizard from "./CreateCardWizard";
 
 type PhysicalCardItem = {
   id: string;
@@ -58,16 +59,25 @@ type DigitalCardItem = {
   user: { name: string | null; email: string };
 };
 
+type CompanyUserItem = {
+  id: string;
+  companyId: string;
+  name: string | null;
+  email: string;
+  status: string;
+};
+
 type NfcStatus = "PENDIENTE_GRABACION" | "GRABADA" | "ENVIADA" | "ENTREGADA" | "ACTIVA" | "SUSPENDIDA";
 
 type TarjetasClientProps = {
   cards: PhysicalCardItem[];
   companies: CompanyItem[];
   digitalCards: DigitalCardItem[];
+  companyUsers: CompanyUserItem[];
   originHost: string;
 };
 
-export default function TarjetasClient({ cards: initialCards, companies, digitalCards, originHost }: TarjetasClientProps) {
+export default function TarjetasClient({ cards: initialCards, companies, digitalCards, companyUsers, originHost }: TarjetasClientProps) {
   const router = useRouter();
   const [cards, setCards] = useState<PhysicalCardItem[]>(initialCards);
   const [isPending, startTransition] = useTransition();
@@ -86,6 +96,7 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
   const [selectedDestinationCardId, setSelectedDestinationCardId] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [registrationMode, setRegistrationMode] = useState<"guided" | "technical">("guided");
 
   // Reasignación rápida
   const [reassigningCardId, setReassigningCardId] = useState<string | null>(null);
@@ -94,6 +105,12 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
   const [targetDigitalCardId, setTargetDigitalCardId] = useState("");
 
   const profilesForCompany = (companyId: string) => digitalCards.filter(card => card.companyId === companyId);
+
+  const openRegisterModal = () => {
+    setRegistrationMode("guided");
+    setErrorMsg(null);
+    setShowRegisterModal(true);
+  };
 
   // Registrar nueva tarjeta
   const handleRegisterCard = async (e: React.FormEvent) => {
@@ -246,7 +263,7 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
           </p>
         </div>
         <button
-          onClick={() => setShowRegisterModal(true)}
+          onClick={openRegisterModal}
           className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-md transition-all text-center cursor-pointer active:scale-95"
         >
           ➕ Registrar Nueva Tarjeta
@@ -473,8 +490,17 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
         </div>
       </div>
 
+      {showRegisterModal && registrationMode === "guided" && (
+        <CreateCardWizard
+          companies={companies}
+          companyUsers={companyUsers}
+          onClose={() => setShowRegisterModal(false)}
+          onTechnicalMode={() => setRegistrationMode("technical")}
+        />
+      )}
+
       {/* Modal de Registro de Tarjeta */}
-      {showRegisterModal && (
+      {showRegisterModal && registrationMode === "technical" && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">

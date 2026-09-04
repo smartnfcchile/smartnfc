@@ -61,16 +61,37 @@ export default async function EditorPage({ params }: EditorPageProps) {
   // 3. Validamos rol de administrador y pertenencia de empresa
   const userRole = (session.user as any).role;
   const companyId = (session.user as any).companyId;
-  const isAdmin = userRole === "SUPERADMIN" || userRole === "COMPANY_OWNER" || userRole === "COMPANY_ADMIN";
+  const isAdmin = userRole === "COMPANY_OWNER" || userRole === "COMPANY_ADMIN";
 
-  if (!isAdmin) {
+  if (userRole === "SUPERADMIN") {
+    return (
+      <main className="min-h-screen bg-slate-950 text-white p-8 flex items-center justify-center">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-6">
+          <div className="text-4xl">🛡️</div>
+          <h1 className="text-2xl font-bold text-white">Perfil protegido</h1>
+          <p className="text-slate-400">
+            Puedes administrar la asignación y el estado de esta tarjeta, pero los datos del perfil solo pueden ser editados por la empresa propietaria.
+          </p>
+          <Link href="/superadmin/tarjetas" className="inline-block bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold transition w-full">
+            Volver a Tarjetas
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const canEdit = isAdmin
+    ? card.companyId === companyId
+    : card.companyId === companyId && card.userId === user.id;
+
+  if (!canEdit) {
     return (
       <main className="min-h-screen bg-slate-950 text-white p-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-6">
           <div className="text-4xl">🚫</div>
           <h1 className="text-2xl font-bold text-red-500">Acceso Denegado</h1>
           <p className="text-slate-400">
-            Solo los administradores autorizados de la empresa pueden configurar o editar los perfiles de las tarjetas virtuales.
+            Solo el propietario del perfil o un administrador autorizado de su empresa puede editar esta tarjeta.
           </p>
           <Link 
             href="/dashboard" 
@@ -83,7 +104,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
     );
   }
 
-  if (userRole !== "SUPERADMIN" && card.companyId !== companyId) {
+  if (card.companyId !== companyId) {
     return (
       <main className="min-h-screen bg-slate-950 text-white p-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-6">

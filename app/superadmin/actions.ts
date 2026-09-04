@@ -15,6 +15,7 @@ import { headers } from "next/headers";
 import { checkRateLimit } from "../../lib/rateLimit";
 
 import { ProductPlanCode, ProductLicenseStatus, SmartNfcProduct } from "@prisma/client";
+import { canCreateIdentity } from "../../lib/product-access";
 
 function assertStrongPassword(password: string) {
   if (password.length < 12 || password.length > 128 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
@@ -934,6 +935,168 @@ export async function registerPhysicalCardSuperadminAction(data: {
       success: false,
       error: err.message || "Error interno al registrar la tarjeta física."
     };
+  }
+}
+
+export async function createCompleteCardSuperadminAction(data: {
+  companyId: string;
+  cardName: string;
+  slug: string;
+  ownerId?: string;
+  newOwnerName?: string;
+  newOwnerEmail?: string;
+  token?: string;
+  status?: "PENDIENTE_GRABACION" | "GRABADA" | "ENVIADA" | "ENTREGADA" | "ACTIVA" | "SUSPENDIDA";
+  batchCode?: string;
+}) {
+  try {
+    const superadmin = await requireSuperAdmin();
+    const company = await prisma.company.findUnique({ where: { id: data.companyId } });
+    if (!company) return { success: false, error: "La empresa seleccionada no existe." };
+
+    const cardName = data.cardName.trim();
+    const normalizedSlug = data.slug.trim().toLowerCase().normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9-_]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (cardName.length < 2 || cardName.length > 120) {
+      return { success: false, error: "El nombre de la tarjeta debe tener entre 2 y 120 caracteres." };
+    }
+    if (!normalizedSlug || normalizedSlug.length > 80) {
+      return { success: false, error: "El enlace personalizado no es válido." };
+    }
+    if (!data.ownerId && (!data.newOwnerName?.trim() || !data.newOwnerEmail?.trim())) {
+      return { success: false, error: "Selecciona un propietario o completa los datos para invitar uno nuevo." };
+    }
+    if (!(await canCreateIdentity(data.companyId))) {
+      return { success: false, error: "La empresa alcanzó el límite de perfiles activos de su licencia." };
+    }
+
+    const existingSlug = await prisma.card.findUnique({ where: { slug: normalizedSlug }, select: { id: true } });
+    if (existingSlug) return { success: false, error: `El enlace “${normalizedSlug}” ya está en uso.` };
+
+    let owner = data.ownerId
+      ? await prisma.user.findUnique({ where: { id: data.ownerId } })
+      : null;
+    if (owner && owner.companyId !== data.companyId) {
+      return { success: false, error: "El propietario seleccionado no pertenece a esta empresa." };
+    }
+
+    const newOwnerEmail = data.newOwnerEmail?.trim().toLowerCase();
+    if (!owner && newOwnerEmail) {
+      const duplicateEmail = await prisma.user.findUnique({ where: { email: newOwnerEmail }, select: { id: true } });
+      if (duplicateEmail) return { success: false, error: "El correo del nuevo propietario ya está registrado." };
+    }
+
+    const rawToken = data.token?.trim().toLowerCase() || "";
+    const finalToken = rawToken || crypto.randomBytes(8).toString("hex");
+    if (!/^[a-zA-Z0-9_-]+$/.test(finalToken)) {
+      return { success: false, error: "El código del chip contiene caracteres no válidos." };
+    }
+    const existingToken = await prisma.physicalNfcCard.findUnique({ where: { token: finalToken }, select: { id: true } });
+    if (existingToken) return { success: false, error: "El código del chip ya está registrado." };
+
+    const activationToken = owner ? null : crypto.randomBytes(32).toString("hex");
+    const activationTokenHash = activationToken
+      ? crypto.createHash("sha256").update(activationToken).digest("hex")
+      : null;
+    const status = data.status || "ENTREGADA";
+
+    const result = await prisma.$transaction(async (tx) => {
+      if (!owner) {
+        owner = await tx.user.create({
+          data: {
+            name: data.newOwnerName!.trim(),
+            email: newOwnerEmail!,
+            role: UserRole.COLLABORATOR,
+            companyId: data.companyId,
+            isActive: false,
+            status: "PENDING"
+          }
+        });
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 48);
+        await tx.userActivationToken.create({
+          data: { userId: owner.id, tokenHash: activationTokenHash!, expiresAt }
+        });
+      }
+
+      const digitalCard = await tx.card.create({
+        data: {
+          name: cardName,
+          slug: normalizedSlug,
+          profileName: owner.name || cardName,
+          userId: owner.id,
+          companyId: data.companyId
+        }
+      });
+
+      const physicalCard = await tx.physicalNfcCard.create({
+        data: {
+          token: finalToken,
+          companyId: data.companyId,
+          cardId: digitalCard.id,
+          status: status as any,
+          batchCode: data.batchCode?.trim() || null,
+          deliveredAt: status === "ENTREGADA" || status === "ACTIVA" ? new Date() : null,
+          activatedAt: status === "ACTIVA" ? new Date() : null
+        }
+      });
+
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "COMPLETE_CARD_CREATED",
+          entityType: "PHYSICAL_CARD",
+          entityId: physicalCard.id,
+          companyId: data.companyId,
+          metadata: JSON.stringify({
+            physicalCardId: physicalCard.id,
+            digitalCardId: digitalCard.id,
+            ownerId: owner.id,
+            slug: normalizedSlug,
+            invitedOwner: Boolean(activationToken)
+          })
+        }
+      });
+
+      return { physicalCard, digitalCard, owner };
+    });
+
+    let emailWarning: string | null = null;
+    if (activationToken) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const emailRes = await sendEmail({
+        to: result.owner.email,
+        subject: "Activa tu cuenta de Smart NFC",
+        react: React.createElement(UserInvitationEmail, {
+          name: result.owner.name || "Usuario",
+          companyName: company.name,
+          role: result.owner.role,
+          activationUrl: `${appUrl}/activar-cuenta?token=${activationToken}`
+        })
+      });
+      if (!emailRes.success) {
+        emailWarning = "La tarjeta y el perfil fueron creados, pero no se pudo enviar la invitación. Puedes reenviarla desde Usuarios.";
+      }
+    }
+
+    revalidatePath("/superadmin/tarjetas");
+    revalidatePath("/superadmin/usuarios");
+    revalidatePath(`/superadmin/empresas/${data.companyId}`);
+    return {
+      success: true,
+      physicalCardId: result.physicalCard.id,
+      digitalCardId: result.digitalCard.id,
+      token: result.physicalCard.token,
+      slug: result.digitalCard.slug,
+      emailWarning
+    };
+  } catch (err: any) {
+    console.error("Error al crear tarjeta completa:", err);
+    return { success: false, error: err.message || "No fue posible crear la tarjeta." };
   }
 }
 

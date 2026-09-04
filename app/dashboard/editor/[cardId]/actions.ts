@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { put } from "@vercel/blob";
 import fs from "fs";
 import path from "path";
-import { requireCompanyAdmin, assertCardBelongsToCompany } from "../../../../lib/permissions";
+import { getCurrentUserContext } from "../../../../lib/permissions";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 
 const IMAGE_EXTENSIONS: Record<string, string> = {
@@ -25,15 +25,29 @@ function validateImageFile(file: File): string {
   return extension;
 }
 
+async function requireCardEditor(cardId: string) {
+  const user = await getCurrentUserContext();
+  if (user.role === "SUPERADMIN") {
+    throw new Error("Los datos privados del perfil solo pueden ser editados por la empresa propietaria.");
+  }
+  const card = await prisma.card.findUnique({
+    where: { id: cardId },
+    select: { companyId: true, userId: true }
+  });
+  if (!card) throw new Error("Tarjeta no encontrada.");
+  const isCompanyAdmin = user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
+  if (card.companyId !== user.companyId || (!isCompanyAdmin && card.userId !== user.id)) {
+    throw new Error("No tienes permisos para editar esta tarjeta.");
+  }
+  return user;
+}
+
 // 1. EL MOTOR DE GUARDADO (Server Action)
 export async function updateCard(formData: FormData) {
   try {
     const cardId = formData.get("cardId") as string;
   
-  const admin = await requireCompanyAdmin();
-  if (admin.role !== "SUPERADMIN") {
-    await assertCardBelongsToCompany(cardId, admin.companyId);
-  }
+  await requireCardEditor(cardId);
   
   const profileName = formData.get("profileName") as string;
   const role = formData.get("role") as string;
@@ -345,10 +359,7 @@ export async function deleteLink(formData: FormData) {
   const linkId = formData.get("linkId") as string;
   const cardId = formData.get("cardId") as string;
   
-  const admin = await requireCompanyAdmin();
-  if (admin.role !== "SUPERADMIN") {
-    await assertCardBelongsToCompany(cardId, admin.companyId);
-  }
+  await requireCardEditor(cardId);
 
   const ownedLink = await prisma.cardLink.findFirst({
     where: { id: linkId, cardId },
@@ -382,10 +393,7 @@ export async function addLink(formData: FormData) {
     throw new Error("Solo se permiten enlaces HTTP o HTTPS.");
   }
 
-  const admin = await requireCompanyAdmin();
-  if (admin.role !== "SUPERADMIN") {
-    await assertCardBelongsToCompany(cardId, admin.companyId);
-  }
+  await requireCardEditor(cardId);
 
   const currentLinksCount = await prisma.cardLink.count({
     where: { cardId },

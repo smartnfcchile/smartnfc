@@ -74,12 +74,25 @@ export default async function SuperadminTarjetasPage() {
     }
   });
 
+  const companyUsers = await prisma.user.findMany({
+    where: { role: { not: "SUPERADMIN" } },
+    orderBy: [{ company: { name: "asc" } }, { name: "asc" }],
+    select: {
+      id: true,
+      companyId: true,
+      name: true,
+      email: true,
+      status: true
+    }
+  });
+
   return (
     <TarjetasClient
       key={physicalCards.map(card => `${card.id}:${card.updatedAt.toISOString()}`).join("|")}
       cards={physicalCards}
       companies={companies}
       digitalCards={digitalCards}
+      companyUsers={companyUsers}
       originHost={originHost}
     />
   );

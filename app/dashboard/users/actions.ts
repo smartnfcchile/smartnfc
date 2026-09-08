@@ -160,6 +160,7 @@ export async function resendInvitationFromDashboardAction(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { company: true } });
   if (!user) throw new Error("Usuario no encontrado.");
   if (user.companyId !== admin.companyId) throw new Error("No autorizado. El usuario pertenece a otra empresa.");
+  if (user.status === "SUSPENDED") throw new Error("El colaborador está suspendido. Reactívalo antes de reenviar una invitación.");
   if (user.password) throw new Error("El usuario ya completó su enrolamiento. Debe usar la recuperación de contraseña.");
 
   const token = crypto.randomBytes(32).toString("hex");
@@ -182,23 +183,71 @@ export async function resendInvitationFromDashboardAction(userId: string) {
   return { success: true };
 }
 
-export async function deleteVendorUser(userId: string) {
+export async function suspendCollaboratorUser(userId: string) {
   const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
-  if (!isAdmin) throw new Error("Solo los administradores pueden eliminar colaboradores.");
+  if (!isAdmin) throw new Error("Solo los administradores pueden suspender colaboradores.");
+  if (userId === admin.id) throw new Error("No puedes suspender tu propia cuenta desde esta sección.");
 
-  const userToDelete = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, companyId: true } });
-  if (!userToDelete) throw new Error("Usuario no encontrado.");
-  if (userToDelete.companyId !== admin.companyId) throw new Error("No tienes permisos sobre usuarios de otra empresa.");
+  const userToSuspend = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, companyId: true, role: true, status: true, email: true },
+  });
+  if (!userToSuspend) throw new Error("Usuario no encontrado.");
+  if (userToSuspend.companyId !== admin.companyId) throw new Error("No tienes permisos sobre usuarios de otra empresa.");
+  if (userToSuspend.role !== "COLLABORATOR") {
+    throw new Error("Los roles administrativos deben gestionarse desde la administración de la empresa, no desde la suspensión de colaboradores.");
+  }
+  if (userToSuspend.status === "SUSPENDED") return { success: true };
 
   const cards = await prisma.card.findMany({ where: { userId }, select: { id: true } });
   const cardIds = cards.map(card => card.id);
+
   await prisma.$transaction(async (tx) => {
-    if (cardIds.length) await tx.physicalNfcCard.deleteMany({ where: { cardId: { in: cardIds } } });
-    await tx.card.deleteMany({ where: { userId } });
-    await tx.user.delete({ where: { id: userId } });
+    await tx.user.update({
+      where: { id: userId },
+      data: { status: "SUSPENDED", isActive: false },
+    });
+
+    await tx.userActivationToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { expiresAt: new Date() },
+    });
+
+    if (cardIds.length) {
+      await tx.card.updateMany({
+        where: { id: { in: cardIds } },
+        data: { isActive: false },
+      });
+      await tx.physicalNfcCard.updateMany({
+        where: { cardId: { in: cardIds } },
+        data: { status: "SUSPENDIDA" },
+      });
+    }
+
+    await tx.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "COLLABORATOR_SUSPENDED",
+        entityType: "USER",
+        entityId: userId,
+        companyId: userToSuspend.companyId,
+        metadata: JSON.stringify({
+          email: userToSuspend.email,
+          cardIds,
+          preservedHistory: true,
+        }),
+      },
+    });
   });
 
   revalidatePath("/dashboard/users");
+  revalidatePath("/dashboard/cards");
+  revalidatePath("/dashboard/leads");
   return { success: true };
+}
+
+// Compatibilidad temporal: ya no elimina datos históricos; suspende al colaborador.
+export async function deleteVendorUser(userId: string) {
+  return suspendCollaboratorUser(userId);
 }

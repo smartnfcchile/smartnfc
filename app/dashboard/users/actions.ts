@@ -2,6 +2,7 @@
 
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
+import { canCreateIdentity } from "../../../lib/product-access";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import React from "react";
@@ -54,6 +55,11 @@ export async function createCollaboratorWithCard(name: string, email: string) {
 
   const company = await prisma.company.findUnique({ where: { id: admin.companyId }, select: { id: true, name: true } });
   if (!company) throw new Error("Empresa no encontrada.");
+
+  const hasIdentityCapacity = await canCreateIdentity(company.id);
+  if (!hasIdentityCapacity) {
+    throw new Error("La empresa alcanzó el máximo de identidades permitido por su plan SmartNFC Empresas. Solicita una ampliación antes de crear otra tarjeta.");
+  }
 
   const slug = await uniqueCardSlug(company.name, personName);
   const token = crypto.randomBytes(32).toString("hex");

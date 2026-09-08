@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, LockKeyhole, QrCode, X } from "lucide-react";
@@ -24,6 +24,13 @@ function normalizeSlug(value: string) {
   return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-_]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
+function roleLabelForExisting(role?: string) {
+  if (role === "COMPANY_OWNER") return "Propietario de empresa (no se modifica)";
+  if (role === "COMPANY_ADMIN") return "Administrador de empresa (no se modifica)";
+  if (role === "COLLABORATOR") return "Colaborador (no se modifica)";
+  return "Rol existente (no se modifica)";
+}
+
 export default function CreateCardWizard({ companies, companyUsers, onClose, onTechnicalMode }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -34,6 +41,7 @@ export default function CreateCardWizard({ companies, companyUsers, onClose, onT
   const [ownerEmail, setOwnerEmail] = useState("");
   const [newOwnerRole, setNewOwnerRole] = useState<NewOwnerRole>("COLLABORATOR");
   const [cardName, setCardName] = useState("");
+  const [cardNameTouched, setCardNameTouched] = useState(false);
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [status, setStatus] = useState<NfcStatus>("PENDIENTE_GRABACION");
@@ -48,17 +56,23 @@ export default function CreateCardWizard({ companies, companyUsers, onClose, onT
   const personName = ownerId === "__new__" ? ownerName : existingOwner?.name || existingOwner?.email || "";
   const roleLabel = ownerId === "__new__"
     ? (newOwnerRole === "COMPANY_ADMIN" ? "Administrador de empresa" : "Colaborador")
-    : "Rol existente (no se modifica)";
+    : roleLabelForExisting(existingOwner?.role);
 
-  const suggestedSlug = useMemo(() => normalizeSlug(`${company?.name || ""}-${personName}`), [company?.name, personName]);
+  function applySuggestedIdentity(nextCompanyId: string, nextOwnerId: string, nextOwnerName: string) {
+    const nextCompany = companies.find(item => item.id === nextCompanyId);
+    const nextUsers = companyUsers.filter(user => user.companyId === nextCompanyId);
+    const nextExistingOwner = nextUsers.find(user => user.id === nextOwnerId);
+    const nextPersonName = nextOwnerId === "__new__"
+      ? nextOwnerName
+      : nextExistingOwner?.name || nextExistingOwner?.email || "";
 
-  useEffect(() => {
-    if (!slugTouched) setSlug(suggestedSlug);
-  }, [suggestedSlug, slugTouched]);
-
-  useEffect(() => {
-    if (personName && !cardName) setCardName(`Perfil digital de ${personName}`);
-  }, [personName, cardName]);
+    if (!slugTouched) {
+      setSlug(normalizeSlug(`${nextCompany?.name || ""}-${nextPersonName}`));
+    }
+    if (!cardNameTouched) {
+      setCardName(nextPersonName ? `Perfil digital de ${nextPersonName}` : "");
+    }
+  }
 
   const next = () => {
     setError(null);
@@ -109,7 +123,7 @@ export default function CreateCardWizard({ companies, companyUsers, onClose, onT
           {created ? (
             <div className="space-y-5 py-2 text-center">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/10 text-emerald-600"><Check size={34} /></div>
-              <div><h3 className="text-xl font-black text-slate-900 dark:text-white">Perfil, tarjeta y QR listos</h3><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">La persona podrá completar su perfil desde Mi Tarjeta.</p></div>
+              <div><h3 className="text-xl font-black text-slate-900 dark:text-white">Perfil, tarjeta y QR listos</h3><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">La persona podrá completar su perfil desde Mi Tarjeta según la política de edición definida por su empresa.</p></div>
               {created.warning && <p role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-700 dark:text-amber-300">{created.warning}</p>}
               <div className="mx-auto max-w-sm space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
                 <Image unoptimized src={`/api/superadmin/physical-cards/${created.physicalCardId}/qr`} width={192} height={192} alt="Código QR de la tarjeta creada" className="mx-auto rounded-xl bg-white p-2" />
@@ -134,19 +148,19 @@ export default function CreateCardWizard({ companies, companyUsers, onClose, onT
               <form onSubmit={submit}>
                 {step === 1 && <section className="space-y-5">
                   <div><h3 className="text-lg font-black text-slate-900 dark:text-white">1. Empresa</h3><p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Primero define a qué organización pertenecerán la persona y su tarjeta.</p></div>
-                  <div className="space-y-1.5"><label htmlFor="card-company" className="text-xs font-bold text-slate-800 dark:text-slate-200">Empresa</label><select id="card-company" className={inputClass} value={companyId} onChange={event => { if (event.target.value === "__new_company__") { window.location.href = "/superadmin/empresas/nueva"; return; } setCompanyId(event.target.value); setOwnerId(""); setOwnerName(""); setOwnerEmail(""); setSlugTouched(false); }}><option value="">Selecciona una empresa</option>{companies.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__new_company__">＋ Crear una empresa nueva</option></select></div>
+                  <div className="space-y-1.5"><label htmlFor="card-company" className="text-xs font-bold text-slate-800 dark:text-slate-200">Empresa</label><select id="card-company" className={inputClass} value={companyId} onChange={event => { const nextCompanyId = event.target.value; if (nextCompanyId === "__new_company__") { window.location.href = "/superadmin/empresas/nueva"; return; } setCompanyId(nextCompanyId); setOwnerId(""); setOwnerName(""); setOwnerEmail(""); setSlugTouched(false); setCardNameTouched(false); setSlug(""); setCardName(""); }}><option value="">Selecciona una empresa</option>{companies.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__new_company__">＋ Crear una empresa nueva</option></select></div>
                 </section>}
 
                 {step === 2 && <section className="space-y-5">
                   <div><h3 className="text-lg font-black text-slate-900 dark:text-white">2. Persona y rol</h3><p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Asignar una tarjeta no cambia el rol de una persona existente.</p></div>
-                  <div className="space-y-1.5"><label htmlFor="card-owner" className="text-xs font-bold text-slate-800 dark:text-slate-200">Persona</label><select id="card-owner" className={inputClass} value={ownerId} onChange={event => { setOwnerId(event.target.value); setSlugTouched(false); }}><option value="">Selecciona una persona</option>{users.map(user => <option key={user.id} value={user.id}>{user.name || user.email} · {user.email}</option>)}<option value="__new__">＋ Crear una persona nueva e invitarla</option></select></div>
-                  {ownerId === "__new__" && <div className="space-y-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4"><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1.5"><label htmlFor="owner-name" className="text-xs font-bold text-slate-800 dark:text-slate-200">Nombre completo</label><input id="owner-name" className={inputClass} value={ownerName} onChange={event => { setOwnerName(event.target.value); setSlugTouched(false); }} placeholder="Ej. Paula Contreras" /></div><div className="space-y-1.5"><label htmlFor="owner-email" className="text-xs font-bold text-slate-800 dark:text-slate-200">Correo de invitación</label><input id="owner-email" type="email" className={inputClass} value={ownerEmail} onChange={event => setOwnerEmail(event.target.value)} placeholder="paula@empresa.cl" /></div></div><div className="space-y-1.5"><label htmlFor="owner-role" className="text-xs font-bold text-slate-800 dark:text-slate-200">Rol en SmartNFC</label><select id="owner-role" className={inputClass} value={newOwnerRole} onChange={event => setNewOwnerRole(event.target.value as NewOwnerRole)}><option value="COLLABORATOR">Colaborador · administra sólo su perfil</option><option value="COMPANY_ADMIN">Administrador de empresa · gestiona integrantes y tarjetas de su empresa</option></select><p className="text-[10px] text-slate-500">El Superadmin es el único que puede crear este rol administrativo desde este asistente. Nunca se puede asignar SUPERADMIN aquí.</p></div></div>}
-                  <div className="flex gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-200"><LockKeyhole className="shrink-0" size={19} /><div><p className="text-xs font-black">Rol y tarjeta son cosas distintas</p><p className="mt-1 text-[11px] leading-relaxed">Una persona puede ser Administrador y tener su propia tarjeta. La tarjeta determina su perfil público; el rol determina sus permisos.</p></div></div>
+                  <div className="space-y-1.5"><label htmlFor="card-owner" className="text-xs font-bold text-slate-800 dark:text-slate-200">Persona</label><select id="card-owner" className={inputClass} value={ownerId} onChange={event => { const nextOwnerId = event.target.value; setOwnerId(nextOwnerId); setSlugTouched(false); setCardNameTouched(false); applySuggestedIdentity(companyId, nextOwnerId, ownerName); }}><option value="">Selecciona una persona</option>{users.map(user => <option key={user.id} value={user.id}>{user.name || user.email} · {user.email}</option>)}<option value="__new__">＋ Crear una persona nueva e invitarla</option></select></div>
+                  {ownerId === "__new__" && <div className="space-y-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4"><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1.5"><label htmlFor="owner-name" className="text-xs font-bold text-slate-800 dark:text-slate-200">Nombre completo</label><input id="owner-name" className={inputClass} value={ownerName} onChange={event => { const nextName = event.target.value; setOwnerName(nextName); applySuggestedIdentity(companyId, "__new__", nextName); }} placeholder="Ej. Paula Contreras" /></div><div className="space-y-1.5"><label htmlFor="owner-email" className="text-xs font-bold text-slate-800 dark:text-slate-200">Correo de invitación</label><input id="owner-email" type="email" className={inputClass} value={ownerEmail} onChange={event => setOwnerEmail(event.target.value)} placeholder="paula@empresa.cl" /></div></div><div className="space-y-1.5"><label htmlFor="owner-role" className="text-xs font-bold text-slate-800 dark:text-slate-200">Rol en SmartNFC</label><select id="owner-role" className={inputClass} value={newOwnerRole} onChange={event => setNewOwnerRole(event.target.value as NewOwnerRole)}><option value="COLLABORATOR">Colaborador · edición según política de su empresa</option><option value="COMPANY_ADMIN">Administrador de empresa · gestiona integrantes y tarjetas de su empresa</option></select><p className="text-[10px] text-slate-500">El Superadmin es el único que puede crear este rol administrativo desde este asistente. Nunca se puede asignar SUPERADMIN aquí.</p></div></div>}
+                  <div className="flex gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-200"><LockKeyhole className="shrink-0" size={19} /><div><p className="text-xs font-black">Rol y tarjeta son cosas distintas</p><p className="mt-1 text-[11px] leading-relaxed">Una persona puede ser Administrador y tener su propia tarjeta. La tarjeta determina su perfil público; el rol determina sus permisos. La empresa además puede definir una política de edición corporativa.</p></div></div>
                 </section>}
 
                 {step === 3 && <section className="space-y-5">
                   <div><h3 className="text-lg font-black text-slate-900 dark:text-white">3. Identidad pública</h3><p className="mt-1 text-xs text-slate-600 dark:text-slate-400">SmartNFC propone el enlace usando empresa + persona. Puedes editarlo antes de crear la tarjeta.</p></div>
-                  <div className="space-y-1.5"><label htmlFor="card-name" className="text-xs font-bold text-slate-800 dark:text-slate-200">Nombre interno de la tarjeta</label><input id="card-name" className={inputClass} value={cardName} onChange={event => setCardName(event.target.value)} placeholder="Ej. Perfil digital de Paula Contreras" /></div>
+                  <div className="space-y-1.5"><label htmlFor="card-name" className="text-xs font-bold text-slate-800 dark:text-slate-200">Nombre interno de la tarjeta</label><input id="card-name" className={inputClass} value={cardName} onChange={event => { setCardNameTouched(true); setCardName(event.target.value); }} placeholder="Ej. Perfil digital de Paula Contreras" /></div>
                   <div className="space-y-1.5"><label htmlFor="card-slug" className="text-xs font-bold text-slate-800 dark:text-slate-200">Enlace personalizado</label><div className="flex min-h-12 overflow-hidden rounded-xl border border-slate-300 bg-slate-50 focus-within:ring-2 focus-within:ring-blue-500 dark:border-slate-700 dark:bg-slate-950"><span className="flex items-center pl-3 text-xs text-slate-500">smartnfc.cl/c/</span><input id="card-slug" value={slug} onChange={event => { setSlugTouched(true); setSlug(normalizeSlug(event.target.value)); }} className="min-w-0 flex-1 bg-transparent px-1 pr-3 text-sm font-mono text-slate-900 outline-none dark:text-white" placeholder="empresa-paula-contreras" /></div><p className="text-[10px] text-slate-500">El backend garantiza que sea único. Si ya existe, añadirá automáticamente -2, -3, etc.</p></div>
                 </section>}
 

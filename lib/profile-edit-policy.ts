@@ -14,13 +14,12 @@ export function isCompanyAdminRole(role: string): boolean {
 }
 
 export async function getCompanyProfileEditPolicy(companyId: string): Promise<ProfileEditPolicy> {
-  const rows = await prisma.$queryRaw<Array<{ profileEditPolicy: string }>>`
-    SELECT "profileEditPolicy"
-    FROM "Company"
-    WHERE "id" = ${companyId}
-    LIMIT 1
-  `;
-  const value = rows[0]?.profileEditPolicy;
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { profileEditPolicy: true },
+  });
+
+  const value = company?.profileEditPolicy;
   if (value === "CORPORATE" || value === "ADMIN_ONLY") return value;
   return "FLEXIBLE";
 }
@@ -29,11 +28,11 @@ export async function setCompanyProfileEditPolicy(companyId: string, policy: Pro
   if (!PROFILE_EDIT_POLICIES.some((option) => option.value === policy)) {
     throw new Error("Política de edición no válida.");
   }
-  await prisma.$executeRaw`
-    UPDATE "Company"
-    SET "profileEditPolicy" = ${policy}
-    WHERE "id" = ${companyId}
-  `;
+
+  await prisma.company.update({
+    where: { id: companyId },
+    data: { profileEditPolicy: policy },
+  });
 }
 
 export function resolveProfileEditScope(input: {

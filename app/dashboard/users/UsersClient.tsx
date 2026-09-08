@@ -1,317 +1,60 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { createVendorUser, deleteVendorUser, resendInvitationFromDashboardAction } from "./actions";
+import { useRouter } from "next/navigation";
+import { createCollaboratorWithCard, deleteVendorUser, resendInvitationFromDashboardAction } from "./actions";
 
-type UserRecord = {
-  id: string;
-  name: string | null;
-  email: string;
-  role: string;
-  createdAt: Date;
-  status: string;
-  _count: {
-    cards: number;
-  };
-};
+type UserRecord = { id: string; name: string | null; email: string; role: string; createdAt: Date; status: string; _count: { cards: number } };
+type Props = { initialUsers: UserRecord[]; currentUserId: string };
 
-type UsersClientProps = {
-  initialUsers: UserRecord[];
-  currentUserId: string;
-};
+function roleLabel(role: string) {
+  if (role === "SUPERADMIN") return "SuperAdmin";
+  if (role === "COMPANY_OWNER" || role === "COMPANY_ADMIN") return "Administrador";
+  return "Colaborador";
+}
 
-export default function UsersClient({ initialUsers, currentUserId }: UsersClientProps) {
-  const [users, setUsers] = useState<UserRecord[]>(initialUsers);
-  
-  // Estados del modal de creación
+export default function UsersClient({ initialUsers, currentUserId }: Props) {
+  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [warningMsg, setWarningMsg] = useState("");
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccessMsg("");
-    setWarningMsg("");
-
-    if (!name || !email) {
-      setError("Por favor, rellene todos los campos requeridos.");
-      return;
-    }
-
+  const handleCreate = (event: React.FormEvent) => {
+    event.preventDefault(); setError(""); setSuccessMsg(""); setWarningMsg("");
+    if (!name.trim() || !email.trim()) { setError("Completa el nombre y correo del colaborador."); return; }
     startTransition(async () => {
       try {
-        const res = await createVendorUser(name, email);
-        if (res.success) {
-          // Actualizamos la lista local
-          const newUser: UserRecord = {
-            id: Math.random().toString(), // Temporal para la interfaz
-            name,
-            email,
-            role: "COLLABORATOR",
-            createdAt: new Date(),
-            status: "PENDING",
-            _count: { cards: 0 },
-          };
-          setUsers([newUser, ...users]);
-          
-          if (res.emailWarning) {
-            setWarningMsg(res.emailWarning);
-            setName("");
-            setEmail("");
-            // No cerramos inmediatamente para que puedan ver la advertencia
-          } else {
-            setSuccessMsg("¡Vendedor invitado con éxito! Se ha enviado el correo.");
-            setName("");
-            setEmail("");
-            setTimeout(() => {
-              setModalOpen(false);
-              setSuccessMsg("");
-            }, 2000);
-          }
-        }
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : "No se pudo invitar al usuario.";
-        setError(errorMsg);
-      }
+        const result = await createCollaboratorWithCard(name, email);
+        if (!result.success) return;
+        setSuccessMsg("Colaborador y tarjeta creados. Enviamos la invitación de activación y la solicitud de producción a SmartNFC.");
+        if (result.emailWarning) setWarningMsg(result.emailWarning);
+        setName(""); setEmail(""); router.refresh();
+      } catch (err: unknown) { setError(err instanceof Error ? err.message : "No fue posible crear el colaborador."); }
     });
   };
 
-  const handleResend = async (userId: string, userEmail: string) => {
-    setError("");
-    setSuccessMsg("");
-    setWarningMsg("");
-    startTransition(async () => {
-      try {
-        await resendInvitationFromDashboardAction(userId);
-        alert(`Invitación reenviada con éxito a ${userEmail}`);
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : "Error al reenviar invitación.";
-        alert(errorMsg);
-      }
-    });
+  const handleResend = (userId: string, userEmail: string) => startTransition(async () => {
+    try { await resendInvitationFromDashboardAction(userId); alert(`Invitación reenviada a ${userEmail}`); }
+    catch (err: unknown) { alert(err instanceof Error ? err.message : "No fue posible reenviar la invitación."); }
+  });
+
+  const handleDelete = async (userId: string, userName: string) => {
+    if (!window.confirm(`¿Eliminar al integrante "${userName}"?\n\nSe eliminarán su acceso y sus tarjetas asociadas.`)) return;
+    try { await deleteVendorUser(userId); router.refresh(); }
+    catch (err: unknown) { alert(err instanceof Error ? err.message : "No fue posible eliminar el integrante."); }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    const confirmDelete = window.confirm(
-      `¿Estás seguro de que deseas eliminar al vendedor "${userName}"?\n\n¡IMPORTANTE!:\nSe eliminará su acceso y sus tarjetas virtuales asociadas de forma definitiva.\nTodos los contactos y leads comerciales que recopiló seguirán guardados en tu panel.`
-    );
+  return <div className="space-y-6">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm"><div><span className="text-xs text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider block">Total Integrantes</span><span className="text-2xl font-black text-slate-950 dark:text-white">{initialUsers.length}</span></div><button onClick={() => { setError(""); setSuccessMsg(""); setWarningMsg(""); setModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs">➕ Nuevo Colaborador + Tarjeta</button></div>
 
-    if (!confirmDelete) return;
+    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 text-xs text-slate-700 dark:text-slate-300"><strong>¿Qué ocurre al crear un colaborador?</strong> SmartNFC crea su perfil y tarjeta, genera el enlace empresa-persona, deja la tarjeta física pendiente de grabación, envía la invitación al colaborador y avisa a producción.</div>
 
-    try {
-      await deleteVendorUser(userId);
-      setUsers(users.filter((u) => u.id !== userId));
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "Error al eliminar vendedor.";
-      alert("Error al eliminar vendedor: " + errorMsg);
-    }
-  };
+    <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm"><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-950/20"><th className="py-3.5 px-4">Integrante</th><th className="py-3.5 px-4">Correo</th><th className="py-3.5 px-4 text-center">Rol</th><th className="py-3.5 px-4 text-center">Tarjetas</th><th className="py-3.5 px-4 text-center">Estado</th><th className="py-3.5 px-4 text-center">Acciones</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{initialUsers.map(item => { const isSelf = item.id === currentUserId; return <tr key={item.id}><td className="py-4 px-4 font-bold text-slate-950 dark:text-white">{item.name || "Sin nombre"}</td><td className="py-4 px-4 text-slate-700 dark:text-slate-300">{item.email}</td><td className="py-4 px-4 text-center"><span className="rounded-full border px-2.5 py-1 text-[9px] font-bold">{roleLabel(item.role)}</span></td><td className="py-4 px-4 text-center font-bold">{item._count.cards}</td><td className="py-4 px-4 text-center text-xs">{item.status === "PENDING" ? "Pendiente de activación" : item.status === "ACTIVE" ? "Activo" : item.status}</td><td className="py-4 px-4 text-center">{isSelf ? <span className="text-xs text-slate-500 italic">Tu cuenta</span> : <div className="flex justify-center gap-2">{item.status === "PENDING" && <button disabled={isPending} onClick={() => handleResend(item.id, item.email)} className="rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-600">✉️ Reenviar</button>}<button disabled={isPending} onClick={() => handleDelete(item.id, item.name || "")} className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600">🗑️ Eliminar</button></div>}</td></tr>; })}</tbody></table></div></div>
 
-  return (
-    <div className="space-y-6">
-      
-      {/* Barra de Acciones */}
-      <div className="flex justify-between items-center bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
-        <div>
-          <span className="text-xs text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider block">Total Integrantes</span>
-          <span className="text-2xl font-black text-slate-950 dark:text-white">{users.length}</span>
-        </div>
-        <button
-          onClick={() => {
-            setError("");
-            setSuccessMsg("");
-            setWarningMsg("");
-            setModalOpen(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition active:scale-95 shadow-md shadow-blue-600/10 hover:shadow-blue-600/20 cursor-pointer"
-        >
-          ➕ Registrar Vendedor
-        </button>
-      </div>
-
-      {/* LISTADO DE USUARIOS */}
-      <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-950/20 font-black">
-                <th className="py-3.5 px-4">Vendedor</th>
-                <th className="py-3.5 px-4">Correo</th>
-                <th className="py-3.5 px-4 text-center">Rol</th>
-                <th className="py-3.5 px-4 text-center">Tarjetas</th>
-                <th className="py-3.5 px-4 text-right">Creado el</th>
-                <th className="py-3.5 px-4 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-850/30">
-              {users.map((item) => {
-                const isSelf = item.id === currentUserId;
-                return (
-                  <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20">
-                    <td className="py-4 px-4 font-bold text-slate-950 dark:text-white text-sm sm:text-base">
-                      {item.name || "Sin nombre"}
-                    </td>
-                    <td className="py-4 px-4 text-slate-700 dark:text-slate-300 font-medium">{item.email}</td>
-                    <td className="py-4 px-4 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full border text-[9px] font-bold ${
-                          item.role === "COMPANY_OWNER" || item.role === "COMPANY_ADMIN" || item.role === "SUPERADMIN"
-                            ? "bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-400"
-                            : "bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30 text-blue-700 dark:text-blue-400"
-                        }`}
-                      >
-                        {item.role === "SUPERADMIN"
-                          ? "SuperAdmin"
-                          : (item.role === "COMPANY_OWNER" || item.role === "COMPANY_ADMIN"
-                            ? "Administrador"
-                            : "Vendedor")}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center font-bold text-slate-700 dark:text-slate-400">
-                      {item._count.cards}
-                    </td>
-                    <td className="py-4 px-4 text-right text-xs text-slate-600 dark:text-slate-400 font-medium font-mono">
-                      {new Date(item.createdAt).toLocaleDateString("es-CL")}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      {isSelf ? (
-                        <span className="text-xs text-slate-600 dark:text-slate-400 font-bold italic">Tú (Admin)</span>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          {item.status === "PENDING" && (
-                            <button
-                              disabled={isPending}
-                              onClick={() => handleResend(item.id, item.email)}
-                              className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold py-1.5 px-3 rounded-lg border border-amber-500/20 hover:border-amber-500/30 transition cursor-pointer"
-                            >
-                              ✉️ Reenviar
-                            </button>
-                          )}
-                          <button
-                            disabled={isPending}
-                            onClick={() => handleDeleteUser(item.id, item.name || "")}
-                            className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 text-xs font-semibold py-1.5 px-3 rounded-lg border border-rose-500/20 hover:border-rose-500/30 transition active:scale-95 cursor-pointer"
-                          >
-                            🗑️ Eliminar
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* MODAL DE CREACIÓN DE VENDEDOR */}
-      {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !isPending && setModalOpen(false)} />
-          <form
-            onSubmit={handleCreateUser}
-            className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full flex flex-col z-10 shadow-2xl relative"
-          >
-            
-            {/* Cabecera */}
-            <div className="p-6 border-b border-slate-850 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-extrabold text-white">Nuevo Perfil de Vendedor</h3>
-                <p className="text-xs text-slate-500">Registra sus datos y le enviaremos un correo de activación.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                disabled={isPending}
-                className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Formulario */}
-            <div className="p-6 space-y-4">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500 text-red-400 p-3 rounded-xl text-xs text-center font-semibold">
-                  ⚠️ {error}
-                </div>
-              )}
-              {successMsg && (
-                <div className="bg-emerald-500/10 border border-emerald-500 text-emerald-400 p-3 rounded-xl text-xs text-center font-semibold">
-                  🎉 {successMsg}
-                </div>
-              )}
-              {warningMsg && (
-                <div className="bg-amber-500/10 border border-amber-500 text-amber-500 p-3 rounded-xl text-xs font-semibold text-center leading-relaxed">
-                  ⚠️ {warningMsg}
-                </div>
-              )}
-
-              {/* Nombre */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Nombre Completo
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej. Juan Pérez"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={isPending}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-850 focus:border-blue-500 focus:outline-none text-xs text-slate-200 transition-all disabled:opacity-50"
-                />
-              </div>
-
-              {/* Correo Electrónico */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Correo Electrónico
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="ej. juan.perez@empresa.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isPending}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-850 focus:border-blue-500 focus:outline-none text-xs text-slate-200 transition-all disabled:opacity-50"
-                />
-              </div>
-
-            </div>
-
-            {/* Pie del modal */}
-            <div className="p-4 border-t border-slate-850 bg-slate-950/20 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                disabled={isPending}
-                className="bg-slate-800 hover:bg-slate-750 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition disabled:opacity-50 cursor-pointer"
-              >
-                Cerrar
-              </button>
-              {!successMsg && !warningMsg && (
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition shadow-md shadow-blue-600/10 disabled:opacity-50 cursor-pointer"
-                >
-                  {isPending ? "Invitando..." : "Invitar Vendedor"}
-                </button>
-              )}
-            </div>
-
-          </form>
-        </div>
-      )}
-    </div>
-  );
+    {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !isPending && setModalOpen(false)} /><form onSubmit={handleCreate} className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl"><div className="p-6 border-b border-slate-800"><h3 className="text-lg font-extrabold text-white">Nuevo Colaborador + Tarjeta</h3><p className="mt-1 text-xs text-slate-400">El colaborador recibirá un correo para activar su cuenta y completar su perfil.</p></div><div className="p-6 space-y-4">{error && <div className="rounded-xl border border-red-500 bg-red-500/10 p-3 text-xs text-red-300">⚠️ {error}</div>}{successMsg && <div className="rounded-xl border border-emerald-500 bg-emerald-500/10 p-3 text-xs text-emerald-300">🎉 {successMsg}</div>}{warningMsg && <div className="rounded-xl border border-amber-500 bg-amber-500/10 p-3 text-xs text-amber-300">⚠️ {warningMsg}</div>}<div><label className="text-xs font-bold text-slate-400">Nombre completo</label><input required value={name} onChange={e => setName(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Ej. Juan Pérez" /></div><div><label className="text-xs font-bold text-slate-400">Correo electrónico</label><input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="juan@empresa.cl" /></div><div className="rounded-xl bg-slate-950/70 p-3 text-[11px] text-slate-400">Rol: <strong className="text-white">Colaborador</strong>. Los administradores de empresa no pueden elevar privilegios desde este formulario.</div></div><div className="flex justify-end gap-3 border-t border-slate-800 p-4"><button type="button" onClick={() => setModalOpen(false)} disabled={isPending} className="rounded-xl bg-slate-800 px-4 py-2.5 text-xs font-semibold text-white">Cerrar</button>{!successMsg && <button disabled={isPending} className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white">{isPending ? "Creando..." : "Crear colaborador y tarjeta"}</button>}</div></form></div>}
+  </div>;
 }

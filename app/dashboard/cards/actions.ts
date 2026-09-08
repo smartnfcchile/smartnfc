@@ -14,10 +14,13 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
     throw new Error("Solo los administradores pueden activar/desactivar tarjetas.");
   }
 
-  // Verificar pertenencia de tarjeta a la empresa
   const card = await prisma.card.findUnique({
     where: { id: cardId },
-    select: { id: true, companyId: true },
+    select: {
+      id: true,
+      companyId: true,
+      user: { select: { isActive: true, status: true } },
+    },
   });
 
   if (!card) {
@@ -29,6 +32,10 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
   }
 
   if (isActive) {
+    if (!card.user.isActive || card.user.status !== "ACTIVE") {
+      throw new Error("No es posible activar una tarjeta perteneciente a un colaborador suspendido o pendiente.");
+    }
+
     const canAct = await canCreateIdentity(admin.companyId);
     if (!canAct) {
       throw new Error("No es posible activar esta tarjeta. Has alcanzado el límite de identidades activas para tu plan.");
@@ -52,15 +59,14 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
     throw new Error("Solo los administradores pueden crear tarjetas.");
   }
 
-  // Validar y normalizar el slug
   const normalizedSlug = slug
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
-    .replace(/[^a-z0-9-_]/g, "-") // Reemplazar caracteres especiales por guiones
-    .replace(/-+/g, "-") // Evitar múltiples guiones seguidos
-    .replace(/^-|-$/g, ""); // Quitar guiones al principio/final
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9-_]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 
   if (!normalizedSlug) {
     throw new Error("El enlace de la tarjeta (slug) no es válido.");
@@ -77,14 +83,16 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
     throw new Error(`El enlace "c/${normalizedSlug}" ya está registrado en el sistema. Elige otro enlace.`);
   }
 
-  // Validar que el usuario asignado pertenezca a la misma empresa
   const assignedUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, companyId: true },
+    select: { id: true, companyId: true, isActive: true, status: true },
   });
 
   if (!assignedUser || assignedUser.companyId !== admin.companyId) {
     throw new Error("El usuario seleccionado no existe o pertenece a otra empresa.");
+  }
+  if (!assignedUser.isActive || assignedUser.status !== "ACTIVE") {
+    throw new Error("No puedes crear una tarjeta para un colaborador suspendido o pendiente.");
   }
 
   const canCreate = await canCreateIdentity(admin.companyId);
@@ -98,7 +106,7 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
       slug: normalizedSlug,
       userId,
       companyId: admin.companyId,
-      profileName: name.trim(), // Valor por defecto
+      profileName: name.trim(),
     },
   });
 

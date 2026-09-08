@@ -19,13 +19,19 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Verificar estado activo del usuario y empresa en la BD (Requisito 6 y 10)
+  // Revalidar siempre el estado real del usuario y de su empresa en la BD.
+  // Esto corta sesiones JWT todavía vigentes después de una suspensión.
   const dbUser = await prisma.user.findUnique({
     where: { id: (session.user as any).id },
     include: { company: true },
   });
 
-  if (!dbUser || !dbUser.isActive || (!dbUser.company.isActive && dbUser.role !== "SUPERADMIN")) {
+  if (
+    !dbUser ||
+    !dbUser.isActive ||
+    dbUser.status !== "ACTIVE" ||
+    (!dbUser.company.isActive && dbUser.role !== "SUPERADMIN")
+  ) {
     redirect("/login?error=suspended");
   }
 

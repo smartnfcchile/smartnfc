@@ -1,4 +1,3 @@
-// app/dashboard/users/actions.ts
 "use server";
 
 import { prisma } from "../../../lib/prisma";
@@ -8,217 +7,191 @@ import crypto from "crypto";
 import React from "react";
 import { sendEmail } from "../../../lib/email/send-email";
 import UserInvitationEmail from "../../../emails/UserInvitationEmail";
+import CardProductionRequestEmail from "../../../emails/CardProductionRequestEmail";
 
-export async function createVendorUser(
-  name: string,
-  email: string
-) {
-  const admin = await getCurrentUserContext();
-  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
+function normalizeSlug(value: string) {
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-_]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
 
-  if (!isAdmin) {
-    throw new Error("Solo los administradores pueden crear vendedores.");
+async function uniqueCardSlug(companyName: string, personName: string) {
+  const base = normalizeSlug(`${companyName}-${personName}`).slice(0, 72) || "perfil-smartnfc";
+  let candidate = base;
+  let suffix = 2;
+  while (await prisma.card.findUnique({ where: { slug: candidate }, select: { id: true } })) {
+    candidate = `${base}-${suffix}`.slice(0, 80);
+    suffix += 1;
   }
+  return candidate;
+}
 
-  // 1. Validar que el correo no esté registrado
-  const emailNorm = email.trim().toLowerCase();
-  const existingUser = await prisma.user.findUnique({
-    where: { email: emailNorm },
-  });
-
-  if (existingUser) {
-    throw new Error("Este correo electrónico ya está registrado en la plataforma.");
-  }
-
-  // 2. Crear usuario en estado PENDING y con isActive = false (Requisito 1)
-  const newUser = await prisma.user.create({
-    data: {
-      name: name.trim(),
-      email: emailNorm,
-      role: "COLLABORATOR", // Requisito 7: Solo vendedores
-      companyId: admin.companyId, // Requisito 6: Solo dentro de su empresa
-      isActive: false,
-      status: "PENDING"
-    },
-    include: { company: true }
-  });
-
-  // Registrar auditoría de invitación (Requisito 9)
-  await prisma.adminAuditLog.create({
-    data: {
-      actorUserId: admin.id,
-      action: "USER_INVITATION_CREATED",
-      entityType: "USER",
-      entityId: newUser.id,
-      companyId: admin.companyId,
-      metadata: JSON.stringify({ email: newUser.email, role: newUser.role })
-    }
-  });
-
-  // 3. Generar token de activación (Requisito 2)
-  const token = crypto.randomBytes(32).toString("hex");
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 48);
-
-  await prisma.userActivationToken.create({
-    data: {
-      userId: newUser.id,
-      tokenHash,
-      expiresAt,
-    }
-  });
-
+async function sendActivationEmail(user: { id: string; name: string | null; email: string; role: string; company: { name: string } }, token: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const activationUrl = `${appUrl}/activar-cuenta?token=${token}`;
-
-  // 4. Envío de Correo mediante Resend (Requisito 3)
-  const emailRes = await sendEmail({
-    to: newUser.email,
+  return sendEmail({
+    to: user.email,
     subject: "Activa tu cuenta de Smart NFC",
     react: React.createElement(UserInvitationEmail, {
-      name: newUser.name || "Vendedor",
-      companyName: newUser.company.name,
-      role: newUser.role,
+      name: user.name || "Colaborador",
+      companyName: user.company.name,
+      role: user.role,
       activationUrl,
     }),
   });
+}
 
-  let emailWarning = null;
-  if (!emailRes.success) {
+export async function createCollaboratorWithCard(name: string, email: string) {
+  const admin = await getCurrentUserContext();
+  const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
+  if (!isAdmin) throw new Error("Solo los administradores pueden crear colaboradores.");
+
+  const personName = name.trim();
+  const emailNorm = email.trim().toLowerCase();
+  if (personName.length < 2) throw new Error("Ingresa el nombre completo del colaborador.");
+  if (!emailNorm) throw new Error("Ingresa un correo electrónico válido.");
+
+  const existingUser = await prisma.user.findUnique({ where: { email: emailNorm }, select: { id: true } });
+  if (existingUser) throw new Error("Este correo electrónico ya está registrado en la plataforma.");
+
+  const company = await prisma.company.findUnique({ where: { id: admin.companyId }, select: { id: true, name: true } });
+  if (!company) throw new Error("Empresa no encontrada.");
+
+  const slug = await uniqueCardSlug(company.name, personName);
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const physicalToken = crypto.randomBytes(8).toString("hex");
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 48);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const newUser = await tx.user.create({
+      data: { name: personName, email: emailNorm, role: "COLLABORATOR", companyId: company.id, isActive: false, status: "PENDING" },
+      include: { company: true },
+    });
+
+    await tx.userActivationToken.create({ data: { userId: newUser.id, tokenHash, expiresAt } });
+
+    const card = await tx.card.create({
+      data: {
+        name: `Perfil digital de ${personName}`,
+        slug,
+        profileName: personName,
+        companyName: company.name,
+        userId: newUser.id,
+        companyId: company.id,
+      },
+    });
+
+    const physicalCard = await tx.physicalNfcCard.create({
+      data: { token: physicalToken, companyId: company.id, cardId: card.id, status: "PENDIENTE_GRABACION" },
+    });
+
+    await tx.adminAuditLog.create({
+      data: {
+        actorUserId: admin.id,
+        action: "COLLABORATOR_CARD_REQUEST_CREATED",
+        entityType: "CARD",
+        entityId: card.id,
+        companyId: company.id,
+        metadata: JSON.stringify({ userId: newUser.id, email: newUser.email, slug, physicalCardId: physicalCard.id }),
+      },
+    });
+
+    return { newUser, card, physicalCard };
+  });
+
+  const activationEmail = await sendActivationEmail(result.newUser, token);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const productionEmail = process.env.SMARTNFC_PRODUCTION_EMAIL || "contacto@smartnfc.cl";
+  const productionNotice = await sendEmail({
+    to: productionEmail,
+    subject: `Nueva tarjeta corporativa solicitada — ${company.name} — ${personName}`,
+    react: React.createElement(CardProductionRequestEmail, {
+      companyName: company.name,
+      collaboratorName: personName,
+      collaboratorEmail: emailNorm,
+      slug,
+      requestedByName: admin.name || "Administrador",
+      requestedByEmail: admin.email,
+      cardId: result.card.id,
+      physicalCardId: result.physicalCard.id,
+      createdAt: new Date().toLocaleString("es-CL", { timeZone: "America/Santiago" }),
+      adminUrl: `${appUrl}/superadmin`,
+    }),
+  });
+
+  const warnings: string[] = [];
+  if (!activationEmail.success) warnings.push("La cuenta y tarjeta fueron creadas, pero no fue posible enviar la invitación al colaborador.");
+  if (!productionNotice.success) warnings.push(`La tarjeta fue creada, pero no fue posible avisar a ${productionEmail}.`);
+
+  if (warnings.length) {
     await prisma.adminAuditLog.create({
       data: {
         actorUserId: admin.id,
-        action: "EMAIL_SEND_FAILED",
-        entityType: "USER",
-        entityId: newUser.id,
-        companyId: admin.companyId,
-        metadata: JSON.stringify({ email: newUser.email, error: emailRes.error })
-      }
+        action: "CARD_NOTIFICATION_WARNING",
+        entityType: "CARD",
+        entityId: result.card.id,
+        companyId: company.id,
+        metadata: JSON.stringify({ warnings }),
+      },
     });
-    // Requisito 8: No revertir, devolver warning amigable
-    emailWarning = "El vendedor fue registrado correctamente, pero no fue posible enviar el correo de activación de cuenta. Puedes reenviar el enlace utilizando el botón correspondiente.";
   }
 
   revalidatePath("/dashboard/users");
-  return { success: true, emailWarning };
+  revalidatePath("/dashboard/cards");
+  return { success: true, userId: result.newUser.id, cardId: result.card.id, slug, emailWarning: warnings.join(" ") || null };
 }
 
-// 5. Reenviar invitación desde el Dashboard (Requisito 5)
+// Compatibilidad temporal con componentes antiguos.
+export async function createVendorUser(name: string, email: string) {
+  return createCollaboratorWithCard(name, email);
+}
+
 export async function resendInvitationFromDashboardAction(userId: string) {
   const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
+  if (!isAdmin) throw new Error("Solo los administradores pueden reenviar invitaciones.");
 
-  if (!isAdmin) {
-    throw new Error("Solo los administradores pueden reenviar invitaciones.");
-  }
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { company: true } });
+  if (!user) throw new Error("Usuario no encontrado.");
+  if (user.companyId !== admin.companyId) throw new Error("No autorizado. El usuario pertenece a otra empresa.");
+  if (user.password) throw new Error("El usuario ya completó su enrolamiento. Debe usar la recuperación de contraseña.");
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { company: true }
-  });
-
-  if (!user) {
-    throw new Error("Usuario no encontrado.");
-  }
-
-  // Validar aislamiento multiempresa (Requisito 6)
-  if (user.companyId !== admin.companyId) {
-    throw new Error("No autorizado. El usuario pertenece a otra empresa.");
-  }
-
-  if (user.password) {
-    throw new Error("El usuario ya completó su enrolamiento. Debe usar la recuperación de contraseña.");
-  }
-
-  // Invalidar tokens anteriores
-  // Generar nuevo token
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date();
   expiresAt.setHours(expiresAt.getHours() + 48);
 
   await prisma.$transaction(async (tx) => {
-    await tx.userActivationToken.updateMany({
-      where: { userId: user.id, usedAt: null },
-      data: { expiresAt: new Date() }
-    });
-    await tx.userActivationToken.create({
-      data: { userId: user.id, tokenHash, expiresAt }
-    });
-    await tx.user.update({
-      where: { id: user.id },
-      data: { status: "PENDING", isActive: false }
-    });
+    await tx.userActivationToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { expiresAt: new Date() } });
+    await tx.userActivationToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+    await tx.user.update({ where: { id: user.id }, data: { status: "PENDING", isActive: false } });
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const activationUrl = `${appUrl}/activar-cuenta?token=${token}`;
-
-  const emailRes = await sendEmail({
-    to: user.email,
-    subject: "Activa tu cuenta de Smart NFC",
-    react: React.createElement(UserInvitationEmail, {
-      name: user.name || "Vendedor",
-      companyName: user.company.name,
-      role: user.role,
-      activationUrl,
-    }),
-  });
-
-  if (!emailRes.success) {
-    await prisma.adminAuditLog.create({
-      data: {
-        actorUserId: admin.id,
-        action: "EMAIL_SEND_FAILED",
-        entityType: "USER",
-        entityId: user.id,
-        companyId: user.companyId,
-        metadata: JSON.stringify({ email: user.email, error: emailRes.error })
-      }
-    });
-    throw new Error(`Fallo en el reenvío de correo: ${emailRes.error}`);
-  }
+  const emailRes = await sendActivationEmail(user, token);
+  if (!emailRes.success) throw new Error(`Fallo en el reenvío de correo: ${emailRes.error}`);
 
   await prisma.adminAuditLog.create({
-    data: {
-      actorUserId: admin.id,
-      action: "USER_INVITATION_RESENT",
-      entityType: "USER",
-      entityId: user.id,
-      companyId: user.companyId,
-      metadata: JSON.stringify({ email: user.email })
-    }
+    data: { actorUserId: admin.id, action: "USER_INVITATION_RESENT", entityType: "USER", entityId: user.id, companyId: user.companyId, metadata: JSON.stringify({ email: user.email }) },
   });
-
   return { success: true };
 }
 
 export async function deleteVendorUser(userId: string) {
   const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
+  if (!isAdmin) throw new Error("Solo los administradores pueden eliminar colaboradores.");
 
-  if (!isAdmin) {
-    throw new Error("Solo los administradores pueden eliminar vendedores.");
-  }
+  const userToDelete = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, companyId: true } });
+  if (!userToDelete) throw new Error("Usuario no encontrado.");
+  if (userToDelete.companyId !== admin.companyId) throw new Error("No tienes permisos sobre usuarios de otra empresa.");
 
-  // 1. Validar que el usuario a eliminar pertenezca a la misma empresa (Requisito 6)
-  const userToDelete = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, companyId: true },
+  const cards = await prisma.card.findMany({ where: { userId }, select: { id: true } });
+  const cardIds = cards.map(card => card.id);
+  await prisma.$transaction(async (tx) => {
+    if (cardIds.length) await tx.physicalNfcCard.deleteMany({ where: { cardId: { in: cardIds } } });
+    await tx.card.deleteMany({ where: { userId } });
+    await tx.user.delete({ where: { id: userId } });
   });
-
-  if (!userToDelete) {
-    throw new Error("Usuario no encontrado.");
-  }
-
-  if (userToDelete.companyId !== admin.companyId) {
-    throw new Error("No tienes permisos sobre usuarios de otra empresa.");
-  }
-
-  // 2. Eliminar tarjetas y luego el usuario
-  await prisma.card.deleteMany({ where: { userId } });
-  await prisma.user.delete({ where: { id: userId } });
 
   revalidatePath("/dashboard/users");
   return { success: true };

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import {
   PROFILE_EDIT_POLICIES,
   type ProfileEditPolicy,
-} from "../../../../lib/profile-edit-policy";
+} from "../../../../lib/profile-edit-policy-shared";
 import { updateProfileEditPolicyAction } from "./actions";
 
 export default function ProfilePolicyForm({ initialPolicy }: { initialPolicy: ProfileEditPolicy }) {

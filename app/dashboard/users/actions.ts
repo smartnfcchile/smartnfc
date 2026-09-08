@@ -214,6 +214,11 @@ export async function suspendCollaboratorUser(userId: string) {
       data: { expiresAt: new Date() },
     });
 
+    await tx.passwordResetToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { expiresAt: new Date() },
+    });
+
     if (cardIds.length) {
       await tx.card.updateMany({
         where: { id: { in: cardIds } },

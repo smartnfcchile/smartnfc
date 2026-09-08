@@ -160,7 +160,7 @@ export async function resendInvitationFromDashboardAction(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { company: true } });
   if (!user) throw new Error("Usuario no encontrado.");
   if (user.companyId !== admin.companyId) throw new Error("No autorizado. El usuario pertenece a otra empresa.");
-  if (user.status === "SUSPENDED") throw new Error("El colaborador está suspendido. Reactívalo antes de reenviar una invitación.");
+  if (user.status === "SUSPENDED") throw new Error("El colaborador está suspendido y ya no puede recibir invitaciones desde esta cuenta.");
   if (user.password) throw new Error("El usuario ya completó su enrolamiento. Debe usar la recuperación de contraseña.");
 
   const token = crypto.randomBytes(32).toString("hex");

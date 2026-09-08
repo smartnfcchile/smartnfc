@@ -133,17 +133,38 @@ export default async function EditorPage({ params }: EditorPageProps) {
     );
   }
 
+  const personalOnly = editScope === "PERSONAL_ONLY";
+
   return (
-    <div className="min-h-screen bg-slate-950">
-      {editScope === "PERSONAL_ONLY" && (
-        <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-amber-100">
-            <p className="text-sm font-bold">Identidad corporativa protegida por tu empresa</p>
-            <p className="mt-1 text-xs leading-5 text-amber-100/80">
-              Puedes actualizar tus datos personales, profesionales, de contacto, redes, enlaces y captura CRM. El diseño, las imágenes y la identidad corporativa son administrados por tu empresa y cualquier intento de modificarlos será rechazado por el servidor.
-            </p>
+    <div className="min-h-screen bg-slate-950" data-profile-edit-scope={editScope}>
+      {personalOnly && (
+        <>
+          <style>{`
+            [data-profile-edit-scope="PERSONAL_ONLY"] form input[name="companyName"] {
+              pointer-events: none;
+              opacity: 0.55;
+              cursor: not-allowed;
+            }
+
+            [data-profile-edit-scope="PERSONAL_ONLY"] form input[name="companyName"]:focus {
+              outline: none;
+              box-shadow: none;
+            }
+
+            [data-profile-edit-scope="PERSONAL_ONLY"] .overflow-x-auto > button:nth-child(2),
+            [data-profile-edit-scope="PERSONAL_ONLY"] .overflow-x-auto > button:nth-child(3) {
+              display: none;
+            }
+          `}</style>
+          <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-amber-100">
+              <p className="text-sm font-bold">Identidad corporativa protegida por tu empresa</p>
+              <p className="mt-1 text-xs leading-5 text-amber-100/80">
+                Puedes actualizar tus datos personales, profesionales, de contacto, redes, enlaces y captura CRM. El nombre corporativo, el diseño, las imágenes y la identidad visual son administrados por tu empresa.
+              </p>
+            </div>
           </div>
-        </div>
+        </>
       )}
       <CardEditorClient
         card={card as any}

@@ -49,6 +49,7 @@ model Company {
   slug                String?                     @unique
   plan                PlanType                    @default(FREE)
   isActive            Boolean                     @default(true)
+  profileEditPolicy   String                      @default("FLEXIBLE")
   users               User[]
   cards               Card[]
   physicalNfcCards    PhysicalNfcCard[]
@@ -344,7 +345,7 @@ model Lead {
   conflictDetails  String?
 
   cardId String
-  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Restrict)
 
   companyId       String
   companyRelation Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

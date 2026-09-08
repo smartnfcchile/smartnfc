@@ -11,46 +11,22 @@ export default async function SuperadminTarjetasPage() {
 
   const originHost = new URL(PUBLIC_APP_ORIGIN).host;
 
-  // Consultar todas las empresas para asociar o filtrar
   const companies = await prisma.company.findMany({
-    select: {
-      id: true,
-      name: true,
-      slug: true
-    },
+    select: { id: true, name: true, slug: true },
     orderBy: { name: "asc" }
   });
 
-  // Consultar el catálogo de tarjetas físicas con sus relaciones de destino
   const physicalCards = await prisma.physicalNfcCard.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      company: {
-        select: {
-          id: true,
-          name: true,
-          slug: true
-        }
-      },
-      card: {
-        select: {
-          id: true,
-          slug: true,
-          name: true
-        }
-      },
+      company: { select: { id: true, name: true, slug: true } },
+      card: { select: { id: true, slug: true, name: true } },
       localTouchpoint: {
         select: {
           id: true,
           code: true,
           name: true,
-          campaign: {
-            select: {
-              id: true,
-              name: true,
-              slug: true
-            }
-          }
+          campaign: { select: { id: true, name: true, slug: true } }
         }
       }
     }
@@ -65,12 +41,7 @@ export default async function SuperadminTarjetasPage() {
       name: true,
       profileName: true,
       isActive: true,
-      user: {
-        select: {
-          name: true,
-          email: true
-        }
-      }
+      user: { select: { name: true, email: true } }
     }
   });
 
@@ -82,7 +53,8 @@ export default async function SuperadminTarjetasPage() {
       companyId: true,
       name: true,
       email: true,
-      status: true
+      status: true,
+      role: true
     }
   });
 

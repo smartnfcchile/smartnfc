@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
         touchpointId:tp?.id,source:"DIRECT",headers:request.headers});
       visit=await findLocalVisit(body.visitId,campaign.id);
     }
+    if (visit && visit.objective!=="CLUB") return NextResponse.json({error:"Visita no disponible."},{status:400});
     if (!visit) return NextResponse.json({error:"Visita no disponible."},{status:400});
     await recordLocalAction(visit.id,campaign.id,eventType);
     return NextResponse.json({success:true,visitId:visit.id},{headers:{"Cache-Control":"no-store"}});

@@ -189,6 +189,92 @@ test("Reportes Local: aislamiento, atribución, consentimiento y entregas", {ski
       await assert.rejects(()=>prisma.physicalNfcCard.update({where:{id:a.physical.id},data:{companyId:b.company.id}}));
       assert.equal((await prisma.company.findUniqueOrThrow({where:{id:a.company.id}})).maxIdentities,5);
     });
+    await t.test("Puntos: los siete objetivos resuelven y el código conserva el historial",async()=>{
+      const {saveLocalPoint}=require("../../lib/local/point-management");
+      const {resolveLocalPoint}=require("../../lib/local/point-resolver");
+      session={user:{id:a.owner.id,companyId:a.company.id,role:"COMPANY_OWNER"}};
+      const config={name:"Caja actualizable",location:"Mostrador 1",medium:"NFC_QR",isActive:true,smartLinks:[]};
+      let version=1;
+      const cases=[
+        ["GOOGLE_REVIEW","https://g.page/r/example/review"],
+        ["WHATSAPP","https://wa.me/56912345678?text=Hola"],
+        ["SOCIAL","https://www.instagram.com/example"],
+        ["PROMOTION","https://example.org/oferta"],
+        ["MENU","https://example.org/menu.pdf"]
+      ];
+      for(const [objective,destinationUrl] of cases){
+        await saveLocalPoint({...config,objective,destinationUrl},a.tp.id,version++);
+        const response=await resolveLocalPoint(a.tp.code,"QR",headers);
+        assert.equal(response.status,302);assert.equal(response.headers.get("location"),destinationUrl);
+        assert.match(response.headers.get("cache-control"),/no-store/);
+      }
+      const unchanged=await prisma.localTouchpoint.findUniqueOrThrow({where:{id:a.tp.id}});
+      assert.equal(unchanged.code,a.tp.code);
+      assert.equal((await prisma.physicalNfcCard.findUniqueOrThrow({where:{id:a.physical.id}})).localTouchpointId,a.tp.id);
+      assert.equal((await prisma.localVisit.findUniqueOrThrow({where:{id:qrVisit}})).objective,"CLUB");
+      const current=await generateReportSnapshot(a.company.id,start,end,"WEEKLY");
+      assert.equal(current.current.clubVisits,2);assert.equal(current.current.conversionRate,50);
+      for(const [objective] of cases) assert.equal(current.current.objectives.find((item:{objective:string})=>item.objective===objective)?.visits,1);
+      await saveLocalPoint({...config,objective:"CLUB",destinationUrl:""},a.tp.id,version++);
+      assert.match((await resolveLocalPoint(a.tp.code,"NFC",headers)).headers.get("location"),/\/club\//);
+      await assert.rejects(()=>saveLocalPoint({...config,objective:"MENU",destinationUrl:"https://example.org/menu"},b.tp.id,1));
+      await assert.rejects(()=>prisma.localTouchpoint.update({where:{id:a.tp.id},data:{campaignId:b.campaign.id}}));
+    });
+    await t.test("Puntos: soporte, pausa, concurrencia y cupos se respetan",async()=>{
+      const {saveLocalPoint}=require("../../lib/local/point-management");
+      const {resolveLocalPoint}=require("../../lib/local/point-resolver");
+      const config={name:"Solo QR",location:"Mesa 2",medium:"QR",isActive:true,objective:"MENU",destinationUrl:"https://example.org/menu",smartLinks:[]};
+      const id=await saveLocalPoint(config,undefined,undefined,a.campaign.id);
+      const point=await prisma.localTouchpoint.findUniqueOrThrow({where:{id}});
+      assert.equal((await resolveLocalPoint(point.code,"NFC",headers)).status,403);
+      assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,302);
+      const attempts=await Promise.allSettled([saveLocalPoint({...config,isActive:false},id,1),saveLocalPoint({...config,isActive:false},id,1)]);
+      assert.equal(attempts.filter(result=>result.status==="fulfilled").length,1);
+      assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,403);
+      const existing=await prisma.localTouchpoint.findUniqueOrThrow({where:{id:a.tp.id}});
+      await assert.rejects(()=>saveLocalPoint(config,a.tp.id,existing.configurationVersion));
+      await prisma.companyProductLicense.updateMany({where:{companyId:a.company.id,product:"LOCAL"},data:{includedTouchpoints:2}});
+      await assert.rejects(()=>saveLocalPoint(config,undefined,undefined,a.campaign.id));
+      await prisma.companyProductLicense.updateMany({where:{companyId:a.company.id,product:"LOCAL"},data:{includedTouchpoints:20}});
+      const {GET:pointQr}=require("../../app/api/local/points/[pointId]/qr/route");
+      assert.equal((await pointQr(new Request("https://example.org"),{params:Promise.resolve({pointId:b.tp.id})})).status,404);
+      const image=await pointQr(new Request("https://example.org"),{params:Promise.resolve({pointId:id})});
+      assert.equal(image.status,200);assert.equal(image.headers.get("content-type"),"image/png");
+      assert.ok((await image.arrayBuffer()).byteLength>100);
+    });
+    await t.test("Un local crea su primer punto de reseñas sin configurar un Club",async()=>{
+      const {saveLocalPoint}=require("../../lib/local/point-management");
+      const {resolveLocalPoint}=require("../../lib/local/point-resolver");
+      const id=await saveLocalPoint({name:"Reseñas en caja",location:"Caja",medium:"QR",isActive:true,objective:"GOOGLE_REVIEW",destinationUrl:"https://g.page/r/example/review",smartLinks:[]},undefined,undefined,"__new","Opiniones del local");
+      const point=await prisma.localTouchpoint.findUniqueOrThrow({where:{id},include:{campaign:true}});
+      assert.equal(point.campaign.status,"DRAFT");assert.equal(point.campaign.publishedSnapshot,null);
+      assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,302);
+    });
+    await t.test("Página Smart: escapa etiquetas, registra salida y rechaza acciones obsoletas",async()=>{
+      const {saveLocalPoint}=require("../../lib/local/point-management");
+      const {resolveLocalPoint,resolvePointAction}=require("../../lib/local/point-resolver");
+      const config={name:"Conecta con nosotros",location:"Entrada",medium:"NFC_QR",isActive:true,objective:"SMART_LANDING",destinationUrl:"",
+        smartLinks:[{label:'Menú <script>alert(1)</script>',url:"https://example.org/menu"},{label:"Instagram",url:"https://www.instagram.com/example"}]};
+      const id=await saveLocalPoint(config,undefined,undefined,a.campaign.id);
+      const point=await prisma.localTouchpoint.findUniqueOrThrow({where:{id}});
+      const response=await resolveLocalPoint(point.code,"QR",headers);
+      assert.equal(response.status,200);
+      const html=await response.text();assert.ok(!html.includes("<script>"));assert.match(html,/&lt;script&gt;/);
+      const href=html.match(/href="([^"]+)"/)![1].replaceAll("&amp;","&");
+      const query=new URL(href).searchParams;
+      assert.equal((await resolvePointAction(point.code,query)).headers.get("location"),"https://example.org/menu");
+      await resolvePointAction(point.code,query);
+      assert.equal(await prisma.localEvent.count({where:{visitId:query.get("v"),eventType:"DESTINATION_REDIRECT"}}),1);
+      await saveLocalPoint({...config,smartLinks:[{label:"Oferta",url:"https://example.org/oferta"}]},id,1);
+      assert.equal((await resolvePointAction(point.code,query)).status,409);
+      assert.equal((await resolveLocalPoint(point.code,"QR",headers,b.company.id)).status,403);
+      // Non-Club points have their own activation. A draft Club is never exposed.
+      await prisma.localCampaign.update({where:{id:a.campaign.id},data:{status:"DRAFT"}});
+      assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,200);
+      assert.equal((await resolveLocalPoint(a.tp.code,"QR",headers)).status,403);
+      await prisma.localCampaign.update({where:{id:a.campaign.id},data:{status:"ARCHIVED"}});
+      assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,403);
+    });
   } finally {
     // Only rows with this run's random company IDs are removed from the disposable DB.
     const ids=companies.map(x=>x.company.id);
@@ -203,6 +289,7 @@ test("Reportes Local: aislamiento, atribución, consentimiento y entregas", {ski
     await prisma.localTouchpoint.deleteMany({where:{campaign:{companyId:{in:ids}}}});
     await prisma.localCampaign.deleteMany({where:{companyId:{in:ids}}});
     await prisma.localReportSetting.deleteMany({where:{companyId:{in:ids}}});
+    await prisma.adminAuditLog.deleteMany({where:{companyId:{in:ids}}});
     await prisma.user.deleteMany({where:{companyId:{in:ids}}});
     await prisma.companyProductLicense.deleteMany({where:{companyId:{in:ids}}});
     await prisma.company.deleteMany({where:{id:{in:ids}}});

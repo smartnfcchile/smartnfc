@@ -323,6 +323,7 @@ export async function associateNfcCardAction(payload: { cardPhysicalId: string; 
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"local-capacity:"+user.companyId}))`;
       // 1. Obtener la tarjeta física y validar que pertenezca a la empresa (Requisito D-5)
       const physicalCard = await tx.physicalNfcCard.findUnique({
         where: { id: cardPhysicalId }
@@ -355,6 +356,8 @@ export async function associateNfcCardAction(payload: { cardPhysicalId: string; 
       if (touchpoint.campaign.companyId !== user.companyId) {
         throw new Error("El punto de contacto no pertenece a su empresa.");
       }
+
+      if (touchpoint.medium === "QR") throw new Error("Este punto admite solo QR.");
 
       // 4. Verificar que el touchpoint no tenga ya otra tarjeta asociada (Requisito D-3)
       const existingAssignedCard = await tx.physicalNfcCard.findUnique({

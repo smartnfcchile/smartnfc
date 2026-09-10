@@ -416,6 +416,7 @@ enum LocalEventType {
   SUBSCRIPTION
   WHATSAPP_REDIRECT
   VCF_DOWNLOAD
+  DESTINATION_REDIRECT
 }
 
 model LocalCampaign {
@@ -466,14 +467,36 @@ model LocalCampaign {
   @@index([companyId, status])
 }
 
+enum LocalPointObjective {
+  GOOGLE_REVIEW
+  WHATSAPP
+  SOCIAL
+  CLUB
+  PROMOTION
+  MENU
+  SMART_LANDING
+}
+
+enum LocalPointMedium {
+  NFC
+  QR
+  NFC_QR
+}
+
 model LocalTouchpoint {
-  id              String           @id @default(cuid())
-  campaignId      String
-  campaign        LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
-  name            String
-  code            String           @unique
-  isActive        Boolean          @default(true)
-  physicalNfcCard PhysicalNfcCard?
+  id                   String              @id @default(cuid())
+  campaignId           String
+  campaign             LocalCampaign       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  name                 String
+  code                 String              @unique
+  isActive             Boolean             @default(true)
+  physicalNfcCard      PhysicalNfcCard?
+  objective            LocalPointObjective @default(CLUB)
+  medium               LocalPointMedium    @default(NFC_QR)
+  location             String?
+  destinationUrl       String?
+  smartLinks           Json                @default("[]")
+  configurationVersion Int                 @default(1)
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -727,15 +750,16 @@ model LocalTrackingIncident {
 }
 
 model LocalVisit {
-  id           String           @id
+  id           String              @id
   companyId    String
-  company      Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
   campaignId   String
-  campaign     LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  campaign     LocalCampaign       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   touchpointId String?
-  touchpoint   LocalTouchpoint? @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
+  touchpoint   LocalTouchpoint?    @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
   source       ContactSource
-  createdAt    DateTime         @default(now())
+  objective    LocalPointObjective @default(CLUB)
+  createdAt    DateTime            @default(now())
   events       LocalEvent[]
 
   @@index([companyId, createdAt])

@@ -1,4 +1,4 @@
-import { recordLocalArrival, recordTrackingIncident } from "../../../lib/local/tracking";
+import { resolveLocalPoint } from "../../../lib/local/point-resolver";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { EventType } from "@prisma/client";
@@ -205,50 +205,13 @@ export async function GET(request: Request, { params }: Params) {
       return new NextResponse("Error de asignación de tarjeta: destino ambiguo.", { status: 400 });
     }
 
-    // 6. Ruta Local
+    // Local owns objective resolution; the Empresas flow below is unchanged.
     if (physicalCard.localTouchpointId) {
-      const tp = physicalCard.localTouchpoint;
-      if (!tp || !tp.isActive || tp.campaign.companyId !== physicalCard.companyId) {
-        return new NextResponse("Punto de contacto inactivo", { status: 403 });
+      const point = physicalCard.localTouchpoint;
+      if (!point || point.campaign.companyId !== physicalCard.companyId) {
+        return new NextResponse("Punto no disponible", { status: 403 });
       }
-
-      // Validar licencia Local activa (Fail-Closed)
-      const localLicense = physicalCard.company.productLicenses.find(l => l.product === "LOCAL");
-      const now = new Date();
-      const isLocalExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
-      const isLocalFuture = localLicense?.startsAt && localLicense.startsAt > now;
-      const isLocalActive = localLicense?.status === "ACTIVE" && !isLocalExpired && !isLocalFuture;
-
-      if (!isLocalActive) {
-        return new NextResponse(
-          `<html>
-            <head>
-              <title>No Disponible</title>
-              <meta name="robots" content="noindex, follow">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; text-align: center;">
-              <div style="background: #1e293b; border: 1px solid #334155; padding: 40px; border-radius: 16px; max-width: 400px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
-                <span style="font-size: 48px;">🏪</span>
-                <h2 style="margin-top: 20px; font-weight: 900; color: #ffffff;">No Disponible</h2>
-                <p style="color: #94a3b8; font-size: 14px; line-height: 1.6;">Esta experiencia no se encuentra disponible.</p>
-              </div>
-            </body>
-          </html>`,
-          { headers: { "content-type": "text/html; charset=utf-8" }, status: 403 }
-        );
-      }
-      if (tp.campaign.status !== "PUBLISHED" || !tp.campaign.publishedSnapshot) {
-        return new NextResponse("Campaña no disponible", { status: 403 });
-      }
-
-      let visitId = "";
-      try {
-        visitId = await recordLocalArrival({companyId: tp.campaign.companyId, campaignId:tp.campaignId,
-          touchpointId:tp.id,source:"NFC",headers:request.headers});
-      } catch { await recordTrackingIncident(tp.campaign.companyId); }
-      const target = getPublicUrl(`/club/${tp.campaign.slug}?ref=${tp.code}${visitId ? "&v="+visitId : ""}`);
-      return NextResponse.redirect(target, 302);
+      return await resolveLocalPoint(point.code, "NFC", request.headers, physicalCard.companyId);
     }
 
     // 7. Ruta B2B

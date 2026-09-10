@@ -1,22 +1,12 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../../lib/auth";
+import { requireCompanyAdmin } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { hasActiveProduct, canCreateLocalCampaign } from "../../../../../lib/product-access";
 import Link from "next/link";
 import NuevaCampanaForm from "./NuevaCampanaForm";
 
 export default async function NuevaCampanaPage() {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    redirect("/login");
-  }
+  const user = await requireCompanyAdmin();
 
-  const user = session.user as { id: string; role: string; companyId: string };
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
-
-  if (!isAdmin) {
-    redirect("/dashboard");
-  }
 
   // 1. Verificar licencia activa de Smart NFC Local
   const hasLocal = await hasActiveProduct(user.companyId, "LOCAL");

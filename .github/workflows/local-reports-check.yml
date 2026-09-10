@@ -1,0 +1,38 @@
+name: SmartNFC Local reports
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  local-reports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: smartnfc
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_DB: local_reports_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U smartnfc -d local_reports_ci"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://smartnfc:local-ci-only@127.0.0.1:5432/local_reports_ci
+      LOCAL_TEST_DATABASE_URL: postgresql://smartnfc:local-ci-only@127.0.0.1:5432/local_reports_ci
+      NEXTAUTH_SECRET: ci-only-secret
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      LOCAL_REPORT_EMAIL_MODE: disabled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run db:migrate
+      - run: npm run test:local
+      - run: npx tsc --noEmit

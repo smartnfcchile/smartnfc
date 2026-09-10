@@ -31,12 +31,14 @@ type UrbanLocalTemplateProps = {
   onFormNameChange?: (val: string) => void;
   onFormWhatsappChange?: (val: string) => void;
   onConsentAcceptedChange?: (val: boolean) => void;
-  onSubmit?: (e: React.FormEvent) => void;
+  onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
   isSubmitting?: boolean;
   isSuccess?: boolean;
   whatsappLink?: string;
   error?: string | null;
   slug?: string;
+  visitId?: string;
+  onWhatsappClick?: () => void;
 };
 
 export default function UrbanLocalTemplate({
@@ -53,6 +55,8 @@ export default function UrbanLocalTemplate({
   isSuccess = false,
   whatsappLink = "",
   error = null,
+  visitId = "",
+  onWhatsappClick,
   slug = ""
 }: UrbanLocalTemplateProps) {
   const primaryColor = data.primaryColor || "#2563eb";
@@ -158,6 +162,7 @@ export default function UrbanLocalTemplate({
           </div>
         </div>
 
+        {data.benefitConditions && <p className="text-xs text-slate-600">{data.benefitConditions}</p>}
         {/* Flujo condicional: Éxito vs Formulario */}
         {isSuccess ? (
           <div className="bg-emerald-500/10 border border-emerald-500/30 p-5 rounded-2xl text-center space-y-4 animate-fadeIn">
@@ -173,7 +178,7 @@ export default function UrbanLocalTemplate({
               <div className="space-y-1">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Paso 1: Guarda el local</span>
                 <a
-                  href={`/club/${slug || "slug"}/contacto.vcf`}
+                  href={`/club/${slug || "slug"}/contacto.vcf?v=${encodeURIComponent(visitId)}`}
                   className="inline-flex w-full items-center justify-center py-2.5 px-4 bg-slate-900 border border-slate-800 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition hover:scale-[1.01] active:scale-95 text-center cursor-pointer"
                 >
                   📥 Guardar contacto del local
@@ -185,6 +190,7 @@ export default function UrbanLocalTemplate({
                 {whatsappLink && (
                   <a
                     href={whatsappLink}
+                    onClick={onWhatsappClick}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ backgroundColor: "#25d366" }}

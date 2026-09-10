@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createLocalCampaignAction, updateLocalCampaignAction } from "../../actions";
+import { createLocalCampaignAction } from "../../actions";
 
 export default function NuevaCampanaForm() {
   const router = useRouter();
@@ -34,18 +34,8 @@ export default function NuevaCampanaForm() {
     startTransition(async () => {
       try {
         // 1. Crear campaña (Requisito 5)
-        const createRes = await createLocalCampaignAction({ name, slug });
+        const createRes = await createLocalCampaignAction({ name, slug, businessName, clubName });
         if (createRes.success && createRes.campaign) {
-          // 2. Poblar campos de identidad comercial iniciales
-          await updateLocalCampaignAction(createRes.campaign.id, {
-            name,
-            businessName,
-            clubName,
-            primaryColor: "#2563eb",
-            secondaryColor: "#d4af37",
-            consentText: "Acepto suscribirme al club de beneficios y recibir novedades y promociones a través de mi número de WhatsApp."
-          });
-
           // 3. Redirigir al editor
           router.push(`/dashboard/local/campanas/${createRes.campaign.id}`);
         }

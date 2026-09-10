@@ -53,6 +53,9 @@ model Company {
   users               User[]
   cards               Card[]
   physicalNfcCards    PhysicalNfcCard[]
+  localVisits         LocalVisit[]
+  localReportSetting  LocalReportSetting?
+  localReports        LocalReport[]
   localCampaigns      LocalCampaign[]
   productLicenses     CompanyProductLicense[]
   broadcastBatches    LocalBroadcastExportBatch[]
@@ -450,6 +453,7 @@ model LocalCampaign {
   publishedVersion  Int       @default(0)
   publishedAt       DateTime?
 
+  visits           LocalVisit[]
   touchpoints      LocalTouchpoint[]
   subscribers      LocalSubscriber[]
   events           LocalEvent[]
@@ -474,6 +478,7 @@ model LocalTouchpoint {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   localEvents LocalEvent[]
+  visits      LocalVisit[]
 
   @@index([campaignId, isActive])
 }
@@ -526,6 +531,8 @@ model LocalConsentRecord {
 }
 
 model LocalEvent {
+  visitId      String?
+  visit        LocalVisit?      @relation(fields: [visitId], references: [id], onDelete: SetNull)
   id           String           @id @default(cuid())
   campaignId   String
   campaign     LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
@@ -539,6 +546,7 @@ model LocalEvent {
   referer      String?
   createdAt    DateTime         @default(now())
 
+  @@unique([visitId, eventType])
   @@index([campaignId, eventType, createdAt])
   @@index([touchpointId, createdAt])
   @@index([subscriberId, createdAt])
@@ -707,4 +715,90 @@ model LeadInteraction {
   @@index([leadId, createdAt])
   @@index([companyId, createdAt])
   @@index([cardId, createdAt])
+}
+
+// Reports use only the new visit ledger; historical scans remain untouched.
+model LocalTrackingIncident {
+  id        String   @id @default(cuid())
+  companyId String
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}
+
+model LocalVisit {
+  id           String           @id
+  companyId    String
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  campaignId   String
+  campaign     LocalCampaign    @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  touchpointId String?
+  touchpoint   LocalTouchpoint? @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
+  source       ContactSource
+  createdAt    DateTime         @default(now())
+  events       LocalEvent[]
+
+  @@index([companyId, createdAt])
+}
+
+enum LocalReportFrequency {
+  WEEKLY
+  MONTHLY
+}
+
+model LocalReportSetting {
+  companyId        String               @id
+  company          Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  enabled          Boolean              @default(false)
+  frequency        LocalReportFrequency @default(MONTHLY)
+  recipientIds     String[]             @default([])
+  nextPeriodStart  DateTime?
+  measurementSince DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model LocalReport {
+  id            String                @id @default(cuid())
+  companyId     String
+  company       Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  frequency     LocalReportFrequency
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        String                @default("PENDING")
+  snapshot      Json?
+  attempts      Int                   @default(0)
+  nextAttemptAt DateTime              @default(now())
+  lockToken     String?
+  lockedUntil   DateTime?
+  lastError     String?
+  createdAt     DateTime              @default(now())
+  generatedAt   DateTime?
+  deliveries    LocalReportDelivery[]
+
+  @@unique([companyId, frequency, periodStart])
+  @@index([status, nextAttemptAt])
+}
+
+model LocalReportDelivery {
+  id             String      @id @default(cuid())
+  reportId       String
+  report         LocalReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  recipientId    String
+  recipient      String
+  kind           String      @default("REPORT")
+  status         String      @default("PENDING")
+  // Persist the exact payload before the first attempt for provider idempotency.
+  payload        Json?
+  attempts       Int         @default(0)
+  firstAttemptAt DateTime?
+  nextAttemptAt  DateTime    @default(now())
+  lockedUntil    DateTime?
+  lockToken      String?
+  providerId     String?
+  lastError      String?
+  acceptedAt     DateTime?
+  createdAt      DateTime    @default(now())
+
+  @@unique([reportId, recipientId, kind])
+  @@index([status, nextAttemptAt])
 }

@@ -4,10 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "prisma db seed"
+    "seed": "prisma db seed",
+    "db:migrate": "prisma migrate deploy",
+    "test:local": "tsx --test scripts/tests/local-*.test.ts",
+    "test:local:integration": "tsx --test scripts/tests/local-integration.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

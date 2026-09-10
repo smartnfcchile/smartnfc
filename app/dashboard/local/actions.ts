@@ -1,6 +1,7 @@
 // app/dashboard/local/actions.ts
 "use server";
 
+import { subscribeLocal } from "../../../lib/local/subscription";
 import { prisma } from "../../../lib/prisma";
 import { requireCompanyAdmin } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -9,16 +10,13 @@ import { headers } from "next/headers";
 import {
   createCampaignSchema,
   updateCampaignSchema,
-  publicSubscriptionSchema,
   normalizeChileanWhatsApp
 } from "../../../lib/validations/local";
-import { LocalCampaignStatus, LocalSubscriberStatus, LocalEventType, LocalBroadcastBatchStatus, BroadcastRemovalReason } from "@prisma/client";
-import { hashIp } from "../../../lib/security";
-import { checkRateLimit } from "../../../lib/rateLimit";
-import { requireProductAccess, canCreateLocalCampaign } from "../../../lib/product-access";
+import { LocalCampaignStatus } from "@prisma/client";
+import { requireProductAccess, canCreateLocalCampaign, canCreateLocalTouchpoint } from "../../../lib/product-access";
 
 // 1. Crear Campaña Local (Requisito 5)
-export async function createLocalCampaignAction(payload: { name: string; slug: string }) {
+export async function createLocalCampaignAction(payload: { name: string; slug: string; businessName?: string; clubName?: string }) {
   const admin = await requireCompanyAdmin();
 
   // Validar licencia activa
@@ -43,10 +41,17 @@ export async function createLocalCampaignAction(payload: { name: string; slug: s
 
   // Crear campaña con Touchpoint "Principal" inicial en una transacción
   const campaign = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"local-capacity:"+admin.companyId}))`;
+    if (!(await canCreateLocalCampaign(admin.companyId)) || !(await canCreateLocalTouchpoint(admin.companyId))) {
+      throw new Error("No hay cupo disponible para la campaña y su punto.");
+    }
     return await tx.localCampaign.create({
       data: {
         companyId: admin.companyId,
         name: validated.name.trim(),
+        businessName: validated.businessName,
+        clubName: validated.clubName,
+        consentText: "Acepto suscribirme al club de beneficios y recibir novedades y promociones a través de mi número de WhatsApp.",
         slug: validated.slug.trim().toLowerCase(),
         status: "DRAFT",
         template: "URBAN",
@@ -151,6 +156,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
 
   // 2. Ejecutar la actualización del borrador y la generación del snapshot atómicamente en una transacción (Parte B)
   const updated = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"local-capacity:"+admin.companyId}))`;
     // Actualizar campos de borrador
     const campaign = await tx.localCampaign.update({
       where: {
@@ -180,11 +186,18 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
       }
     });
 
+    if (campaign.status === "ARCHIVED" && !(await canCreateLocalCampaign(admin.companyId))) {
+      throw new Error("No hay cupo para republicar esta campaña.");
+    }
     // Validar campos requeridos en el servidor antes de publicar (no confiar en el cliente)
     if (!campaign.businessName || !campaign.clubName || !campaign.benefitTitle || !campaign.benefitDescription || !campaign.whatsappNumber || !campaign.consentText) {
       throw new Error("No es posible publicar. Debes completar el nombre comercial, el club, el título y descripción del beneficio, el número de WhatsApp y el texto de consentimiento.");
     }
 
+    const priorSnapshot = campaign.publishedSnapshot as { consentText?: string; consentVersion?: number } | null;
+    const consentVersion = priorSnapshot && priorSnapshot.consentText !== campaign.consentText
+      ? (priorSnapshot.consentVersion || 1) + 1
+      : (priorSnapshot?.consentVersion || campaign.consentVersion);
     // Construir el snapshot explícito en servidor usando los datos grabados
     const snapshot = {
       schemaVersion: 1,
@@ -207,7 +220,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
       benefitStartAt: campaign.benefitStartAt ? campaign.benefitStartAt.toISOString() : null,
       benefitEndAt: campaign.benefitEndAt ? campaign.benefitEndAt.toISOString() : null,
       consentText: campaign.consentText,
-      consentVersion: campaign.consentVersion
+      consentVersion
     };
 
     // Actualizar estado a PUBLISHED e insertar snapshot
@@ -216,6 +229,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
       data: {
         status: LocalCampaignStatus.PUBLISHED,
         publishedSnapshot: snapshot,
+        consentVersion,
         publishedVersion: { increment: 1 },
         publishedAt: new Date()
       }
@@ -273,255 +287,11 @@ export async function archiveLocalCampaignAction(campaignId: string) {
 }
 
 // 5. Suscripción Pública (Requisito 6 y Parte F)
-export async function subscribeToCampaignAction(slug: string, payload: any) {
+export async function subscribeToCampaignAction(slug: string, payload: unknown) {
   try {
-    // Validar payload con el schema de suscripción de forma segura
-    const parseResult = publicSubscriptionSchema.safeParse(payload);
-    if (!parseResult.success) {
-      const firstError = parseResult.error.issues[0];
-      let friendlyMessage = "Datos de suscripción inválidos.";
-      if (firstError) {
-        if (firstError.path.includes("consentAccepted")) {
-          friendlyMessage = "Debes aceptar el consentimiento para continuar.";
-        } else if (firstError.path.includes("name")) {
-          friendlyMessage = firstError.message;
-        } else if (firstError.path.includes("whatsapp")) {
-          friendlyMessage = "El número de WhatsApp es inválido. Debe tener 9 dígitos (ej. 9XXXXXXXX) o incluir código de país.";
-        } else if (firstError.code === "unrecognized_keys") {
-          friendlyMessage = "La petición contiene campos no reconocidos.";
-        } else {
-          friendlyMessage = firstError.message;
-        }
-      }
-      return {
-        success: false,
-        error: friendlyMessage
-      };
-    }
-
-    const validated = parseResult.data;
-
-    // Honeypot Check (Requisito F-11)
-    if (validated.honeypot) {
-      return { success: true }; // Respuesta neutra exitosa para no revelar detección de spam
-    }
-
-    // Buscar campaña con su licencia de producto Local
-    const campaign = await prisma.localCampaign.findUnique({
-      where: { slug },
-      include: {
-        company: {
-          include: {
-            productLicenses: {
-              where: { product: "LOCAL" }
-            }
-          }
-        }
-      }
-    });
-
-    if (!campaign) {
-      return { success: false, error: "La campaña no está disponible." };
-    }
-
-    // Validar que la empresa tenga la licencia Local activa (Requisito Parte G)
-    const localLicense = campaign.company?.productLicenses?.[0];
-    if (!localLicense || localLicense.status !== "ACTIVE") {
-      return { success: false, error: "El club de beneficios no está activo debido a problemas con su licencia." };
-    }
-
-    // Exigir que esté publicada (Requisito F-7)
-    if (campaign.status !== LocalCampaignStatus.PUBLISHED) {
-      return { success: false, error: "La campaña no está disponible." };
-    }
-
-    // Resolver touchpoint si se provee código público
-    let touchpointId: string | null = null;
-    if (validated.touchpointCode) {
-      const tp = await prisma.localTouchpoint.findUnique({
-        where: { code: validated.touchpointCode }
-      });
-      if (tp && tp.campaignId === campaign.id && tp.isActive) {
-        touchpointId = tp.id;
-      }
-    }
-
-    // Capturar IP Hash, UA y Referer del servidor de Next.js
-    let userAgent = "";
-    let referer = "";
-    let clientIp = "127.0.0.1";
-    try {
-      const headersList = await headers();
-      const ip = headersList.get("x-forwarded-for") || "127.0.0.1";
-      userAgent = headersList.get("user-agent") || "";
-      referer = headersList.get("referer") || "";
-      clientIp = ip.split(",")[0].trim();
-    } catch {
-      // Fallback para ejecución fuera del request scope (ej. scripts de prueba CLI)
-    }
-
-    // 1. Rate Limiting persistente (Requisito Parte C)
-    const limitCheck = await checkRateLimit(clientIp, "LOCAL_SUBSCRIBE", campaign.id);
-    if (!limitCheck.allowed) {
-      return {
-        success: false,
-        error: "Has superado el límite de intentos de suscripción. Por favor, inténtalo más tarde."
-      };
-    }
-
-    const ipHash = hashIp(clientIp);
-
-    // 1.5. Control de bloqueados pre-transacción (Retorno exitoso neutral)
-    const preExisting = await prisma.localSubscriber.findUnique({
-      where: {
-        campaignId_whatsapp: {
-          campaignId: campaign.id,
-          whatsapp: validated.whatsapp
-        }
-      }
-    });
-
-    if (preExisting && preExisting.status === LocalSubscriberStatus.BLOCKED) {
-      let bizWhatsapp = campaign.whatsappNumber || "";
-      let bizMsg = campaign.whatsappMessage || "";
-      if (campaign.publishedSnapshot) {
-        const snap = campaign.publishedSnapshot as any;
-        bizWhatsapp = snap.whatsappNumber || bizWhatsapp;
-        bizMsg = snap.whatsappMessage || bizMsg;
-      }
-      const cleanBizWhatsapp = bizWhatsapp.replace(/[^\d]/g, "");
-      const personalizedMessage = bizMsg
-        .replace(/{nombre}/gi, validated.name)
-        .replace(/{name}/gi, validated.name);
-      const whatsappLink = `https://wa.me/${cleanBizWhatsapp}?text=${encodeURIComponent(personalizedMessage)}`;
-      return {
-        success: true,
-        whatsappLink
-      };
-    }
-
-    // Transacción segura para evitar registros parciales sin consentimiento (Requisito F-12)
-    await prisma.$transaction(async (tx) => {
-      // Buscar si ya existe el suscriptor
-      const existing = await tx.localSubscriber.findUnique({
-        where: {
-          campaignId_whatsapp: {
-            campaignId: campaign.id,
-            whatsapp: validated.whatsapp
-          }
-        },
-        include: {
-          consentRecords: {
-            orderBy: { acceptedAt: "desc" },
-            take: 1
-          }
-        }
-      });
-
-      let subscriberId: string;
-
-      if (existing) {
-        subscriberId = existing.id;
-        const isOptedOut = existing.status === LocalSubscriberStatus.OPTED_OUT;
-
-        // Actualizar datos del suscriptor
-        await tx.localSubscriber.update({
-          where: { id: existing.id },
-          data: {
-            name: validated.name.trim(),
-            lastInteractionAt: new Date(),
-            status: LocalSubscriberStatus.ACTIVE,
-            ...(isOptedOut ? { lastSubscribedAt: new Date() } : {})
-          }
-        });
-
-        // Validar duplicidad de consentimiento para evitar duplicados por doble clic
-        const latestConsent = existing.consentRecords[0];
-        const now = new Date();
-        const isRecent = latestConsent && (now.getTime() - new Date(latestConsent.acceptedAt).getTime() < 10000);
-
-        if (isOptedOut || !isRecent || latestConsent.consentVersion !== campaign.consentVersion) {
-          await tx.localConsentRecord.create({
-            data: {
-              subscriberId: existing.id,
-              campaignId: campaign.id,
-              consentVersion: campaign.consentVersion,
-              consentText: campaign.consentText || "Consentimiento aceptado",
-              ipHash,
-              userAgent: userAgent.substring(0, 255),
-              source: touchpointId ? "NFC_QR" : "DIRECT"
-            }
-          });
-        }
-      } else {
-        // Crear nuevo suscriptor y su respectivo consentimiento
-        const created = await tx.localSubscriber.create({
-          data: {
-            campaignId: campaign.id,
-            name: validated.name.trim(),
-            whatsapp: validated.whatsapp,
-            status: LocalSubscriberStatus.ACTIVE,
-            lastSubscribedAt: new Date(),
-            consentRecords: {
-              create: {
-                campaignId: campaign.id,
-                consentVersion: campaign.consentVersion,
-                consentText: campaign.consentText || "Consentimiento aceptado",
-                ipHash,
-                userAgent: userAgent.substring(0, 255),
-                source: touchpointId ? "NFC_QR" : "DIRECT"
-              }
-            }
-          }
-        });
-        subscriberId = created.id;
-      }
-
-      // Registrar el evento de conversión
-      await tx.localEvent.create({
-        data: {
-          campaignId: campaign.id,
-          touchpointId,
-          subscriberId,
-          eventType: LocalEventType.SUBSCRIPTION,
-          ipHash,
-          userAgent: userAgent.substring(0, 255),
-          referer: referer.substring(0, 255)
-        }
-      });
-    });
-
-  // 7. Construir enlace de WhatsApp usando el snapshot publicado exclusivamente
-  let bizWhatsapp = campaign.whatsappNumber || "";
-  let bizMsg = campaign.whatsappMessage || "";
-
-  if (campaign.publishedSnapshot) {
-    const snap = campaign.publishedSnapshot as any;
-    bizWhatsapp = snap.whatsappNumber || bizWhatsapp;
-    bizMsg = snap.whatsappMessage || bizMsg;
-  }
-
-  // Normalizar el número de la empresa a formato sin + y sin espacios
-  const cleanBizWhatsapp = bizWhatsapp.replace(/[^\d]/g, "");
-
-  // Personalizar mensaje de WhatsApp reemplazando {nombre}
-  let personalizedMessage = bizMsg;
-  personalizedMessage = personalizedMessage
-    .replace(/{nombre}/gi, validated.name)
-    .replace(/{name}/gi, validated.name);
-
-  const whatsappLink = `https://wa.me/${cleanBizWhatsapp}?text=${encodeURIComponent(personalizedMessage)}`;
-
-  return {
-    success: true,
-    whatsappLink
-  };
-  } catch (err: any) {
-    console.error("Error inesperado en suscripción pública:", err);
-    return {
-      success: false,
-      error: "No pudimos completar tu registro. Inténtalo nuevamente."
-    };
+    return await subscribeLocal(slug, payload, new Headers(await headers()));
+  } catch {
+    return { success: false, error: "No pudimos completar el registro. Actualiza la página e inténtalo nuevamente." };
   }
 }
 
@@ -595,12 +365,12 @@ export async function associateNfcCardAction(payload: { cardPhysicalId: string; 
       }
 
       // 5. Realizar la asignación
-      const updatedCard = await tx.physicalNfcCard.update({
-        where: { id: cardPhysicalId },
+      const changed = await tx.physicalNfcCard.updateMany({
+        where: { id: cardPhysicalId, companyId: user.companyId, cardId: null, localTouchpointId: null },
         data: { localTouchpointId: touchpointId }
       });
-
-      return updatedCard;
+      if (!changed.count) throw new Error("La tarjeta ya fue asignada.");
+      return tx.physicalNfcCard.findUniqueOrThrow({where:{id:cardPhysicalId}});
     });
 
     revalidatePath(`/dashboard/local/campanas`);
@@ -666,9 +436,24 @@ export async function createBroadcastExportBatchAction(campaignId?: string) {
   const activeScopeKey = `${companyId}:${campaignId ?? "TODAS"}`;
 
   try {
-    // Buscar suscriptores ACTIVE de la empresa/campaña
+    // Page the eligible set, not the first 500 already-exported subscribers.
+    const eligible = await prisma.$queryRaw<{id:string}[]>`
+      SELECT s.id FROM "LocalSubscriber" s
+      JOIN "LocalCampaign" c ON c.id=s."campaignId"
+      JOIN LATERAL (
+        SELECT cr.id, cr."revokedAt" FROM "LocalConsentRecord" cr
+        WHERE cr."subscriberId"=s.id ORDER BY cr."acceptedAt" DESC, cr.id DESC LIMIT 1
+      ) consent ON consent."revokedAt" IS NULL
+      WHERE c."companyId"=${companyId} AND s.status='ACTIVE'
+        AND (${campaignId || null}::text IS NULL OR c.id=${campaignId || null}::text)
+        AND NOT EXISTS (SELECT 1 FROM "LocalBroadcastExportItem" i
+          JOIN "LocalBroadcastExportBatch" b ON b.id=i."batchId"
+          WHERE i."consentRecordId"=consent.id AND b.status='CONFIRMED')
+      ORDER BY s."createdAt", s.id LIMIT 500
+    `;
     const subscribers = await prisma.localSubscriber.findMany({
       where: {
+        id: { in: eligible.map(row=>row.id) },
         campaign: {
           companyId,
           ...(campaignId ? { id: campaignId } : {})
@@ -777,6 +562,7 @@ export async function confirmBroadcastExportBatchAction(batchId: string) {
       return { success: false, error: "Lote no encontrado." };
     }
 
+    if (batch.status === "CANCELLED") return {success:false,error:"No se puede confirmar un lote cancelado."};
     if (batch.status === "CONFIRMED") {
       return { success: true }; // Idempotencia
     }
@@ -784,7 +570,7 @@ export async function confirmBroadcastExportBatchAction(batchId: string) {
     await prisma.$transaction(async (tx) => {
       // 1. Confirmar lote
       await tx.localBroadcastExportBatch.update({
-        where: { id: batchId },
+        where: { id: batchId, status: "EXPORTED" },
         data: {
           status: "CONFIRMED",
           confirmedAt: new Date(),
@@ -795,7 +581,7 @@ export async function confirmBroadcastExportBatchAction(batchId: string) {
 
       // 2. Para aquellos suscriptores que ya tengan estado OPTED_OUT o BLOCKED, asegurar que tengan una remoción pendiente
       for (const item of batch.items) {
-        const sub = item.subscriber;
+        const sub = await tx.localSubscriber.findUniqueOrThrow({where:{id:item.subscriberId}});
         if (sub.status === "OPTED_OUT" || sub.status === "BLOCKED") {
           const existingRemoval = await tx.localBroadcastRemoval.findUnique({
             where: {
@@ -870,7 +656,7 @@ export async function cancelBroadcastExportBatchAction(batchId: string) {
     }
 
     await prisma.localBroadcastExportBatch.update({
-      where: { id: batchId },
+      where: { id: batchId, status: "EXPORTED" },
       data: {
         status: "CANCELLED",
         activeScopeKey: null // Liberar activeScopeKey
@@ -916,6 +702,7 @@ export async function registerSubscriberOptOutAction(subscriberId: string) {
       return { success: false, error: "Suscriptor no encontrado." };
     }
 
+    if (sub.status === "BLOCKED") return {success:false,error:"El suscriptor está bloqueado."};
     if (sub.status === "OPTED_OUT") {
       return { success: true }; // Idempotente
     }
@@ -928,10 +715,11 @@ export async function registerSubscriberOptOutAction(subscriberId: string) {
     await prisma.$transaction(async (tx) => {
       // 1. Poner en estado OPTED_OUT
       await tx.localSubscriber.update({
-        where: { id: subscriberId },
+        where: { id: subscriberId, status: "ACTIVE" },
         data: { status: "OPTED_OUT" }
       });
 
+      await tx.localConsentRecord.updateMany({where:{subscriberId,revokedAt:null},data:{revokedAt:new Date()}});
       // 2. Comprobar si ha sido alguna vez incorporado (en lote CONFIRMED)
       const hasConfirmedItem = await tx.localBroadcastExportItem.findFirst({
         where: {
@@ -1023,6 +811,7 @@ export async function blockSubscriberAction(subscriberId: string) {
         data: { status: "BLOCKED" }
       });
 
+      await tx.localConsentRecord.updateMany({where:{subscriberId,revokedAt:null},data:{revokedAt:new Date()}});
       // 2. Comprobar si ha sido alguna vez incorporado
       const hasConfirmedItem = await tx.localBroadcastExportItem.findFirst({
         where: {

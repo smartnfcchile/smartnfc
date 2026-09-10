@@ -1,7 +1,6 @@
+import { recordLocalAction } from "../../../../lib/local/tracking";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import { LocalEventType } from "@prisma/client";
-import { hashIp } from "../../../../lib/security";
 import { checkRateLimit } from "../../../../lib/rateLimit";
 import { generateSingleVcfString } from "../../../../lib/vcf";
 
@@ -57,7 +56,7 @@ export async function GET(
     const now = new Date();
     const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
     const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
-    const isActive = localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+    const isActive = campaign.company.isActive && localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
 
     if (!isActive) {
       return new NextResponse("Esta experiencia no se encuentra disponible.", {
@@ -124,19 +123,9 @@ export async function GET(
 
     // 7. Fail-open tracking: registrar descarga en base de datos
     try {
-      const ipHash = hashIp(clientIp);
-      const userAgent = request.headers.get("user-agent") || "";
-      const referer = request.headers.get("referer") || "";
 
-      await prisma.localEvent.create({
-        data: {
-          campaignId: campaign.id,
-          eventType: LocalEventType.VCF_DOWNLOAD,
-          ipHash,
-          userAgent: userAgent.substring(0, 255),
-          referer: referer.substring(0, 255)
-        }
-      });
+      const visitId = request.nextUrl.searchParams.get("v");
+      if (visitId) await recordLocalAction(visitId, campaign.id, "VCF_DOWNLOAD");
     } catch (trackErr) {
       console.error("Error silencioso (fail-open) al registrar evento VCF_DOWNLOAD:", trackErr);
     }

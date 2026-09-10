@@ -1,3 +1,5 @@
+import { findLocalVisit } from "../../../lib/local/tracking";
+import { signConsent } from "../../../lib/local/consent";
 import { notFound } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import ClubLandingClient from "./ClubLandingClient";
@@ -7,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; v?: string }>;
 };
 
 // Generar metadata segura para SEO (Requisito E-8)
@@ -35,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const now = new Date();
   const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
   const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
-  const isActive = localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+  const isActive = campaign?.company.isActive && localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
 
   if (!campaign || campaign.status !== "PUBLISHED" || !campaign.publishedSnapshot || !isActive) {
     return {
@@ -63,7 +65,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ClubLandingPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { ref } = await searchParams;
+  const { ref, v } = await searchParams;
 
   // 1. Validar slug (Requisito E-1)
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
@@ -94,7 +96,7 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
   const now = new Date();
   const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
   const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
-  const isActive = localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+  const isActive = campaign?.company.isActive && localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
 
   if (!isActive) {
     return (
@@ -144,6 +146,9 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
     >
       <ClubLandingClient
         slug={slug}
+        initialVisitId={(await findLocalVisit(v, campaign.id))?.id}
+        consentToken={signConsent({ campaignId: campaign.id, publishedVersion: campaign.publishedVersion,
+          consentVersion: Number(snapshot.consentVersion), consentText: String(snapshot.consentText || "") })}
         touchpointCode={ref}
         initialData={templateData}
       />

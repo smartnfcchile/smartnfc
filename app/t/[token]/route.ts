@@ -1,8 +1,7 @@
+import { recordLocalArrival, recordTrackingIncident } from "../../../lib/local/tracking";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
-import { EventType, LocalEventType } from "@prisma/client";
-import { hashIp } from "../../../lib/security";
-import { checkRateLimit } from "../../../lib/rateLimit";
+import { EventType } from "@prisma/client";
 import { getPublicUrl } from "../../../lib/public-url";
 
 type Params = {
@@ -209,7 +208,7 @@ export async function GET(request: Request, { params }: Params) {
     // 6. Ruta Local
     if (physicalCard.localTouchpointId) {
       const tp = physicalCard.localTouchpoint;
-      if (!tp || !tp.isActive) {
+      if (!tp || !tp.isActive || tp.campaign.companyId !== physicalCard.companyId) {
         return new NextResponse("Punto de contacto inactivo", { status: 403 });
       }
 
@@ -243,31 +242,13 @@ export async function GET(request: Request, { params }: Params) {
         return new NextResponse("Campaña no disponible", { status: 403 });
       }
 
-      const userAgent = request.headers.get("user-agent");
-      const referer = request.headers.get("referer");
-      const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
-      const clientIp = ip.split(",")[0].trim();
-
-      // Registro analítico Local NFC_SCAN (Fail-Open)
+      let visitId = "";
       try {
-        const limitCheck = await checkRateLimit(clientIp, "LOCAL_VIEW", tp.campaign.id);
-        if (limitCheck.allowed) {
-          await prisma.localEvent.create({
-            data: {
-              campaignId: tp.campaignId,
-              touchpointId: tp.id,
-              eventType: LocalEventType.NFC_SCAN,
-              ipHash: hashIp(clientIp),
-              userAgent: userAgent ? userAgent.substring(0, 255) : null,
-              referer: referer ? referer.substring(0, 255) : null
-            }
-          });
-        }
-      } catch (trackErr) {
-        console.error("Error silencioso (fail-open) en registro de evento NFC Local:", trackErr);
-      }
-
-      return NextResponse.redirect(getPublicUrl(`/club/${tp.campaign.slug}?ref=${tp.code}`), 302);
+        visitId = await recordLocalArrival({companyId: tp.campaign.companyId, campaignId:tp.campaignId,
+          touchpointId:tp.id,source:"NFC",headers:request.headers});
+      } catch { await recordTrackingIncident(tp.campaign.companyId); }
+      const target = getPublicUrl(`/club/${tp.campaign.slug}?ref=${tp.code}${visitId ? "&v="+visitId : ""}`);
+      return NextResponse.redirect(target, 302);
     }
 
     // 7. Ruta B2B

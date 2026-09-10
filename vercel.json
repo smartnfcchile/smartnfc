@@ -1,0 +1,4 @@
+{
+  "crons": [{ "path": "/api/cron/local-reports", "schedule": "0 * * * *" }],
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"feat/local-automatic-reports\" ]; then exit 0; else exit 1; fi"
+}

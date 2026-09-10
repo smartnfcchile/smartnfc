@@ -1,25 +1,16 @@
+import { requireCompanyAdmin } from "../../../../../lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../../lib/auth";
 import { generateMultiVcfString } from "../../../../../lib/vcf";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ batchId: string }> | { batchId: string } }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session) {
-    return new NextResponse("No autorizado. Inicie sesión.", {
-      status: 401,
-      headers: { "X-Content-Type-Options": "nosniff" }
-    });
-  }
-
-  const resolvedParams = await params;
-  const batchId = resolvedParams.batchId;
-  const companyId = (session.user as any).companyId;
+  const user = await requireCompanyAdmin().catch(() => null);
+  if (!user) return new NextResponse("No autorizado.", { status: 403 });
+  const { batchId } = await params;
+  const companyId = user.companyId;
 
   try {
     // 1. Obtener y validar el lote con sus items
@@ -68,7 +59,7 @@ export async function GET(
     }
 
     // 3. Formatear contactos exclusivamente a partir de los items guardados en el lote
-    const contactsData = batch.items.map(item => {
+    const contactsData = batch.items.filter(item => item.subscriber.status === "ACTIVE" && !item.consentRecord.revokedAt).map(item => {
       const sub = item.subscriber;
       const snap = batch.campaign?.publishedSnapshot as any;
       const campaignName = snap?.clubName || batch.campaign?.name || "Beneficios";

@@ -32,6 +32,7 @@ export default function Sidebar({ user, activeProducts = ["EMPRESAS"] }: Sidebar
     { title: "Tarjetas Virtuales", href: "/dashboard/cards", icon: "🎴", show: isAdmin && hasEmpresas },
     { title: "Diseños físicos", href: "/dashboard/physical-designs", icon: "✦", show: isAdmin && hasEmpresas },
     { title: "Smart NFC Local", href: "/dashboard/local", icon: <Store className="h-4.5 w-4.5" />, show: isSuper || activeProducts.includes("LOCAL") },
+    { title: "Reportes Local", href: "/dashboard/local/reportes", icon: "📈", show: isAdmin && (isSuper || activeProducts.includes("LOCAL")) },
     { title: "Prospectos (CRM)", href: "/dashboard/leads", icon: "💰", show: hasEmpresas },
     { title: "Superadministración", href: "/superadmin", icon: "🛠️", show: isSuper },
     { title: "Configuración", href: "/dashboard/configuracion", icon: "⚙️", show: true },

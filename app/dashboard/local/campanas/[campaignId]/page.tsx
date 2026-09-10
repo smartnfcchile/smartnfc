@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../../lib/auth";
+import { requireCompanyAdmin } from "@/lib/permissions";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "../../../../../lib/prisma";
 import CampanaEditorClient from "./CampanaEditorClient";
@@ -13,17 +12,8 @@ type Params = {
 import { hasActiveProduct } from "../../../../../lib/product-access";
 
 export default async function EditCampaignPage({ params }: Params) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    redirect("/login");
-  }
+  const user = await requireCompanyAdmin();
 
-  const user = session.user as { id: string; role: string; companyId: string };
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
-
-  if (!isAdmin) {
-    redirect("/dashboard");
-  }
 
   const hasLocal = await hasActiveProduct(user.companyId, "LOCAL");
   if (!hasLocal) {

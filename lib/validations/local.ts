@@ -51,6 +51,8 @@ export const slugSchema = z
 export const createCampaignSchema = z.object({
   name: z.string().min(3, "El nombre de la campaña debe tener al menos 3 caracteres.").max(100, "El nombre de la campaña no puede superar los 100 caracteres."),
   slug: slugSchema,
+  businessName: z.string().min(1).max(100).optional(),
+  clubName: z.string().min(1).max(50).optional(),
 }).strict();
 
 // Schema para actualización de campaña (Requisito 5)
@@ -98,7 +100,9 @@ export const publicSubscriptionSchema = z.object({
     message: "Número de WhatsApp chileno inválido."
   }).transform(normalizeChileanWhatsApp),
   honeypot: z.string().max(0, "Acceso no autorizado (Honeypot detectado).").optional().or(z.literal("")),
-  touchpointCode: z.string().optional(),
+  touchpointCode: z.string().max(100).optional(),
+  visitId: z.string().uuid().optional(),
+  consentToken: z.string().regex(/^[a-f0-9]{64}$/),
   consentAccepted: z.literal(true, {
     message: "Debes aceptar el consentimiento para continuar."
   }),

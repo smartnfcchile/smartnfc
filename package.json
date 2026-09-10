@@ -10,7 +10,8 @@
     "seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
     "test:local": "tsx --test scripts/tests/local-*.test.ts",
-    "test:local:integration": "tsx --test scripts/tests/local-integration.test.ts"
+    "test:local:integration": "tsx --test scripts/tests/local-integration.test.ts",
+    "check:local:activation": "node scripts/local-activation-check.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

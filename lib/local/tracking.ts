@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ContactSource, LocalEventType, Prisma } from "@prisma/client";
+import { ContactSource, LocalEventType, LocalPointObjective, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { hashIp } from "../security";
 import { checkRateLimit } from "../rateLimit";
@@ -8,7 +8,7 @@ export const visitIdValid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{
 
 export async function recordLocalArrival(input: {
   companyId: string; campaignId: string; touchpointId?: string | null;
-  source: ContactSource; headers: Headers; id?: string;
+  source: ContactSource; headers: Headers; id?: string; objective?: LocalPointObjective;
 }) {
   const id = input.id || randomUUID();
   if (!visitIdValid(id)) throw new Error("Visita inválida.");
@@ -24,7 +24,7 @@ export async function recordLocalArrival(input: {
       });
       await tx.localVisit.create({ data: {
         id, companyId: input.companyId, campaignId: input.campaignId,
-        touchpointId: input.touchpointId || null, source: input.source
+        touchpointId: input.touchpointId || null, source: input.source, objective: input.objective || "CLUB"
       } });
       await tx.localEvent.create({ data: {
         visitId: id, campaignId: input.campaignId, touchpointId: input.touchpointId || null,
@@ -37,7 +37,7 @@ export async function recordLocalArrival(input: {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
     const previous = await prisma.localVisit.findUnique({ where: { id } });
     if (!previous || previous.companyId !== input.companyId || previous.campaignId !== input.campaignId ||
-        previous.source !== input.source || previous.touchpointId !== (input.touchpointId || null)) throw new Error("Visita inválida.");
+        previous.source !== input.source || previous.objective !== (input.objective || "CLUB") || previous.touchpointId !== (input.touchpointId || null)) throw new Error("Visita inválida.");
   }
   return id;
 }
@@ -49,7 +49,7 @@ export async function findLocalVisit(id: unknown, campaignId: string) {
   } });
 }
 
-export async function recordLocalAction(visitId: string, campaignId: string, eventType: "VIEW" | "WHATSAPP_REDIRECT" | "VCF_DOWNLOAD") {
+export async function recordLocalAction(visitId: string, campaignId: string, eventType: "VIEW" | "WHATSAPP_REDIRECT" | "VCF_DOWNLOAD" | "DESTINATION_REDIRECT") {
   const visit = await findLocalVisit(visitId, campaignId);
   if (!visit) throw new Error("Visita no disponible.");
   await prisma.localEvent.upsert({

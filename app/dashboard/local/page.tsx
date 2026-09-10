@@ -12,7 +12,8 @@ export default async function LocalDashboardPage() {
   return <div className="space-y-6">
     <header className="flex flex-wrap justify-between gap-3"><h1 className="text-2xl font-black">SmartNFC Local</h1>
       <div className="flex flex-wrap gap-4">
-        <Link className="text-blue-600 underline" href="/dashboard/local/campanas">Campañas y puntos</Link>
+        <Link className="text-blue-600 underline" href="/dashboard/local/puntos">Puntos Inteligentes</Link>
+        <Link className="text-blue-600 underline" href="/dashboard/local/campanas">Campañas</Link>
         <Link className="text-blue-600 underline" href="/dashboard/local/suscriptores">Suscriptores</Link>
         <Link className="text-blue-600 underline" href="/dashboard/local/reportes">Reportes automáticos</Link>
       </div></header>

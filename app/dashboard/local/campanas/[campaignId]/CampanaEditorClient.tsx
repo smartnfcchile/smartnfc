@@ -457,7 +457,7 @@ export default function CampanaEditorClient({
                     initialTouchpoints.map((tp: any) => {
                       const assignedCard = tp.physicalNfcCard;
                       const qrRedirectUrl = `${PUBLIC_APP_ORIGIN}/q/${tp.code}`;
-                      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrRedirectUrl)}`;
+                      const qrImageUrl = `/api/local/points/${tp.id}/qr`;
                       const targetChipUrl = assignedCard ? `${PUBLIC_APP_ORIGIN}/t/${assignedCard.token}` : null;
 
                       return (
@@ -470,7 +470,7 @@ export default function CampanaEditorClient({
                                   {tp.isActive ? "Activo" : "Inactivo"}
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">Código opaco: {tp.code}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">Código del punto: {tp.code}</p>
                             </div>
 
                             {/* Vinculación NFC */}
@@ -479,7 +479,7 @@ export default function CampanaEditorClient({
                                 <div className="space-y-2">
                                   <div>
                                     <p className="text-[10px] text-blue-600 dark:text-blue-400 font-extrabold uppercase">✓ Punto de contacto activo</p>
-                                    <p className="text-xs text-slate-700 dark:text-slate-300 font-bold mt-1">La tarjeta NFC y el código QR dirigen correctamente a esta campaña.</p>
+                                    <p className="text-xs text-slate-700 dark:text-slate-300 font-bold mt-1">La tarjeta NFC está vinculada a este punto. Su objetivo se configura en Puntos Inteligentes.</p>
                                     <p className="text-[9.5px] text-slate-500 font-mono mt-1">Token físico: {assignedCard.token}</p>
                                   </div>
 
@@ -513,7 +513,7 @@ export default function CampanaEditorClient({
                           </div>
 
                           {/* Descarga QR */}
-                          {campaign.status === "PUBLISHED" ? (
+                          {tp.medium !== "NFC" && (tp.objective !== "CLUB" || campaign.status === "PUBLISHED") ? (
                             <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 w-full md:w-auto md:min-w-[210px]">
                               <img src={qrImageUrl} alt="QR Code" className="w-14 h-14 bg-white p-1 rounded-lg border border-slate-200" />
                               <div className="space-y-1">
@@ -539,7 +539,7 @@ export default function CampanaEditorClient({
                           ) : (
                             <div className="p-3 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center w-full md:w-auto md:max-w-[150px]">
                               <p className="text-[9px] text-slate-500 font-bold">QR no disponible</p>
-                              <p className="text-[8px] text-slate-400 mt-1">Publica la campaña para activar el QR.</p>
+                              <p className="text-[8px] text-slate-400 mt-1">Revisa el soporte del punto y, para Club, publica la campaña.</p>
                             </div>
                           )}
                         </div>

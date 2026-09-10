@@ -8,7 +8,7 @@ Rama `feat/local-automatic-reports`. No aplicar migraciones ni activar correo re
 
 Se separó `prisma migrate deploy` de `npm run build`: compilar ya no modifica la base de datos. Después de aprobar esta entrega, el proceso de despliegue deberá ejecutar explícitamente `npm run db:migrate` antes de servir la nueva versión. Revisar esta adaptación en la configuración real de hosting.
 
-`vercel.json` omite las compilaciones automáticas de esta rama de revisión. No habilitar una preview contra la base de producción. La programación de Vercel solo opera en producción una vez aprobada y desplegada.
+`vercel.json` omite las compilaciones automáticas de esta rama de revisión. No habilitar una preview contra la base de producción. La programación está en `docs/vercel-local-reports.example.json` y no está activa. Debe incorporarse a `vercel.json` únicamente después de aprobar un plan compatible o elegir un planificador externo. Vercel rechazó el cron horario en los proyectos conectados y remitió a sus límites de plan; no se cambió la suscripción.
 
 ## Operación
 
@@ -22,7 +22,7 @@ Se separó `prisma migrate deploy` de `npm run build`: compilar ya no modifica l
 ## Activación después de aprobación
 
 - Respaldar la base y revisar las dos nuevas migraciones. No ejecutan backfill de escaneos antiguos: la atribución anterior no permite reconstruir visitas fiables.
-- Confirmar un plan de Vercel que admita cron horario; alternativamente, usar un planificador servidor autorizado que invoque `GET /api/cron/local-reports` con `Authorization: Bearer <CRON_SECRET>`.
+- Confirmar un plan de Vercel que admita cron horario e incorporar la sección de `docs/vercel-local-reports.example.json` a `vercel.json`; alternativamente, usar un planificador servidor autorizado que invoque `GET /api/cron/local-reports` con `Authorization: Bearer <CRON_SECRET>`.
 - Variables servidor: `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM` con dominio verificado, `LOCAL_REPORT_SUPPORT_EMAIL` y `NEXT_PUBLIC_APP_URL` HTTPS. `NEXTAUTH_SECRET` también firma el consentimiento público.
 - Ensayar primero en una base aislada con `LOCAL_REPORT_EMAIL_MODE=preview`. Los estados `PREVIEW` son terminales: no se convierten automáticamente en envíos reales al cambiar el modo.
 - Tras aprobación de la prueba y del despliegue, configurar `LOCAL_REPORT_EMAIL_MODE=live`, migrar, desplegar y habilitar destinatarios/frecuencias por local.

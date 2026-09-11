@@ -1,7 +1,7 @@
 name: SmartNFC Local reports
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/local-automatic-reports]
   workflow_dispatch:
 jobs:
   local-reports:

@@ -1,6 +1,6 @@
 # Reportes automáticos SmartNFC Local
 
-Primera entrega: medición correlacionada NFC/QR, informes semanales o mensuales, historial privado, supervisión por local y procesamiento de entregas con reintentos. La ampliación a siete objetivos configurables sigue siendo un bloque posterior; esta entrega usa las campañas CLUB actuales.
+Primera entrega: medición correlacionada NFC/QR, informes semanales o mensuales, historial privado, supervisión por local y procesamiento de entregas con reintentos. La segunda entrega amplía los puntos a siete objetivos configurables; consultar `local-intelligent-points.md`. La conversión del Club usa únicamente visitas con objetivo CLUB.
 
 ## Estado de revisión
 
@@ -32,7 +32,7 @@ Se separó `prisma migrate deploy` de `npm run build`: compilar ya no modifica l
 
 - Accesos: filas de `LocalVisit`; NFC y QR se asignan en sus resolutores del servidor. Abrir la landing después no suma otro acceso.
 - Enlaces directos con `ref` conservan atribución al punto, pero no se convierten artificialmente en escaneos QR.
-- Conversión: visitas del periodo con registro, divididas por accesos del mismo periodo. Los registros nuevos se cuentan por primera suscripción, aunque luego cambie su estado.
+- Conversión: visitas del periodo con registro, divididas por accesos al Club del mismo periodo. Los registros nuevos se cuentan por primera suscripción, aunque luego cambie su estado.
 - Clics WhatsApp y VCF se correlacionan con una visita y se deduplican por acción. La ventana de correlación es una hora. Un clic no acredita un mensaje, una reseña, un seguimiento ni una compra.
 - Son accesos registrados, no personas únicas ni una prueba física de haber acercado un teléfono. Un enlace NFC/QR compartido también puede abrirse.
 - La cobertura parcial y las incidencias conocidas se señalan; no se calculan comparaciones si la cobertura no lo permite. Los errores al consultar métricas dejan el informe pendiente/fallido, nunca un informe artificial de ceros.
@@ -71,3 +71,7 @@ npx tsx scripts/local-report-preview.ts ruta/al/ejemplo.html
 ```
 
 Referencias: [idempotencia Resend](https://resend.com/docs/dashboard/emails/idempotency-keys), [operación cron Vercel](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
+
+## Preparación operativa
+
+Consultar `local-activation-runbook.md` para la comprobación sin efectos externos, secuencia de activación y detención de envíos.

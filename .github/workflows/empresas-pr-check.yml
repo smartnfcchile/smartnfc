@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/local-automatic-reports
   workflow_dispatch:
 
 jobs:

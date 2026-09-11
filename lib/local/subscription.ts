@@ -21,7 +21,8 @@ export async function subscribeLocal(slug: string, payload: unknown, requestHead
   }
   const ip=requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
   if (!(await checkRateLimit(ip,"LOCAL_SUBSCRIBE",campaign.id)).allowed) return {success:false,error:"Demasiados intentos. Inténtalo más tarde."};
-  const visit=await findLocalVisit(data.visitId,campaign.id);
+  const candidateVisit=await findLocalVisit(data.visitId,campaign.id);
+  const visit=candidateVisit?.objective==="CLUB"?candidateVisit:null;
   let touchpointId=visit?.touchpointId || null;
   if (!touchpointId && data.touchpointCode) {
     const tp=await prisma.localTouchpoint.findFirst({where:{code:data.touchpointCode,campaignId:campaign.id,isActive:true}});

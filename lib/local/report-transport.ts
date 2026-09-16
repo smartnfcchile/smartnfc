@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { createResendClient } from "../email/resend";
 import type { MailPayload } from "./report-email";
 export type ReportTransport=(payload:MailPayload,key:string)=>Promise<{id:string}>;
 export function deliveryMode() {
@@ -14,7 +14,9 @@ export function validateReportTransport() {
 export const sendReportMail:ReportTransport=async(payload,key)=>{
   validateReportTransport();
   if (deliveryMode()!=="live") throw new Error("Los envíos reales están deshabilitados.");
-  const response=await new Resend(process.env.RESEND_API_KEY!).fetchRequest<{id:string}>("/emails",{
+  const client=createResendClient();
+  if (!client) throw new Error("Configuración de reportes incompleta.");
+  const response=await client.fetchRequest<{id:string}>("/emails",{
     method:"POST",signal:AbortSignal.timeout(10000),
     headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY!}`,"Content-Type":"application/json","Idempotency-Key":key},
     body:JSON.stringify(payload)

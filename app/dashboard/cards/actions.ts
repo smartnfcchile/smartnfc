@@ -4,10 +4,12 @@
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
+import { lockCapacity, grantProvisionedProfile, requireCapability } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 
 export async function toggleCardActive(cardId: string, isActive: boolean) {
   const admin = await getCurrentUserContext();
+  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -36,15 +38,13 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
       throw new Error("No es posible activar una tarjeta perteneciente a un colaborador suspendido o pendiente.");
     }
 
-    const canAct = await canCreateIdentity(admin.companyId);
-    if (!canAct) {
-      throw new Error("No es posible activar esta tarjeta. Has alcanzado el límite de identidades activas para tu plan.");
-    }
   }
-
-  await prisma.card.update({
-    where: { id: cardId },
-    data: { isActive },
+  await prisma.$transaction(async tx => {
+    await lockCapacity(tx, admin.companyId);
+    await requireCapability(admin.companyId, "TEAM_MANAGEMENT", tx);
+    const current = await tx.card.findFirstOrThrow({ where: { id: cardId, companyId: admin.companyId } });
+    if (isActive && !current.isActive && !(await canCreateIdentity(admin.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
+    await tx.card.update({ where: { id: cardId }, data: { isActive } });
   });
 
   revalidatePath("/dashboard/cards");
@@ -53,6 +53,7 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
 
 export async function createVirtualCard(name: string, slug: string, userId: string) {
   const admin = await getCurrentUserContext();
+  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -100,7 +101,11 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
     throw new Error("No es posible crear la tarjeta. Has alcanzado el límite de identidades activas permitidas por tu plan.");
   }
 
-  await prisma.card.create({
+  await prisma.$transaction(async tx => {
+    await lockCapacity(tx, admin.companyId);
+    await requireCapability(admin.companyId, "TEAM_MANAGEMENT", tx);
+    if (!(await canCreateIdentity(admin.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
+    const card = await tx.card.create({
     data: {
       name: name.trim(),
       slug: normalizedSlug,
@@ -110,6 +115,8 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
     },
   });
 
+    await grantProvisionedProfile(tx, card.id, admin.companyId, admin.id);
+  });
   revalidatePath("/dashboard/cards");
   return { success: true };
 }

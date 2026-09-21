@@ -2,6 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { hasCardProfileRight, hasCapability } from "../../../../lib/entitlements";
 import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -36,6 +37,8 @@ async function requireCardEditor(cardId: string): Promise<{
     companyId: string;
     userId: string;
     companyName: string | null;
+    primaryActionType: string;
+    secondaryActionType: string;
     themeColor: string;
     themeMode: string;
     template: string;
@@ -54,6 +57,8 @@ async function requireCardEditor(cardId: string): Promise<{
       companyId: true,
       userId: true,
       companyName: true,
+      primaryActionType: true,
+      secondaryActionType: true,
       themeColor: true,
       themeMode: true,
       template: true,
@@ -77,6 +82,8 @@ async function requireCardEditor(cardId: string): Promise<{
     policy,
   });
 
+  if (scope !== "NONE" && !(await hasCardProfileRight(cardId, card.companyId))) throw new Error("Perfil no disponible.");
+
   if (scope === "NONE") {
     if (policy === "ADMIN_ONLY" && card.userId === user.id) {
       throw new Error("La empresa ha definido que esta tarjeta sea configurada exclusivamente por sus administradores.");
@@ -92,6 +99,7 @@ export async function updateCard(formData: FormData) {
   try {
     const cardId = formData.get("cardId") as string;
     const { scope, card: currentCard } = await requireCardEditor(cardId);
+    const canConfigureCapture = await hasCapability(currentCard.companyId, "LEAD_CAPTURE");
     const canEditCorporateIdentity = scope === "FULL";
 
     const profileName = formData.get("profileName") as string;
@@ -130,8 +138,10 @@ export async function updateCard(formData: FormData) {
     const shareContactIntro = formData.get("shareContactIntro") as string || "Déjame tus datos para mantenernos en contacto.";
     const shareContactConfirm = formData.get("shareContactConfirm") as string || "¡Gracias! Tus datos fueron enviados correctamente.";
     const shareContactConsent = formData.get("shareContactConsent") as string || "Acepto el tratamiento de mis datos personales para fines de contacto comercial.";
-    const primaryActionType = formData.get("primaryActionType") as string || "WHATSAPP";
-    const secondaryActionType = formData.get("secondaryActionType") as string || "SAVE_CONTACT";
+    const requestedPrimaryAction = formData.get("primaryActionType") as string || "WHATSAPP";
+    const primaryActionType = !canConfigureCapture && (requestedPrimaryAction === "CRM_FORM" || currentCard.primaryActionType === "CRM_FORM") ? currentCard.primaryActionType : requestedPrimaryAction;
+    const requestedSecondaryAction = formData.get("secondaryActionType") as string || "SAVE_CONTACT";
+    const secondaryActionType = !canConfigureCapture && (requestedSecondaryAction === "CRM_FORM" || currentCard.secondaryActionType === "CRM_FORM") ? currentCard.secondaryActionType : requestedSecondaryAction;
 
     const shareContactFieldsInput = formData.get("shareContactFields") as string;
     let shareContactFields = null;
@@ -148,8 +158,8 @@ export async function updateCard(formData: FormData) {
 
     try {
       const ctaData = {
-        primaryActionType,
-        secondaryActionType,
+        primaryActionType: !canConfigureCapture && primaryActionType === "CRM_FORM" ? "NONE" : primaryActionType,
+        secondaryActionType: !canConfigureCapture && secondaryActionType === "CRM_FORM" ? "NONE" : secondaryActionType,
         shareContactEnabled,
         whatsapp: whatsapp || null,
         showWhatsapp,
@@ -348,12 +358,14 @@ export async function updateCard(formData: FormData) {
         showTiktok,
         showYoutube,
         location,
+        ...(canConfigureCapture ? {
         shareContactEnabled,
         shareContactButtonText,
         shareContactIntro,
         shareContactConfirm,
         shareContactConsent,
         shareContactFields: shareContactFields || undefined,
+        } : {}),
         primaryActionType,
         secondaryActionType,
         ...(canEditCorporateIdentity ? {

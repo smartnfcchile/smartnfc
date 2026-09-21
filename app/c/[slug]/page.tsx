@@ -1,3 +1,4 @@
+import { hasCardProfileRight, hasCapability } from "@/lib/entitlements";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import CardProfileView from "@/components/card-profile/CardProfileView";
@@ -30,6 +31,9 @@ export default async function PublicCardPage({ params, searchParams }: PageProps
     notFound();
   }
 
+  if (!(await hasCardProfileRight(card.id, card.companyId))) notFound();
+  const canCapture = await hasCapability(card.companyId, "LEAD_CAPTURE");
+
   // Normalizar origen
   let contactSource: "NFC" | "QR" | "DIRECT" = "DIRECT";
   if (ref === "nfc" || ref === "nfc_scan") {
@@ -38,5 +42,5 @@ export default async function PublicCardPage({ params, searchParams }: PageProps
     contactSource = "QR";
   }
 
-  return <CardProfileView card={card} isPreview={false} contactSource={contactSource} />;
+  return <CardProfileView card={{ ...card, shareContactEnabled: card.shareContactEnabled && canCapture }} isPreview={false} contactSource={contactSource} />;
 }

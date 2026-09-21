@@ -1,3 +1,4 @@
+import { hasCapability } from "@/lib/entitlements";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserContext } from "@/lib/permissions";
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (!(await hasCapability(user.companyId, "CRM"))) return NextResponse.json({ error: "Capacidad no disponible." }, { status: 403 });
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
   const { searchParams } = new URL(request.url);
   const cardId = searchParams.get("cardId");

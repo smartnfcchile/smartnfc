@@ -1,3 +1,4 @@
+import { hasCapability } from "@/lib/entitlements";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { hashIp } from "../../../../lib/security";
 import { NextResponse } from "next/server";
@@ -103,6 +104,8 @@ export async function POST(request: Request) {
       if (!card || !card.isActive || !card.company.isActive) {
         throw new Error("NOT_FOUND");
       }
+
+      if (!(await hasCapability(card.companyId, "LEAD_CAPTURE", tx))) throw new Error("NOT_FOUND");
 
       if (card.shareContactConsent && !consentAccepted) {
         throw new Error("CONSENT_REQUIRED");

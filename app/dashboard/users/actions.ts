@@ -2,6 +2,7 @@
 
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
+import { lockCapacity, grantProvisionedProfile, requireCapability } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -42,6 +43,7 @@ async function sendActivationEmail(user: { id: string; name: string | null; emai
 
 export async function createCollaboratorWithCard(name: string, email: string) {
   const admin = await getCurrentUserContext();
+  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
   if (!isAdmin) throw new Error("Solo los administradores pueden crear colaboradores.");
 
@@ -69,6 +71,9 @@ export async function createCollaboratorWithCard(name: string, email: string) {
   expiresAt.setHours(expiresAt.getHours() + 48);
 
   const result = await prisma.$transaction(async (tx) => {
+    await lockCapacity(tx, company.id);
+    await requireCapability(company.id, "TEAM_MANAGEMENT", tx);
+    if (!(await canCreateIdentity(company.id, tx))) throw new Error("Límite de identidades alcanzado.");
     const newUser = await tx.user.create({
       data: { name: personName, email: emailNorm, role: "COLLABORATOR", companyId: company.id, isActive: false, status: "PENDING" },
       include: { company: true },
@@ -87,6 +92,7 @@ export async function createCollaboratorWithCard(name: string, email: string) {
       },
     });
 
+    await grantProvisionedProfile(tx, card.id, company.id, admin.id);
     const physicalCard = await tx.physicalNfcCard.create({
       data: { token: physicalToken, companyId: company.id, cardId: card.id, status: "PENDIENTE_GRABACION" },
     });
@@ -154,6 +160,7 @@ export async function createVendorUser(name: string, email: string) {
 
 export async function resendInvitationFromDashboardAction(userId: string) {
   const admin = await getCurrentUserContext();
+  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
   if (!isAdmin) throw new Error("Solo los administradores pueden reenviar invitaciones.");
 
@@ -185,6 +192,7 @@ export async function resendInvitationFromDashboardAction(userId: string) {
 
 export async function suspendCollaboratorUser(userId: string) {
   const admin = await getCurrentUserContext();
+  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
   if (!isAdmin) throw new Error("Solo los administradores pueden suspender colaboradores.");
   if (userId === admin.id) throw new Error("No puedes suspender tu propia cuenta desde esta sección.");

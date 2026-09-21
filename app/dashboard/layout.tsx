@@ -1,3 +1,4 @@
+import { getCompanyEntitlements } from "../../lib/entitlements";
 import React from "react";
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
@@ -35,26 +36,13 @@ export default async function DashboardLayout({
     redirect("/login?error=suspended");
   }
 
-  // Consultar licencias de la empresa del usuario
-  const licenses = await prisma.companyProductLicense.findMany({
-    where: {
-      companyId: dbUser.companyId
-    }
-  });
-  const activeProducts = dbUser.role === "SUPERADMIN"
-    ? ["EMPRESAS", "LOCAL"]
-    : licenses.filter(l => {
-        // Validación de estado y fechas en UTC
-        const now = new Date();
-        const isExpired = l.expiresAt && l.expiresAt <= now;
-        const isFuture = l.startsAt && l.startsAt > now;
-        return l.status === "ACTIVE" && !isExpired && !isFuture;
-      }).map(l => l.product);
+  const entitlements = await getCompanyEntitlements(dbUser.companyId);
+  const activeProducts = [ ...(entitlements.capabilities.includes("PROFILE") ? ["EMPRESAS"] : []), ...(entitlements.localOperational ? ["LOCAL"] : []) ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#07101F] text-slate-900 dark:text-white flex flex-col lg:flex-row transition-colors duration-200">
       {/* Barra lateral de navegación con control de roles y productos */}
-      <Sidebar user={session.user as any} activeProducts={activeProducts} />
+      <Sidebar user={session.user as any} activeProducts={activeProducts} capabilities={entitlements.capabilities} />
       
       {/* Contenedor principal de contenido */}
       <div className="flex-1 lg:pl-64 min-w-0 flex flex-col">

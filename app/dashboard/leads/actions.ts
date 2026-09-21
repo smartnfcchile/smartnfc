@@ -1,6 +1,7 @@
 // app/dashboard/leads/actions.ts
 "use server";
 
+import { requireCapability } from "../../../lib/entitlements";
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -10,6 +11,7 @@ const MAX_NOTES_LENGTH = 5000;
 
 export async function updateLeadCRM(leadId: string, status: string, notes: string | null) {
   const user = await getCurrentUserContext();
+  await requireCapability(user.companyId, "CRM");
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
   const nextStatus = status.trim().toUpperCase();
   const nextNotes = notes?.trim() || null;

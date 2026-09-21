@@ -6,6 +6,7 @@ import { UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "../../../lib/prisma";
 import { requireSuperAdmin } from "../../../lib/permissions";
+import { lockCapacity, grantProvisionedProfile } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 import { sendEmail } from "../../../lib/email/send-email";
 import UserInvitationEmail from "../../../emails/UserInvitationEmail";
@@ -109,6 +110,8 @@ export async function createCorporateCardSuperadminAction(data: {
     const status: NfcStatus = data.status || "PENDIENTE_GRABACION";
 
     const result = await prisma.$transaction(async (tx) => {
+      await lockCapacity(tx, company.id);
+      if (!(await canCreateIdentity(company.id, tx))) throw new Error("Límite de identidades alcanzado.");
       if (!owner) {
         owner = await tx.user.create({
           data: {
@@ -139,6 +142,7 @@ export async function createCorporateCardSuperadminAction(data: {
         },
       });
 
+      await grantProvisionedProfile(tx, digitalCard.id, company.id, superadmin.id);
       const physicalCard = await tx.physicalNfcCard.create({
         data: {
           token: finalToken,

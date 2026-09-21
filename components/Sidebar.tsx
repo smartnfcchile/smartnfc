@@ -14,9 +14,10 @@ type SidebarProps = {
     role?: string | null;
   };
   activeProducts?: string[];
+  capabilities?: string[];
 };
 
-export default function Sidebar({ user, activeProducts = ["EMPRESAS"] }: SidebarProps) {
+export default function Sidebar({ user, activeProducts = ["EMPRESAS"], capabilities = [] }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -24,17 +25,19 @@ export default function Sidebar({ user, activeProducts = ["EMPRESAS"] }: Sidebar
   const isSuper = user.role === "SUPERADMIN";
   const hasEmpresas = isSuper || activeProducts.includes("EMPRESAS");
 
+  const can = (capability: string) => capabilities.includes(capability);
   const menuItems = [
     { title: "Inicio", href: "/dashboard", icon: "🏠", show: true },
     { title: "Mi Tarjeta", href: "/dashboard/mi-tarjeta", icon: "👤", show: hasEmpresas },
-    { title: "Métricas y Analíticas", href: "/dashboard/metrics", icon: "📊", show: hasEmpresas },
-    { title: "Gestionar Integrantes", href: "/dashboard/users", icon: "👥", show: isAdmin && hasEmpresas },
-    { title: "Tarjetas Virtuales", href: "/dashboard/cards", icon: "🎴", show: isAdmin && hasEmpresas },
+    { title: "Métricas y Analíticas", href: "/dashboard/metrics", icon: "📊", show: can("ANALYTICS") },
+    { title: "Gestionar Integrantes", href: "/dashboard/users", icon: "👥", show: isAdmin && can("TEAM_MANAGEMENT") },
+    { title: "Tarjetas Virtuales", href: "/dashboard/cards", icon: "🎴", show: isAdmin && can("TEAM_MANAGEMENT") },
     { title: "Diseños físicos", href: "/dashboard/physical-designs", icon: "✦", show: isAdmin && hasEmpresas },
     { title: "Smart NFC Local", href: "/dashboard/local", icon: <Store className="h-4.5 w-4.5" />, show: isSuper || activeProducts.includes("LOCAL") },
-    { title: "Puntos Inteligentes", href: "/dashboard/local/puntos", icon: "📍", show: isAdmin && (isSuper || activeProducts.includes("LOCAL")) },
-    { title: "Reportes Local", href: "/dashboard/local/reportes", icon: "📈", show: isAdmin && (isSuper || activeProducts.includes("LOCAL")) },
-    { title: "Prospectos (CRM)", href: "/dashboard/leads", icon: "💰", show: hasEmpresas },
+    { title: "Mis locales", href: "/dashboard/local/locales", icon: "🏪", show: isAdmin && can("LOCAL_ACCESS") },
+    { title: "Puntos Inteligentes", href: "/dashboard/local/puntos", icon: "📍", show: isAdmin && can("LOCAL_TOUCHPOINTS") },
+    { title: "Reportes Local", href: "/dashboard/local/reportes", icon: "📈", show: isAdmin && can("LOCAL_REPORTS") },
+    { title: "Prospectos (CRM)", href: "/dashboard/leads", icon: "💰", show: can("CRM") },
     { title: "Superadministración", href: "/superadmin", icon: "🛠️", show: isSuper },
     { title: "Configuración", href: "/dashboard/configuracion", icon: "⚙️", show: true },
   ];
@@ -51,9 +54,9 @@ export default function Sidebar({ user, activeProducts = ["EMPRESAS"] }: Sidebar
         </button>
       </div>
 
-      {isOpen && <div onClick={() => setIsOpen(false)} className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-45" />}
+      {isOpen && <div onClick={() => setIsOpen(false)} className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30" />}
 
-      <aside className={`fixed top-0 bottom-0 left-0 w-64 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-r border-slate-200 dark:border-slate-900 text-slate-800 dark:text-white flex flex-col justify-between z-40 transition-transform duration-300 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"} pt-16 lg:pt-6 pb-6 px-4`}>
+      <aside className={`fixed top-0 bottom-0 left-0 w-64 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-r border-slate-200 dark:border-slate-900 text-slate-800 dark:text-white flex flex-col justify-between overflow-y-auto z-40 transition-transform duration-300 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"} pt-16 lg:pt-6 pb-6 px-4`}>
         <div className="space-y-6">
           <div className="hidden lg:block px-3">
             <Link href="/">

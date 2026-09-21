@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
-import { isLicenseValid } from "../product-access";
+import { hasCapability } from "../entitlements";
 import { generateReportSnapshot, type ReportSnapshot } from "./report-data";
 import { renderReportEmail, type MailPayload } from "./report-email";
 import { nextPeriod, previousPeriod, periodStart, reportDueAt } from "./report-period";
@@ -22,7 +22,7 @@ export async function enqueueDueReports(now:Date,deadline=Infinity) {
   });
   for (const setting of settings) {
     if (Date.now()>deadline) break;
-    if (!setting.company.isActive || !isLicenseValid(setting.company.productLicenses[0]??null)) continue;
+    if (!setting.company.isActive || !(await hasCapability(setting.companyId, "LOCAL_REPORTS"))) continue;
     const end=nextPeriod(setting.nextPeriodStart!,setting.frequency);
     if (reportDueAt(end)>now) continue;
     await prisma.$transaction(async tx=>{
@@ -112,7 +112,7 @@ export async function runReportWorker(now=new Date(),transport:ReportTransport=s
     if (delivery.kind==="REPORT") {
       const recipient=await prisma.user.findFirst({where:{id:delivery.recipientId,email:delivery.recipient,companyId:company.id,
         isActive:true,status:"ACTIVE",role:{in:["COMPANY_OWNER","COMPANY_ADMIN"]}}});
-      if (!recipient || !company.isActive || !isLicenseValid(company.productLicenses[0]??null) ||
+      if (!recipient || !company.isActive || !(await hasCapability(company.id, "LOCAL_REPORTS")) ||
           !company.localReportSetting?.enabled || !company.localReportSetting.recipientIds.includes(delivery.recipientId)) {
         await update({status:"CANCELLED",lastError:"El destinatario o el local ya no está autorizado."});continue;
       }

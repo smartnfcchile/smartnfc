@@ -3,21 +3,17 @@ import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import Link from "next/link";
-import { getProductLicense, isLicenseValid } from "../../../lib/product-access";
+import { hasCapability } from "../../../lib/entitlements";
+import { getCurrentUserContext } from "../../../lib/permissions";
 
 export default async function EditorRedirectPage() {
   // 1. Verificamos quién está conectado
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const user = session.user as any;
+  const user = await getCurrentUserContext();
 
-  if (user.role !== "SUPERADMIN") {
-    const license = await getProductLicense(user.companyId, "EMPRESAS");
-    if (!isLicenseValid(license)) {
-      redirect("/dashboard/local");
-    }
-  }
+  if (!(await hasCapability(user.companyId, "PROFILE_EDIT"))) redirect("/dashboard");
 
   const userId = (session.user as any).id;
 

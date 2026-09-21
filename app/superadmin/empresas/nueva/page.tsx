@@ -1,4 +1,5 @@
 "use client";
+import { DIGITAL_CATALOG, commercialOffer } from "../../../../lib/entitlements/catalog";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -53,6 +54,8 @@ export default function NuevaCompanyPage() {
 
   // Sync Empresas plan limits on change
   useEffect(() => {
+    const offer = commercialOffer(empresasPlan);
+    if (offer?.identities !== undefined) { setIncludedIdentities(offer.identities); return; }
     if (empresasPlan === "EMPRESAS_CONECTA") {
       setIncludedIdentities(5);
     } else if (empresasPlan === "EMPRESAS_CRECE") {
@@ -66,6 +69,8 @@ export default function NuevaCompanyPage() {
 
   // Sync Local plan limits on change
   useEffect(() => {
+    const offer = commercialOffer(localPlan);
+    if (offer) { if (offer.locations !== undefined) setIncludedBranches(offer.locations); return; }
     if (localPlan === "LOCAL_IMPULSA" || localPlan === "LOCAL_FUNDADOR") {
       setIncludedCampaigns(1);
       setIncludedBranches(1);
@@ -290,6 +295,7 @@ export default function NuevaCompanyPage() {
                   onChange={(e) => setEmpresasPlan(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-1 focus:ring-blue-600 dark:text-white"
                 >
+                  {Object.entries(DIGITAL_CATALOG).filter(([,o]) => o.product === "EMPRESAS").map(([code,o]) => <option key={code} value={code}>{o.name}</option>)}
                   <option value="EMPRESAS_CONECTA">Conecta</option>
                   <option value="EMPRESAS_CRECE">Crece</option>
                   <option value="EMPRESAS_ESCALA">Escala</option>
@@ -388,10 +394,12 @@ export default function NuevaCompanyPage() {
                   onChange={(e) => setLocalPlan(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-1 focus:ring-blue-600 dark:text-white"
                 >
+                  {Object.entries(DIGITAL_CATALOG).filter(([,o]) => o.product === "LOCAL").map(([code,o]) => <option key={code} value={code}>{o.name}</option>)}
                   <option value="LOCAL_IMPULSA">Impulsa</option>
                   <option value="LOCAL_FUNDADOR">Cliente Fundador</option>
                   <option value="LOCAL_PERSONALIZADO">Personalizado</option>
                 </select>
+                  {commercialOffer(localPlan) && <p className="text-xs text-slate-500 mt-2">Incluye 10 puntos activos por local. Los campos de campañas y puntos totales solo aplican a planes anteriores.</p>}
                 {localPlan === "LOCAL_FUNDADOR" && (
                   <div className="mt-1.5 space-y-1">
                     <span className="text-[9px] font-bold text-slate-500 dark:text-slate-405 block">
@@ -408,7 +416,7 @@ export default function NuevaCompanyPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                  Clubes/Campañas Incluidas
+                  Clubes/Campañas incluidas (solo legacy)
                 </label>
                 <input
                   type="number"
@@ -429,7 +437,7 @@ export default function NuevaCompanyPage() {
                   type="number"
                   required
                   min={1}
-                  disabled={localPlan !== "LOCAL_PERSONALIZADO"}
+                  disabled={localPlan !== "LOCAL_PERSONALIZADO" && localPlan !== "LOCAL_CONTRACT"}
                   value={includedBranches}
                   onChange={(e) => setIncludedBranches(Number(e.target.value))}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-1 focus:ring-blue-600 dark:text-white disabled:opacity-50"
@@ -438,7 +446,7 @@ export default function NuevaCompanyPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                  Touchpoints QR/NFC Incluidos
+                  Puntos totales (solo planes anteriores)
                 </label>
                 <input
                   type="number"

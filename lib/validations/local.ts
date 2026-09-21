@@ -51,6 +51,7 @@ export const slugSchema = z
 export const createCampaignSchema = z.object({
   name: z.string().min(3, "El nombre de la campaña debe tener al menos 3 caracteres.").max(100, "El nombre de la campaña no puede superar los 100 caracteres."),
   slug: slugSchema,
+  locationId: z.string().min(1).max(200).optional(),
   businessName: z.string().min(1).max(100).optional(),
   clubName: z.string().min(1).max(50).optional(),
 }).strict();

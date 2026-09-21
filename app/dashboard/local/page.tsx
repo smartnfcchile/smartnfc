@@ -1,3 +1,5 @@
+import { requireCompanyAdmin } from "../../../lib/permissions";
+import { hasCapability } from "../../../lib/entitlements";
 import Link from "next/link";
 import { requireLocalAdmin } from "../../../lib/local/access";
 import { prisma } from "../../../lib/prisma";
@@ -6,7 +8,10 @@ import { periodStart, previousPeriod } from "../../../lib/local/report-period";
 import ReportSummary from "../../../components/local/ReportSummary";
 export const dynamic="force-dynamic";
 export default async function LocalDashboardPage() {
+  const actor = await requireCompanyAdmin();
+  if (!(await hasCapability(actor.companyId, "LOCAL_ACCESS"))) return <div className="space-y-3"><h1 className="text-2xl font-black">SmartNFC Local</h1><p>Local no disponible. Los datos se conservan.</p><Link className="text-blue-600 underline" href="/dashboard">Volver al inicio</Link></div>;
   const {company}=await requireLocalAdmin();
+  const canReports = await hasCapability(company.id, "LOCAL_REPORTS");
   const setting=await prisma.localReportSetting.findUnique({where:{companyId:company.id}});
   const end=periodStart(new Date(),"WEEKLY"),start=previousPeriod(end,"WEEKLY");
   return <div className="space-y-6">
@@ -18,7 +23,7 @@ export default async function LocalDashboardPage() {
         <Link className="text-blue-600 underline" href="/dashboard/local/reportes">Reportes automáticos</Link>
       </div></header>
     <p className="text-slate-500">Resultados de la última semana completa, de lunes a domingo en Chile.</p>
-    {setting?<ReportSummary report={await generateReportSnapshot(company.id,start,end,"WEEKLY")}/>:
+    {setting && canReports?<ReportSummary report={await generateReportSnapshot(company.id,start,end,"WEEKLY")}/>:
       <p>Configura los reportes del local para comenzar. Los datos históricos de campañas se conservan.</p>}
   </div>;
 }

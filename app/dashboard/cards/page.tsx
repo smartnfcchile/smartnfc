@@ -3,7 +3,8 @@ import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import CardsClient from "./CardsClient";
-import { getProductLicense, isLicenseValid } from "../../../lib/product-access";
+import { getCompanyEntitlements } from "../../../lib/entitlements";
+import { getCurrentUserContext } from "../../../lib/permissions";
 
 export default async function CardsPage() {
   const session = await getServerSession(authOptions);
@@ -12,14 +13,10 @@ export default async function CardsPage() {
     redirect("/login");
   }
 
-  const user = session.user as any;
+  const user = await getCurrentUserContext();
 
-  if (user.role !== "SUPERADMIN") {
-    const license = await getProductLicense(user.companyId, "EMPRESAS");
-    if (!isLicenseValid(license)) {
-      redirect("/dashboard/local");
-    }
-  }
+  const entitlements = await getCompanyEntitlements(user.companyId);
+  if (!entitlements.capabilities.includes("TEAM_MANAGEMENT")) redirect("/dashboard");
 
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
@@ -52,6 +49,8 @@ export default async function CardsPage() {
     orderBy: { name: "asc" },
   });
 
+  const activeIdentities = await prisma.card.count({ where: { companyId: user.companyId, isActive: true } });
+
   return (
     <div className="space-y-6">
       <div>
@@ -59,6 +58,7 @@ export default async function CardsPage() {
         <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
           Crea perfiles corporativos de marca y activa o inactiva las tarjetas virtuales de tu equipo.
         </p>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Identidades activas: {activeIdentities} de {entitlements.limits.MAX_IDENTITIES ?? 0}</p>
       </div>
 
       <CardsClient initialCards={cards} users={companyUsers} />

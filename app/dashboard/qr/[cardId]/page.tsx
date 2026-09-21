@@ -4,7 +4,8 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
 import DownloadButton from "./DownloadButton";
 import Link from "next/link";
-import { getProductLicense, isLicenseValid } from "../../../../lib/product-access";
+import { hasCapability } from "../../../../lib/entitlements";
+import { getCurrentUserContext } from "../../../../lib/permissions";
 import { getPublicUrl } from "../../../../lib/public-url";
 
 interface PageProps {
@@ -21,14 +22,9 @@ export default async function QrPage({ params }: PageProps) {
     redirect("/login");
   }
 
-  const user = session.user as any;
+  const user = await getCurrentUserContext();
 
-  if (user.role !== "SUPERADMIN") {
-    const license = await getProductLicense(user.companyId, "EMPRESAS");
-    if (!isLicenseValid(license)) {
-      redirect("/dashboard/local");
-    }
-  }
+  if (!(await hasCapability(user.companyId, "PROFILE"))) redirect("/dashboard");
 
   const userId = (session.user as any).id;
 

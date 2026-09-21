@@ -13,7 +13,10 @@
     "test:local:integration": "tsx --test scripts/tests/local-integration.test.ts",
     "check:local:activation": "node scripts/local-activation-check.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "test:security": "node --test scripts/tests/secret-scan.test.mjs && tsx --test scripts/tests/email-security.test.ts"
+    "test:security": "node --test scripts/tests/secret-scan.test.mjs && tsx --test scripts/tests/email-security.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:entitlements": "tsx --test scripts/tests/entitlements.test.ts",
+    "test:entitlements:integration": "tsx --test scripts/tests/entitlements-integration.test.ts scripts/tests/entitlements-backfill.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

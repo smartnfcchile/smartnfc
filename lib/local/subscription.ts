@@ -1,3 +1,4 @@
+import { hasCapability } from "../entitlements";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { hashIp } from "../security";
@@ -13,6 +14,7 @@ export async function subscribeLocal(slug: string, payload: unknown, requestHead
   const data=parsed.data;
   const campaign=await getPublicLocalCampaign(slug);
   if (!campaign) return {success:false,error:"El club no está disponible."};
+  if (!(await hasCapability(campaign.companyId, "LOCAL_SUBSCRIBERS"))) return {success:false,error:"El club no está disponible."};
   const snap=campaign.publishedSnapshot as Prisma.JsonObject;
   const consent={ campaignId:campaign.id,publishedVersion:campaign.publishedVersion,
     consentVersion:Number(snap.consentVersion),consentText:String(snap.consentText || "") };

@@ -1,3 +1,4 @@
+import { hasCapability } from "@/lib/entitlements";
 import { requireCompanyAdmin } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
@@ -23,6 +24,7 @@ export default async function SubscribersPage() {
     redirect("/dashboard/local");
   }
 
+  if (!(await hasCapability(user.companyId, "LOCAL_SUBSCRIBERS"))) redirect("/dashboard/local");
   // 1. Obtener campañas locales de la empresa
   const campaigns = await prisma.localCampaign.findMany({
     where: { companyId: user.companyId },

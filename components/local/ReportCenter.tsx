@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { prisma } from "../../lib/prisma";
-import { requireLocalAdmin } from "../../lib/local/access";
+import { requireLocalAdmin, requireLocalPage } from "../../lib/local/access";
 import { deliveryMode } from "../../lib/local/report-transport";
 import { periodLabel } from "../../lib/local/report-period";
 import ReportSettingsForm from "./ReportSettingsForm";
 export const reportStatus:Record<string,string>={PENDING:"Pendiente",READY:"Generado",FAILED:"Requiere atención",SENT:"Aceptado por correo",
   PREVIEW:"Vista de prueba",UNKNOWN:"Requiere conciliación",CANCELLED:"Cancelado"};
 export default async function ReportCenter({companyId,superadmin=false}:{companyId?:string;superadmin?:boolean}) {
-  const {actor,company}=await requireLocalAdmin(companyId,superadmin);
+  const {actor,company}=await (superadmin ? requireLocalAdmin(companyId,true) : requireLocalPage("LOCAL_REPORTS"));
   if (superadmin && actor.role!=="SUPERADMIN") throw new Error("No autorizado.");
   const [setting,reports,users]=await Promise.all([
     prisma.localReportSetting.findUnique({where:{companyId:company.id}}),

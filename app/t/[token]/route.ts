@@ -1,3 +1,4 @@
+import { hasCardProfileRight } from "../../../lib/entitlements";
 import { resolveLocalPoint } from "../../../lib/local/point-resolver";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
@@ -21,6 +22,7 @@ export async function GET(request: Request, { params }: Params) {
         card: {
           select: {
             slug: true,
+            isActive: true,
           },
         },
         company: {
@@ -217,13 +219,7 @@ export async function GET(request: Request, { params }: Params) {
     // 7. Ruta B2B
     if (physicalCard.cardId && physicalCard.card?.slug) {
       // Validar licencia Empresas activa (Fail-Closed)
-      const empresasLicense = physicalCard.company.productLicenses.find(l => l.product === "EMPRESAS");
-      const now = new Date();
-      const isEmpresasExpired = empresasLicense?.expiresAt && empresasLicense.expiresAt <= now;
-      const isEmpresasFuture = empresasLicense?.startsAt && empresasLicense.startsAt > now;
-      const isEmpresasActive = empresasLicense?.status === "ACTIVE" && !isEmpresasExpired && !isEmpresasFuture;
-
-      if (!isEmpresasActive) {
+      if (!physicalCard.card.isActive || !(await hasCardProfileRight(physicalCard.cardId, physicalCard.companyId))) {
         return new NextResponse(
           `<html>
             <head>

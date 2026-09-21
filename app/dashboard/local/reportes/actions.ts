@@ -1,4 +1,5 @@
 "use server";
+import { requireCapability } from "@/lib/entitlements";
 import { prisma } from "../../../../lib/prisma";
 import { requireLocalAdmin } from "../../../../lib/local/access";
 import { periodStart } from "../../../../lib/local/report-period";
@@ -9,6 +10,7 @@ export async function saveReportSettings(_state:{error?:string;success?:string},
     const frequency=String(form.get("frequency"));
     if (frequency!=="WEEKLY" && frequency!=="MONTHLY") throw new Error("Frecuencia inválida.");
     const recipientIds=[...new Set(form.getAll("recipientIds").map(String))];
+    await requireCapability(company.id, "LOCAL_REPORTS");
     const enabled=form.get("enabled")==="on";
     if (recipientIds.length>10 || (enabled && !recipientIds.length)) throw new Error("Selecciona entre 1 y 10 destinatarios.");
     const users=await prisma.user.count({where:{id:{in:recipientIds},companyId:company.id,

@@ -3,7 +3,8 @@ import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import MetricsClient from "./MetricsClient";
-import { getProductLicense, isLicenseValid } from "../../../lib/product-access";
+import { hasCapability } from "../../../lib/entitlements";
+import { getCurrentUserContext } from "../../../lib/permissions";
 
 export default async function MetricsPage() {
   const session = await getServerSession(authOptions);
@@ -12,16 +13,11 @@ export default async function MetricsPage() {
     redirect("/login");
   }
 
-  const user = session.user as any;
+  const user = await getCurrentUserContext();
 
-  if (user.role !== "SUPERADMIN") {
-    const license = await getProductLicense(user.companyId, "EMPRESAS");
-    if (!isLicenseValid(license)) {
-      redirect("/dashboard/local");
-    }
-  }
+  if (!(await hasCapability(user.companyId, "ANALYTICS"))) redirect("/dashboard");
 
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
+  const isAdmin = (user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN") && await hasCapability(user.companyId, "COMPANY_AGGREGATED_ANALYTICS");
 
   // Consultar tarjetas del usuario o de toda la empresa según rol
   const cards = await prisma.card.findMany({

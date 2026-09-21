@@ -48,6 +48,25 @@ Local sin operación autorizada responde “Punto Inteligente temporalmente inac
 
 Servicios protegidos para Superadmin, sin nueva interfaz completa: concesión/restricción de capacidades y ajuste de límites con motivo, autor, vigencia, auditoría y revocación. Orden determinista por vigencia/creación/ID. No revocan el derecho base ni reabren Local inactivo o una empresa suspendida. Las restricciones comerciales no sustituyen los controles de tenant/rol.
 
+## Acciones restrictivas y política de edición (H-2 y H-3)
+
+Regla de producto: el vencimiento o la inactividad comercial de una suscripción puede impedir crear, ampliar o utilizar funciones premium, pero nunca impide reducir acceso, desactivar usuarios o identidades, ni recuperar el funcionamiento básico asociado a un derecho permanente. Las acciones restrictivas no dependen de TEAM_MANAGEMENT; las de expansión y onboarding sí. Ninguna concede TEAM_MANAGEMENT gratuito, y todas siguen exigiendo sesión revalidada, empresa activa, rol administrador y ownership del tenant en el servidor.
+
+| Acción | Teams activo | Teams vencido o inactivo | Suspensión de seguridad (Company.isActive=false) |
+|---|---|---|---|
+| Suspender colaborador (suspendCollaboratorUser) | Permitida | Permitida | Rechazada |
+| Desactivar identidad (toggleCardActive a inactiva) | Permitida | Permitida, salvo la propia identidad del administrador | Rechazada |
+| Reactivar identidad (toggleCardActive a activa) | Exige TEAM_MANAGEMENT, usuario ACTIVE y cupo | Rechazada | Rechazada |
+| Crear colaboradores o identidades | Exige TEAM_MANAGEMENT y cupo | Rechazada | Rechazada |
+| Reenviar invitación (onboarding) | Exige TEAM_MANAGEMENT | Rechazada | Rechazada |
+
+- **Autodesactivación:** sin TEAM_MANAGEMENT, un administrador no puede desactivar su propia identidad, porque no podría reactivarla hasta renovar. La protección está en el servidor (toggleCardActive, dentro de la transacción con lockCapacity) y la UI la refleja. Desactivar identidades de otros integrantes del mismo tenant sigue permitido. La suspensión de la propia cuenta ya estaba bloqueada.
+- **Modo restringido:** las páginas de integrantes y tarjetas dejan de redirigir cuando falta TEAM_MANAGEMENT. Un administrador de una empresa con perfiles (capability PROFILE) las ve en modo restringido: sin crear, reenviar ni reactivar, con listas y acciones de reducción de acceso. No se introdujo ninguna regla por cantidad de tarjetas ni de colaboradores. El resolver de entitlements no cambió.
+- **Política de edición efectiva:** el editor aplica `efectiva = PROFILE_EDIT_POLICY ? almacenada : FLEXIBLE` (getEffectiveProfileEditPolicy). Company.profileEditPolicy nunca se sobrescribe: ADMIN_ONLY y CORPORATE permanecen almacenadas y vuelven a aplicarse automáticamente al reactivar Teams, sin backfill ni migración. Cambiar la política sigue exigiendo PROFILE_EDIT_POLICY. Las ediciones hechas mientras la política estuvo en pausa no se revierten al reactivar.
+- **Sin cambios de schema, migración, backfill ni catálogo.**
+
+Pruebas: scripts/tests/entitlements.test.ts (función pura de política efectiva) y scripts/tests/entitlements-offboarding.test.ts (PostgreSQL desechable: acciones con Teams activo, vencido y suspensión de seguridad, autodesactivación, aislamiento entre empresas, COLLABORATOR, override que deshabilita TEAM_MANAGEMENT, plan legacy inactivo, ADMIN_ONLY y CORPORATE con Teams activo, vencido y reactivado).
+
 ## Validación
 
 Suite final: **52 passed, 0 failed, 0 skipped**. Incluye entitlements unitarios, integración PostgreSQL, backfill aislado, Local unitario/puntos/integración, seguridad de correo, escaneo de secretos, VCF y diseño de tarjeta física.
@@ -80,7 +99,7 @@ Persisten 141 advertencias de lint preexistentes y la advertencia de deprecació
 
 PostgreSQL y sus fixtures temporales permanecen bajo node_modules ignorado. No hay archivos .block2-postgres versionados ni incluidos entre nuevos archivos Git. No se incorporan credenciales ni cadenas de conexión a este informe.
 
-Revisión humana pendiente antes de commit/push/PR. La migración aún no se ha aplicado a ningún entorno real.
+Revisión humana pendiente antes de commit/push/PR. El QA funcional y visual de H-2/H-3 se ejecutó con Chrome headless contra un servidor de producción local y PostgreSQL desechable, en escritorio y móvil de 390 × 844: Teams activo, vencido y reactivado; acciones por UI, intentos saltándose la UI y repeticiones directas de acciones de servidor; editor con ADMIN_ONLY y CORPORATE. Se corrigió una barra vacía en Tarjetas en modo restringido. Observaciones preexistentes, sin corregir: en producción los errores lanzados por acciones de servidor llegan enmascarados al cliente, y en móvil la columna de acciones de Integrantes requiere desplazamiento horizontal. La migración aún no se ha aplicado a ningún entorno real.
 
 ## Git status y diff
 

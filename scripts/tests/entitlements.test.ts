@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CompanyProductLicense, CompanyCapabilityOverride, CompanyLimitOverride } from "@prisma/client";
 import { resolveEntitlements, type EntitlementInput } from "../../lib/entitlements/resolve";
+import { resolveEffectiveProfileEditPolicy } from "../../lib/profile-edit-policy-shared";
 const now = new Date("2026-09-17T12:00:00Z");
 function license(planCode: CompanyProductLicense["planCode"], status: CompanyProductLicense["status"] = "ACTIVE"): CompanyProductLicense {
   return { id: "l", companyId: "a", product: planCode.startsWith("LOCAL") ? "LOCAL" : "EMPRESAS", planCode, status, includedIdentities: 12, authorizedExtraIdentities: 0, includedBranches: 12, includedCampaigns: 4, includedTouchpoints: 20, maxActiveTouchpointsPerLocation: null, startsAt: null, expiresAt: null, renewsAt: null, notes: null, createdAt: now, updatedAt: now };
@@ -48,3 +49,19 @@ test("Overrides: dates, revocation, restrictions, tenant, security and inactive 
  assert.equal(normalizeLicenseInput("LOCAL",{planCode:"LOCAL_PACK_3",status:"ACTIVE",includedBranches:99}).includedBranches,3);
  assert.throws(()=>normalizeLicenseInput("LOCAL",{planCode:"LOCAL_CONTRACT",status:"ACTIVE",includedBranches:0}));
  });
+
+test("H-3: effective edit policy is the stored one only while PROFILE_EDIT_POLICY exists; stored value is never rewritten",()=>{
+  for(const stored of ["FLEXIBLE","CORPORATE","ADMIN_ONLY"] as const){
+    assert.equal(resolveEffectiveProfileEditPolicy(stored,true),stored);
+    assert.equal(resolveEffectiveProfileEditPolicy(stored,false),"FLEXIBLE");
+  }
+  const canGovern=(licenses: CompanyProductLicense[], isActive=true)=>resolveEntitlements({...input(licenses),isActive},now).capabilities.includes("PROFILE_EDIT_POLICY");
+  assert.equal(canGovern([license("EMPRESAS_TEAM_5")]),true);
+  for(const status of ["PENDING","SUSPENDED","CANCELLED","EXPIRED"] as const)assert.equal(canGovern([license("EMPRESAS_TEAM_5",status)]),false);
+  assert.equal(canGovern([license("EMPRESAS_CONECTA","EXPIRED")]),false,"inactive legacy plans do not keep the policy");
+  assert.equal(canGovern([license("EMPRESAS_PRO")]),false,"Pro alone never grants the Teams policy");
+  assert.equal(canGovern([license("EMPRESAS_TEAM_5")],false),false,"security suspension removes every capability");
+  const stored="ADMIN_ONLY" as const;
+  assert.equal(resolveEffectiveProfileEditPolicy(stored,canGovern([license("EMPRESAS_TEAM_5","EXPIRED")])),"FLEXIBLE");
+  assert.equal(resolveEffectiveProfileEditPolicy(stored,canGovern([license("EMPRESAS_TEAM_5")])),"ADMIN_ONLY","reactivation restores the stored policy");
+});

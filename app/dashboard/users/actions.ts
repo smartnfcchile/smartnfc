@@ -190,9 +190,9 @@ export async function resendInvitationFromDashboardAction(userId: string) {
   return { success: true };
 }
 
+// Offboarding only reduces access, so it never depends on TEAM_MANAGEMENT (role, tenant and active company still apply).
 export async function suspendCollaboratorUser(userId: string) {
   const admin = await getCurrentUserContext();
-  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
   if (!isAdmin) throw new Error("Solo los administradores pueden suspender colaboradores.");
   if (userId === admin.id) throw new Error("No puedes suspender tu propia cuenta desde esta sección.");

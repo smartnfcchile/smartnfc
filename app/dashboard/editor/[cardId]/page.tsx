@@ -7,7 +7,7 @@ import { updateCard, deleteLink, addLink } from "./actions";
 import { hasCapability } from "../../../../lib/entitlements";
 import { getCurrentUserContext } from "../../../../lib/permissions";
 import {
-  getCompanyProfileEditPolicy,
+  getEffectiveProfileEditPolicy,
   resolveProfileEditScope,
 } from "../../../../lib/profile-edit-policy";
 import CardEditorClient from "./CardEditorClient";
@@ -88,7 +88,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
     );
   }
 
-  const policy = await getCompanyProfileEditPolicy(card.companyId);
+  const policy = await getEffectiveProfileEditPolicy(card.companyId);
   const editScope = resolveProfileEditScope({
     userRole,
     userId: user.id,

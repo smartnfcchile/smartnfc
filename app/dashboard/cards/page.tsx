@@ -16,7 +16,9 @@ export default async function CardsPage() {
   const user = await getCurrentUserContext();
 
   const entitlements = await getCompanyEntitlements(user.companyId);
-  if (!entitlements.capabilities.includes("TEAM_MANAGEMENT")) redirect("/dashboard");
+  const canManage = entitlements.capabilities.includes("TEAM_MANAGEMENT");
+  // Without TEAM_MANAGEMENT the page stays available in restricted mode: administrators can only reduce access.
+  if (!canManage && !entitlements.capabilities.includes("PROFILE")) redirect("/dashboard");
 
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
@@ -58,10 +60,10 @@ export default async function CardsPage() {
         <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
           Crea perfiles corporativos de marca y activa o inactiva las tarjetas virtuales de tu equipo.
         </p>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Identidades activas: {activeIdentities} de {entitlements.limits.MAX_IDENTITIES ?? 0}</p>
+        {canManage && <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Identidades activas: {activeIdentities} de {entitlements.limits.MAX_IDENTITIES ?? 0}</p>}
       </div>
 
-      <CardsClient initialCards={cards} users={companyUsers} />
+      <CardsClient initialCards={cards} users={companyUsers} canManage={canManage} currentUserId={user.id} />
     </div>
   );
 }

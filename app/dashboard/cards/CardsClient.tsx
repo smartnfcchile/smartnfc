@@ -8,6 +8,7 @@ import { toggleCardActive, createVirtualCard } from "./actions";
 
 type CardWithUser = {
   id: string;
+  userId?: string;
   name: string;
   slug: string;
   isActive: boolean;
@@ -27,9 +28,11 @@ type UserRecord = {
 type CardsClientProps = {
   initialCards: CardWithUser[];
   users: UserRecord[];
+  canManage: boolean;
+  currentUserId: string;
 };
 
-export default function CardsClient({ initialCards, users }: CardsClientProps) {
+export default function CardsClient({ initialCards, users, canManage, currentUserId }: CardsClientProps) {
   const [cards, setCards] = useState<CardWithUser[]>(initialCards);
   
   // Estados de creación
@@ -52,6 +55,12 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
       .replace(/^-|-$/g, ""); // Quitar extremos
     setSlug(cleaned);
   };
+
+  // Mirrors the server rules: without Teams identities cannot be reactivated nor the administrator's own one deactivated.
+  const toggleBlocked = (item: CardWithUser) => !canManage && (!item.isActive || item.userId === currentUserId);
+  const toggleTitle = (item: CardWithUser) => !toggleBlocked(item) ? undefined : item.isActive
+    ? "No puedes desactivar tu propia identidad mientras tu plan Teams no esté activo."
+    : "Reactivar identidades requiere un plan Teams activo.";
 
   const handleToggleActive = async (cardId: string, currentActive: boolean) => {
     const newActiveState = !currentActive;
@@ -88,6 +97,7 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
         const assignedUser = users.find((u) => u.id === userId);
         const newCard: CardWithUser = {
           id: Math.random().toString(), // Temporal
+          userId,
           name,
           slug,
           isActive: true,
@@ -118,14 +128,22 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
   return (
     <div className="space-y-4">
       {/* Barra de Control */}
-      <div className="flex justify-end bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
-        <button
-          onClick={() => setModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-blue-600/10 active:scale-95 cursor-pointer"
-        >
-          ➕ Crear Tarjeta Virtual
-        </button>
-      </div>
+      {canManage && (
+        <div className="flex justify-end bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
+          <button
+            onClick={() => setModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-blue-600/10 active:scale-95 cursor-pointer"
+          >
+            ➕ Crear Tarjeta Virtual
+          </button>
+        </div>
+      )}
+
+      {!canManage && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-slate-700 dark:text-slate-300">
+          <strong>Gestión de equipos no disponible.</strong> Tu plan Teams no está activo: no puedes crear ni reactivar identidades, pero sí desactivar las de otros integrantes. Tus perfiles y datos se conservan.
+        </div>
+      )}
 
       {/* Tabla de Tarjetas */}
       <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
@@ -143,6 +161,9 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
                 <button
                   type="button"
                   onClick={() => handleToggleActive(item.id, item.isActive)}
+                  disabled={toggleBlocked(item)}
+                  title={toggleTitle(item)}
+                  style={toggleBlocked(item) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                   aria-label={`${item.isActive ? "Desactivar" : "Activar"} ${item.name}`}
                   aria-pressed={item.isActive}
                   className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
@@ -232,6 +253,9 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
                     <div className="flex items-center justify-center">
                       <button
                         onClick={() => handleToggleActive(item.id, item.isActive)}
+                        disabled={toggleBlocked(item)}
+                        title={toggleTitle(item)}
+                        style={toggleBlocked(item) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                           item.isActive ? "bg-blue-600" : "bg-slate-800"
                         }`}
@@ -278,7 +302,7 @@ export default function CardsClient({ initialCards, users }: CardsClientProps) {
       </div>
 
       {/* MODAL DE CREACIÓN DE TARJETA VIRTUAL */}
-      {modalOpen && (
+      {modalOpen && canManage && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !isPending && setModalOpen(false)} />
           <form

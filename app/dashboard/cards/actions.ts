@@ -4,12 +4,13 @@
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
-import { lockCapacity, grantProvisionedProfile, requireCapability } from "../../../lib/entitlements";
+import { lockCapacity, grantProvisionedProfile, hasCapability, requireCapability } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 
+// Deactivating an identity only reduces access, so it never depends on TEAM_MANAGEMENT.
+// Reactivating one expands Teams usage: it requires TEAM_MANAGEMENT, a valid user and available capacity.
 export async function toggleCardActive(cardId: string, isActive: boolean) {
   const admin = await getCurrentUserContext();
-  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -37,13 +38,18 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
     if (!card.user.isActive || card.user.status !== "ACTIVE") {
       throw new Error("No es posible activar una tarjeta perteneciente a un colaborador suspendido o pendiente.");
     }
-
   }
   await prisma.$transaction(async tx => {
     await lockCapacity(tx, admin.companyId);
-    await requireCapability(admin.companyId, "TEAM_MANAGEMENT", tx);
     const current = await tx.card.findFirstOrThrow({ where: { id: cardId, companyId: admin.companyId } });
-    if (isActive && !current.isActive && !(await canCreateIdentity(admin.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
+    const canManageTeam = await hasCapability(admin.companyId, "TEAM_MANAGEMENT", tx);
+    if (isActive) {
+      if (!canManageTeam) throw new Error("Reactivar identidades requiere un plan Teams activo.");
+      if (!current.isActive && !(await canCreateIdentity(admin.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
+    } else if (current.userId === admin.id && !canManageTeam) {
+      // Without Teams the administrator could not reactivate their own identity afterwards.
+      throw new Error("No puedes desactivar tu propia identidad mientras tu plan Teams no esté activo, porque no podrías reactivarla.");
+    }
     await tx.card.update({ where: { id: cardId }, data: { isActive } });
   });
 

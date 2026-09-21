@@ -12,7 +12,7 @@ import path from "path";
 import { getCurrentUserContext } from "../../../../lib/permissions";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 import {
-  getCompanyProfileEditPolicy,
+  getEffectiveProfileEditPolicy,
   resolveProfileEditScope,
   type ProfileEditScope,
 } from "../../../../lib/profile-edit-policy";
@@ -72,7 +72,7 @@ async function requireCardEditor(cardId: string): Promise<{
   });
   if (!card) throw new Error("Tarjeta no encontrada.");
 
-  const policy = await getCompanyProfileEditPolicy(card.companyId);
+  const policy = await getEffectiveProfileEditPolicy(card.companyId);
   const scope = resolveProfileEditScope({
     userRole: user.role,
     userId: user.id,

@@ -1,6 +1,6 @@
 BEGIN;
 -- CreateEnum
-CREATE TYPE "ProfileRightOrigin" AS ENUM ('PURCHASE', 'LEGACY_PRESERVED', 'ADMIN_GRANTED');
+CREATE TYPE "ProfileRightOrigin" AS ENUM ('INTERNAL', 'PILOT', 'PURCHASE', 'LEGACY_PRESERVED');
 
 -- AlterEnum
 -- This migration adds more than one value to an enum.
@@ -12,6 +12,7 @@ CREATE TYPE "ProfileRightOrigin" AS ENUM ('PURCHASE', 'LEGACY_PRESERVED', 'ADMIN
 
 ALTER TYPE "ProductPlanCode" ADD VALUE 'EMPRESAS_PROFILE';
 ALTER TYPE "ProductPlanCode" ADD VALUE 'EMPRESAS_PRO';
+ALTER TYPE "ProductPlanCode" ADD VALUE 'EMPRESAS_PILOT';
 ALTER TYPE "ProductPlanCode" ADD VALUE 'EMPRESAS_TEAM_5';
 ALTER TYPE "ProductPlanCode" ADD VALUE 'EMPRESAS_TEAM_10';
 ALTER TYPE "ProductPlanCode" ADD VALUE 'EMPRESAS_TEAM_25';
@@ -36,6 +37,9 @@ CREATE TABLE "CardProfileRight" (
     "reason" TEXT NOT NULL,
     "grantedByUserId" TEXT,
     "grantedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+    "revokedByUserId" TEXT,
 
     CONSTRAINT "CardProfileRight_pkey" PRIMARY KEY ("cardId")
 );
@@ -128,10 +132,8 @@ ALTER TABLE "CompanyCapabilityOverride" ADD CONSTRAINT "CompanyCapabilityOverrid
 -- AddForeignKey
 ALTER TABLE "CompanyLimitOverride" ADD CONSTRAINT "CompanyLimitOverride_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Backfill only: continuity is not evidence of a historical purchase.
-INSERT INTO "CardProfileRight" ("cardId", "companyId", "origin", "reason", "grantedAt")
-SELECT "id", "companyId", 'LEGACY_PRESERVED', 'Continuidad operacional; no acredita compra histórica', CURRENT_TIMESTAMP FROM "Card"
-ON CONFLICT ("cardId") DO NOTHING;
+-- No automatic backfill: origin (INTERNAL/PILOT/PURCHASE/LEGACY_PRESERVED) is always an explicit,
+-- auditable Superadmin decision per Card, never inferred from continuity alone.
 
 INSERT INTO "LocalLocation" ("id", "companyId", "key", "origin", "createdAt", "updatedAt")
 SELECT 'legacy_location_' || "companyId", "companyId", 'legacy-initial', 'LEGACY_TECHNICAL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
@@ -141,6 +143,7 @@ UPDATE "LocalCampaign" c SET "locationId" = l."id"
 FROM "LocalLocation" l WHERE l."companyId" = c."companyId" AND l."key" = 'legacy-initial' AND c."locationId" IS NULL;
 
 ALTER TABLE "CompanyProductLicense" ADD CONSTRAINT "License_new_point_limit_nonnegative" CHECK ("maxActiveTouchpointsPerLocation" IS NULL OR "maxActiveTouchpointsPerLocation" >= 0);
+ALTER TABLE "CardProfileRight" ADD CONSTRAINT "ProfileRight_validity" CHECK (length(trim("reason")) > 0 AND ("expiresAt" IS NULL OR "expiresAt" > "grantedAt"));
 ALTER TABLE "CompanyCapabilityOverride" ADD CONSTRAINT "Capability_override_validity" CHECK (length(trim("reason")) > 0 AND ("expiresAt" IS NULL OR "expiresAt" > "startsAt"));
 ALTER TABLE "CompanyLimitOverride" ADD CONSTRAINT "Limit_override_validity" CHECK ("value" >= 0 AND length(trim("reason")) > 0 AND ("expiresAt" IS NULL OR "expiresAt" > "startsAt"));
 

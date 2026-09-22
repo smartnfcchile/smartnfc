@@ -30,7 +30,8 @@ test("Block 2: real PostgreSQL authorization, retention and concurrency",{skip:!
     await t.test("Identity creation serializes at 5; reactivation cannot exceed capacity",async()=>{
       const results=await Promise.allSettled(Array.from({length:7},(_,i)=>createVirtualCard("Person "+i,"person-"+suffix+"-"+i,owner.id)));
       assert.equal(results.filter(r=>r.status==="fulfilled").length,5);assert.equal(await db.card.count({where:{companyId:a.id,isActive:true}}),5);
-      assert.equal(await db.cardProfileRight.count({where:{companyId:a.id}}),5);
+      // H-1: creating an identity is not itself a profile right; it relies on the active license.
+      assert.equal(await db.cardProfileRight.count({where:{companyId:a.id}}),0);
       const inactive=await db.card.create({data:{companyId:a.id,userId:owner.id,name:"Inactive",slug:"inactive-"+suffix,isActive:false}});
       await assert.rejects(()=>toggleCardActive(inactive.id,true));
       const active=await db.card.findFirstOrThrow({where:{companyId:a.id,isActive:true}});
@@ -42,9 +43,12 @@ test("Block 2: real PostgreSQL authorization, retention and concurrency",{skip:!
     const card=await db.card.findFirstOrThrow({where:{companyId:a.id,isActive:true}});
     const lead=await db.lead.create({data:{companyId:a.id,cardId:card.id,name:"Historical lead"}});
     await db.event.create({data:{cardId:card.id,eventType:"VIEW"}});
-    await t.test("Pro suspension preserves profile, lead and events; reactivation restores CRM",async()=>{
+    await t.test("H-1: PURCHASE preserves profile, lead and events across an Empresas suspension; reactivation restores CRM",async()=>{
       await db.companyProductLicense.update({where:{id:empresas.id},data:{planCode:"EMPRESAS_PRO",status:"ACTIVE"}});
       await updateLeadCRM(lead.id,"CONTACTADO","Before suspension");
+      // This identity was created via Teams (no automatic right, per H-1); a confirmed sale is what
+      // must make its profile survive the Empresas suspension below — not merely having been created.
+      await db.cardProfileRight.create({data:{cardId:card.id,companyId:a.id,origin:"PURCHASE",reason:"Test: confirmed sale"}});
       await db.companyProductLicense.update({where:{id:empresas.id},data:{status:"SUSPENDED"}});
       assert.equal(await hasCardProfileRight(card.id,a.id),true);
       const linkForm=new FormData();linkForm.set("cardId",card.id);linkForm.set("title","Base link");linkForm.set("url","https://example.test/profile");await addLink(linkForm);

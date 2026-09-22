@@ -1,8 +1,13 @@
-import type { CompanyProductLicense, CompanyCapabilityOverride, CompanyLimitOverride } from "@prisma/client";
+import type { CompanyProductLicense, CompanyCapabilityOverride, CompanyLimitOverride, CardProfileRight } from "@prisma/client";
 import { BASE, TEAM, LOCAL, CAPABILITIES, LIMITS, commercialOffer, type Capability, type Limit } from "./catalog";
 
 export function licenseActive(license: Pick<CompanyProductLicense, "status" | "startsAt" | "expiresAt"> | null | undefined, now = new Date()) {
   return !!license && license.status === "ACTIVE" && (!license.startsAt || license.startsAt <= now) && (!license.expiresAt || license.expiresAt > now);
+}
+// A profile right is effective while it exists, was not revoked, and (has no expiry or the expiry is still in the future).
+// INTERNAL/PURCHASE never carry expiresAt; PILOT does. Company.isActive still prevails over any of this (checked by the caller).
+export function profileRightEffective(right: Pick<CardProfileRight, "revokedAt" | "expiresAt"> | null | undefined, now = new Date()) {
+  return !!right && !right.revokedAt && (!right.expiresAt || right.expiresAt > now);
 }
 export type EntitlementInput = {
   companyId: string; isActive: boolean; maxIdentities: number; profileRights: number;

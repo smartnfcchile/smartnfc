@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 const base=process.env.BLOCK2_TEST_DATABASE_URL;
 const allowed=!!base && ["localhost","127.0.0.1"].includes(new URL(base).hostname) && new URL(base).pathname.includes("block2_disposable");
-test("Additive backfill on an isolated database preserves historical rows and migration files",{skip:!allowed},async()=>{
+test("H-1: additive migration preserves historical rows and migration files, without granting any automatic CardProfileRight",{skip:!allowed},async()=>{
   const suffix=randomUUID().replaceAll("-","").slice(0,12),name="block2_disposable_"+suffix;
   const uri=new URL(base!);uri.pathname="/"+name;
   const admin=new PrismaClient({datasources:{db:{url:base!}}});
@@ -38,16 +38,17 @@ test("Additive backfill on an isolated database preserves historical rows and mi
     await db.$executeRawUnsafe(`INSERT INTO "LocalConsentRecord" (id,"campaignId","subscriberId","consentVersion","consentText") VALUES ('consent','campaign','subscriber',1,'Historical consent')`);
     const before=await db.$queryRawUnsafe<Array<Record<string,unknown>>>(`SELECT * FROM "CompanyProductLicense"`);
     fs.cpSync(`prisma/migrations/${current}`,path.join(dir,"migrations",current),{recursive:true});deploy();
-    const right=await db.cardProfileRight.findUniqueOrThrow({where:{cardId:"profile"}});
-    assert.equal(right.origin,"LEGACY_PRESERVED");assert.equal(right.reference,null);assert.equal(right.companyId,"legacy");
+    // H-1: no CardProfileRight is granted automatically. Origin (INTERNAL/PILOT/PURCHASE) is always
+    // an explicit, later, auditable Superadmin decision — see docs/BLOCK_2_ENTITLEMENTS.md.
+    assert.equal(await db.cardProfileRight.count(),0);
     const campaign=await db.localCampaign.findUniqueOrThrow({where:{id:"campaign"},include:{localLocation:true,touchpoints:true}});
     assert.equal(campaign.localLocation?.name,null);assert.equal(campaign.localLocation?.origin,"LEGACY_TECHNICAL");assert.equal(campaign.localLocation?.id,"legacy_location_legacy");assert.equal(campaign.touchpoints[0].code,"stable-public-code");
     assert.equal(await db.lead.count(),1);assert.equal(await db.event.count(),1);assert.equal(await db.localSubscriber.count(),1);assert.equal(await db.localConsentRecord.count(),1);
     const after=await db.companyProductLicense.findUniqueOrThrow({where:{id:"license"}});
     for(const [key,value] of Object.entries(before[0]))assert.deepEqual(after[key as keyof typeof after],value,key);
     const physical=await db.physicalNfcCard.create({data:{companyId:"legacy",cardId:"profile",token:"replaceable-support"}});await db.physicalNfcCard.delete({where:{id:physical.id}});
-    assert.equal(await db.cardProfileRight.count(),1);
-    deploy();assert.equal(await db.localLocation.count(),1);assert.equal(await db.cardProfileRight.count(),1);
+    assert.equal(await db.cardProfileRight.count(),0);
+    deploy();assert.equal(await db.localLocation.count(),1);assert.equal(await db.cardProfileRight.count(),0);
     for(const [folder,digest] of hashes)assert.equal(hash(`prisma/migrations/${folder}/migration.sql`),digest);
   } finally {await db.$disconnect();}
 });

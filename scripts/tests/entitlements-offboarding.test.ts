@@ -31,7 +31,7 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
     db.user.create({data:{companyId,role,email:`${tag}-${suffix}@example.test`}});
   const mkCard=async(companyId:string,userId:string,tag:string,isActive=true)=>{
     const card=await db.card.create({data:{companyId,userId,name:tag,slug:`${tag}-${suffix}`,isActive,companyName:"Original Co"}});
-    await db.cardProfileRight.create({data:{cardId:card.id,companyId,origin:"ADMIN_GRANTED",reason:"Fixture"}});
+    await db.cardProfileRight.create({data:{cardId:card.id,companyId,origin:"PURCHASE",reason:"Fixture"}});
     return card;
   };
   const setLicense=(id:string,data:{status?:"ACTIVE"|"EXPIRED"|"SUSPENDED"|"CANCELLED";planCode?:"EMPRESAS_CONECTA"|"EMPRESAS_TEAM_10"})=>db.companyProductLicense.update({where:{id},data});

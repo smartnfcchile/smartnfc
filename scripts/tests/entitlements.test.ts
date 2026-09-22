@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CompanyProductLicense, CompanyCapabilityOverride, CompanyLimitOverride } from "@prisma/client";
-import { resolveEntitlements, type EntitlementInput } from "../../lib/entitlements/resolve";
+import { resolveEntitlements, profileRightEffective, type EntitlementInput } from "../../lib/entitlements/resolve";
 import { resolveEffectiveProfileEditPolicy } from "../../lib/profile-edit-policy-shared";
 const now = new Date("2026-09-17T12:00:00Z");
 function license(planCode: CompanyProductLicense["planCode"], status: CompanyProductLicense["status"] = "ACTIVE"): CompanyProductLicense {
@@ -64,4 +64,16 @@ test("H-3: effective edit policy is the stored one only while PROFILE_EDIT_POLIC
   const stored="ADMIN_ONLY" as const;
   assert.equal(resolveEffectiveProfileEditPolicy(stored,canGovern([license("EMPRESAS_TEAM_5","EXPIRED")])),"FLEXIBLE");
   assert.equal(resolveEffectiveProfileEditPolicy(stored,canGovern([license("EMPRESAS_TEAM_5")])),"ADMIN_ONLY","reactivation restores the stored policy");
+});
+
+test("H-1: profileRightEffective — exists, not revoked, and (no expiry or a future one)",()=>{
+  const day=24*60*60*1000;
+  assert.equal(profileRightEffective(null,now),false);
+  assert.equal(profileRightEffective(undefined,now),false);
+  assert.equal(profileRightEffective({revokedAt:null,expiresAt:null},now),true,"INTERNAL/PURCHASE: no expiry");
+  assert.equal(profileRightEffective({revokedAt:null,expiresAt:new Date(+now+day)},now),true,"PILOT: expiry in the future");
+  assert.equal(profileRightEffective({revokedAt:null,expiresAt:new Date(+now-day)},now),false,"PILOT: expiry in the past");
+  assert.equal(profileRightEffective({revokedAt:null,expiresAt:now},now),false,"PILOT: expiry exactly now is not future");
+  assert.equal(profileRightEffective({revokedAt:now,expiresAt:null},now),false,"revoked INTERNAL/PURCHASE");
+  assert.equal(profileRightEffective({revokedAt:now,expiresAt:new Date(+now+day)},now),false,"revoked PILOT still within its window");
 });

@@ -2,7 +2,7 @@
 
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
-import { lockCapacity, grantProvisionedProfile, requireCapability } from "../../../lib/entitlements";
+import { lockCapacity, requireCapability } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -92,7 +92,9 @@ export async function createCollaboratorWithCard(name: string, email: string) {
       },
     });
 
-    await grantProvisionedProfile(tx, card.id, company.id, admin.id);
+    // This only requests production of a physical card; it is not a confirmed sale. The identity
+    // works via the company's active license (empresasOperational) until Superadmin explicitly
+    // confirms the sale and assigns a permanent profile right (INTERNAL/PILOT/PURCHASE).
     const physicalCard = await tx.physicalNfcCard.create({
       data: { token: physicalToken, companyId: company.id, cardId: card.id, status: "PENDIENTE_GRABACION" },
     });

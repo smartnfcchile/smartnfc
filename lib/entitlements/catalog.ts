@@ -18,6 +18,9 @@ type Offer = { product: "EMPRESAS" | "LOCAL"; name: string; capabilities: readon
 export const DIGITAL_CATALOG = {
   EMPRESAS_PROFILE: { product: "EMPRESAS", name: "Perfil adquirido", capabilities: [], identities: 1 },
   EMPRESAS_PRO: { product: "EMPRESAS", name: "SmartNFC Pro", capabilities: PRO, monthlyClp: 7990, annualClp: 79900 },
+  // No fixed price or identity count: a pilot's capacity is set per case via includedIdentities on its
+  // license, and its premium capabilities (if any) via CompanyCapabilityOverride — both already exist.
+  EMPRESAS_PILOT: { product: "EMPRESAS", name: "Piloto comercial", capabilities: [] },
   EMPRESAS_TEAM_5: { product: "EMPRESAS", name: "Equipo 5", capabilities: TEAM, identities: 5, monthlyClp: 19990 },
   EMPRESAS_TEAM_10: { product: "EMPRESAS", name: "Equipo 10", capabilities: TEAM, identities: 10, monthlyClp: 34990 },
   EMPRESAS_TEAM_25: { product: "EMPRESAS", name: "Equipo 25", capabilities: TEAM, identities: 25, monthlyClp: 69990 },

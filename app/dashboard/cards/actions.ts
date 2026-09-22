@@ -4,7 +4,7 @@
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
-import { lockCapacity, grantProvisionedProfile, hasCapability, requireCapability } from "../../../lib/entitlements";
+import { lockCapacity, hasCapability, requireCapability } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 
 // Deactivating an identity only reduces access, so it never depends on TEAM_MANAGEMENT.
@@ -111,17 +111,17 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
     await lockCapacity(tx, admin.companyId);
     await requireCapability(admin.companyId, "TEAM_MANAGEMENT", tx);
     if (!(await canCreateIdentity(admin.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
-    const card = await tx.card.create({
-    data: {
-      name: name.trim(),
-      slug: normalizedSlug,
-      userId,
-      companyId: admin.companyId,
-      profileName: name.trim(),
-    },
-  });
-
-    await grantProvisionedProfile(tx, card.id, admin.companyId, admin.id);
+    // Creating an identity is not itself INTERNAL/PILOT/PURCHASE. It works via the company's active
+    // license (empresasOperational) until Superadmin explicitly assigns a permanent profile right.
+    await tx.card.create({
+      data: {
+        name: name.trim(),
+        slug: normalizedSlug,
+        userId,
+        companyId: admin.companyId,
+        profileName: name.trim(),
+      },
+    });
   });
   revalidatePath("/dashboard/cards");
   return { success: true };

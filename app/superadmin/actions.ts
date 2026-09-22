@@ -15,7 +15,7 @@ import { headers } from "next/headers";
 import { checkRateLimit } from "../../lib/rateLimit";
 
 import { ProductPlanCode, ProductLicenseStatus, SmartNfcProduct } from "@prisma/client";
-import { lockCapacity, grantProvisionedProfile } from "../../lib/entitlements";
+import { lockCapacity, setCardProfileRight, revokeCardProfileRight, type ProfileRightGrant } from "../../lib/entitlements";
 import { normalizeLicenseInput } from "../../lib/entitlements/license-input";
 import { canCreateIdentity } from "../../lib/product-access";
 
@@ -1052,7 +1052,8 @@ export async function createCompleteCardSuperadminAction(data: {
         }
       });
 
-      await grantProvisionedProfile(tx, digitalCard.id, data.companyId, superadmin.id);
+      // Creating the Card and its PhysicalNfcCard is production/provisioning, not a sale. The profile
+      // right (INTERNAL/PILOT/PURCHASE) is assigned separately via assignCardProfileRightAction.
       const physicalCard = await tx.physicalNfcCard.create({
         data: {
           token: finalToken,
@@ -1117,6 +1118,90 @@ export async function createCompleteCardSuperadminAction(data: {
   } catch (err: any) {
     console.error("Error al crear tarjeta completa:", err);
     return { success: false, error: err.message || "No fue posible crear la tarjeta." };
+  }
+}
+
+// 14. Asignar/actualizar el derecho de perfil de una Card (Bloque H-1)
+// Única vía para otorgar INTERNAL/PILOT/PURCHASE. Nunca automática, nunca en la creación de la Card:
+// siempre una decisión explícita y auditada de Superadmin. cardId es la PK de CardProfileRight, así
+// que una conversión (ej. PILOT -> PURCHASE) siempre reescribe la misma fila, nunca crea una segunda.
+export async function assignCardProfileRightAction(data: {
+  cardId: string;
+  origin: "INTERNAL" | "PILOT" | "PURCHASE";
+  expiresAt?: string;
+  reference?: string;
+  reason: string;
+}) {
+  try {
+    const superadmin = await requireSuperAdmin();
+    const card = await prisma.card.findUnique({ where: { id: data.cardId }, select: { id: true, companyId: true } });
+    if (!card) return { success: false, error: "Tarjeta no encontrada." };
+
+    const reason = data.reason?.trim();
+    if (!reason) return { success: false, error: "Indica un motivo para este derecho." };
+    if (data.origin === "PILOT" && !data.expiresAt) return { success: false, error: "Define la fecha de vencimiento del piloto." };
+    if (data.origin !== "PILOT" && data.expiresAt) return { success: false, error: "INTERNAL y PURCHASE no llevan fecha de vencimiento." };
+
+    let expiresAt: Date | null = null;
+    if (data.expiresAt) {
+      expiresAt = new Date(data.expiresAt);
+      if (!Number.isFinite(+expiresAt) || expiresAt <= new Date()) {
+        return { success: false, error: "La fecha de vencimiento del piloto debe ser una fecha futura válida." };
+      }
+    }
+    const reference = data.reference?.trim() || undefined;
+    const grant: ProfileRightGrant = { origin: data.origin, expiresAt, reference, reason };
+
+    await prisma.$transaction(async (tx) => {
+      await lockCapacity(tx, card.companyId);
+      await setCardProfileRight(tx, card.id, card.companyId, superadmin.id, grant);
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "PROFILE_RIGHT_ASSIGNED",
+          entityType: "CARD",
+          entityId: card.id,
+          companyId: card.companyId,
+          metadata: JSON.stringify({ origin: data.origin, expiresAt: expiresAt ? expiresAt.toISOString() : null, reference: reference ?? null, reason })
+        }
+      });
+    });
+
+    revalidatePath("/superadmin/tarjetas");
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("Error al asignar el derecho de perfil:", err);
+    return { success: false, error: err instanceof Error ? err.message : "No fue posible asignar el derecho de perfil." };
+  }
+}
+
+// 15. Revocar el derecho de perfil de una Card (ej. un INTERNAL o PILOT que ya no corresponde)
+export async function revokeCardProfileRightAction(cardId: string) {
+  try {
+    const superadmin = await requireSuperAdmin();
+    const card = await prisma.card.findUnique({ where: { id: cardId }, select: { id: true, companyId: true } });
+    if (!card) return { success: false, error: "Tarjeta no encontrada." };
+
+    await prisma.$transaction(async (tx) => {
+      await lockCapacity(tx, card.companyId);
+      await revokeCardProfileRight(tx, card.id, superadmin.id);
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "PROFILE_RIGHT_REVOKED",
+          entityType: "CARD",
+          entityId: card.id,
+          companyId: card.companyId,
+          metadata: null
+        }
+      });
+    });
+
+    revalidatePath("/superadmin/tarjetas");
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("Error al revocar el derecho de perfil:", err);
+    return { success: false, error: err instanceof Error ? err.message : "No fue posible revocar el derecho de perfil." };
   }
 }
 

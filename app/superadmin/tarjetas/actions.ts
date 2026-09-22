@@ -6,7 +6,7 @@ import { UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "../../../lib/prisma";
 import { requireSuperAdmin } from "../../../lib/permissions";
-import { lockCapacity, grantProvisionedProfile } from "../../../lib/entitlements";
+import { lockCapacity } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 import { sendEmail } from "../../../lib/email/send-email";
 import UserInvitationEmail from "../../../emails/UserInvitationEmail";
@@ -142,7 +142,8 @@ export async function createCorporateCardSuperadminAction(data: {
         },
       });
 
-      await grantProvisionedProfile(tx, digitalCard.id, company.id, superadmin.id);
+      // Creating the Card and its PhysicalNfcCard is production/provisioning, not a sale. The profile
+      // right (INTERNAL/PILOT/PURCHASE) is assigned separately via assignCardProfileRightAction.
       const physicalCard = await tx.physicalNfcCard.create({
         data: {
           token: finalToken,

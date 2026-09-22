@@ -41,7 +41,10 @@ export default async function SuperadminTarjetasPage() {
       name: true,
       profileName: true,
       isActive: true,
-      user: { select: { name: true, email: true } }
+      user: { select: { name: true, email: true } },
+      company: { select: { name: true } },
+      profileRight: { select: { origin: true, expiresAt: true, revokedAt: true, reference: true, reason: true } },
+      physicalCards: { select: { id: true, token: true, status: true, activatedAt: true } }
     }
   });
 

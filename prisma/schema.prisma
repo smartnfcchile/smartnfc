@@ -613,6 +613,7 @@ enum ProductLicenseStatus {
 enum ProductPlanCode {
   EMPRESAS_PROFILE
   EMPRESAS_PRO
+  EMPRESAS_PILOT
   EMPRESAS_TEAM_5
   EMPRESAS_TEAM_10
   EMPRESAS_TEAM_25
@@ -848,9 +849,10 @@ model LocalReportDelivery {
 }
 
 enum ProfileRightOrigin {
+  INTERNAL
+  PILOT
   PURCHASE
   LEGACY_PRESERVED
-  ADMIN_GRANTED
 }
 
 model CardProfileRight {
@@ -863,6 +865,9 @@ model CardProfileRight {
   reason          String
   grantedByUserId String?
   grantedAt       DateTime           @default(now())
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  revokedByUserId String?
 
   @@unique([cardId, companyId])
   @@index([companyId])

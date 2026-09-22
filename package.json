@@ -16,7 +16,7 @@
     "test:security": "node --test scripts/tests/secret-scan.test.mjs && tsx --test scripts/tests/email-security.test.ts",
     "typecheck": "tsc --noEmit",
     "test:entitlements": "tsx --test scripts/tests/entitlements.test.ts",
-    "test:entitlements:integration": "tsx --test scripts/tests/entitlements-integration.test.ts scripts/tests/entitlements-offboarding.test.ts scripts/tests/entitlements-backfill.test.ts"
+    "test:entitlements:integration": "tsx --test scripts/tests/entitlements-integration.test.ts scripts/tests/entitlements-offboarding.test.ts scripts/tests/entitlements-profile-rights.test.ts scripts/tests/entitlements-backfill.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

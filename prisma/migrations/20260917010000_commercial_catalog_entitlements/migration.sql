@@ -137,7 +137,9 @@ ALTER TABLE "CompanyLimitOverride" ADD CONSTRAINT "CompanyLimitOverride_companyI
 
 INSERT INTO "LocalLocation" ("id", "companyId", "key", "origin", "createdAt", "updatedAt")
 SELECT 'legacy_location_' || "companyId", "companyId", 'legacy-initial', 'LEGACY_TECHNICAL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-FROM "LocalCampaign" GROUP BY "companyId"
+FROM "LocalCampaign"
+WHERE "locationId" IS NULL
+GROUP BY "companyId"
 ON CONFLICT ("companyId", "key") DO NOTHING;
 UPDATE "LocalCampaign" c SET "locationId" = l."id"
 FROM "LocalLocation" l WHERE l."companyId" = c."companyId" AND l."key" = 'legacy-initial' AND c."locationId" IS NULL;

@@ -135,20 +135,16 @@ test(
       const b1 = await db.localCampaign.findUniqueOrThrow({ where: { id: orphanB1.id } });
       assert.equal(b1.locationId, existingLegacyB.id);
 
-      // Company C: the already-assigned campaign must never be reassigned — this holds regardless.
+      // Company C: every campaign is already assigned elsewhere — the backfill must not touch it,
+      // and must not invent an unused legacy-initial location for it either. The INSERT's own SELECT
+      // is scoped to `WHERE "locationId" IS NULL`, so a company with zero orphan campaigns never
+      // contributes a group, matching the sweep's own copy of this same statement (see
+      // scripts/maintenance/backfill-local-location-orphans.ts).
       const c1 = await db.localCampaign.findUniqueOrThrow({ where: { id: assignedC1.id } });
-      assert.equal(c1.locationId, manualLocationC.id, "The migration's UPDATE is scoped to locationId IS NULL and must never touch an already-assigned campaign.");
-      // NOTE (H-6 finding from testing the real SQL directly): the migration's own INSERT groups
-      // "LocalCampaign" by companyId with NO `WHERE "locationId" IS NULL` filter (unlike the H-4
-      // sweep script, which does add that filter to its own copy of this statement — see
-      // scripts/maintenance/backfill-local-location-orphans.ts). So a legacy-initial LocalLocation
-      // IS created here for Company C too, even though 100% of its campaigns are already assigned
-      // elsewhere. This is harmless (ON CONFLICT DO NOTHING keeps it a single row, and it is never
-      // referenced by any campaign), but it is real, previously undocumented behavior confirmed by
-      // exercising the actual migration SQL rather than a paraphrase of it.
+      assert.equal(c1.locationId, manualLocationC.id, "The already-assigned campaign must keep pointing at its original location.");
       const legacyC = await db.localLocation.findUnique({ where: { companyId_key: { companyId: companyC.id, key: "legacy-initial" } } });
-      assert.ok(legacyC, "Migration backfill creates an (unused) legacy-initial location even for companies whose campaigns are all already assigned elsewhere.");
-      assert.equal(await db.localCampaign.count({ where: { companyId: companyC.id, locationId: legacyC!.id } }), 0, "No campaign should ever end up pointing at this unused location.");
+      assert.equal(legacyC, null, "Company C has no orphan campaigns; no legacy-initial location should ever be created for it.");
+      assert.equal(await db.localLocation.count({ where: { companyId: companyC.id } }), 1, "Company C's only location remains the manually created one — nothing else.");
 
       // Company D: no campaigns, nothing created.
       assert.equal(await db.localLocation.count({ where: { companyId: companyD.id } }), 0);

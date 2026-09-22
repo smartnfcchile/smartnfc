@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireCapability } from "../../../../lib/entitlements";
 import { prisma } from "../../../../lib/prisma";
 import { getCurrentUserContext } from "../../../../lib/permissions";
 import {
@@ -15,6 +16,7 @@ export async function updateProfileEditPolicyAction(policy: ProfileEditPolicy) {
     throw new Error("Solo los administradores de la empresa pueden cambiar esta política.");
   }
 
+  await requireCapability(user.companyId, "PROFILE_EDIT_POLICY");
   await setCompanyProfileEditPolicy(user.companyId, policy);
 
   await prisma.adminAuditLog.create({

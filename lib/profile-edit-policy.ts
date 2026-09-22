@@ -1,11 +1,14 @@
 import { prisma } from "./prisma";
+import { hasCapability } from "./entitlements";
 import {
   PROFILE_EDIT_POLICIES,
+  resolveEffectiveProfileEditPolicy,
   type ProfileEditPolicy,
   type ProfileEditScope,
 } from "./profile-edit-policy-shared";
 
 export type { ProfileEditPolicy, ProfileEditScope } from "./profile-edit-policy-shared";
+export { resolveEffectiveProfileEditPolicy } from "./profile-edit-policy-shared";
 
 type UserRole = "SUPERADMIN" | "COMPANY_OWNER" | "COMPANY_ADMIN" | "COLLABORATOR";
 
@@ -22,6 +25,16 @@ export async function getCompanyProfileEditPolicy(companyId: string): Promise<Pr
   const value = company?.profileEditPolicy;
   if (value === "CORPORATE" || value === "ADMIN_ONLY") return value;
   return "FLEXIBLE";
+}
+
+// Policy that editors must enforce. The stored value is never modified here: when Teams lapses it is
+// ignored (FLEXIBLE) so the permanent basic profile stays usable, and it applies again on reactivation.
+export async function getEffectiveProfileEditPolicy(companyId: string): Promise<ProfileEditPolicy> {
+  const [stored, canGovern] = await Promise.all([
+    getCompanyProfileEditPolicy(companyId),
+    hasCapability(companyId, "PROFILE_EDIT_POLICY"),
+  ]);
+  return resolveEffectiveProfileEditPolicy(stored, canGovern);
 }
 
 export async function setCompanyProfileEditPolicy(companyId: string, policy: ProfileEditPolicy): Promise<void> {

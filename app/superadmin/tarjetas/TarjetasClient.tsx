@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import {
   registerPhysicalCardSuperadminAction,
   disassociatePhysicalCardSuperadminAction,
-  associatePhysicalCardToB2BSuperadminAction
+  associatePhysicalCardToB2BSuperadminAction,
+  assignCardProfileRightAction,
+  revokeCardProfileRightAction
 } from "../actions";
 import CreateCardWizard from "./CreateCardWizard";
 
@@ -26,10 +28,30 @@ type PhysicalCardItem = {
 };
 
 type CompanyItem = { id: string; name: string; slug: string | null };
-type DigitalCardItem = { id: string; companyId: string; slug: string; name: string; profileName: string | null; isActive: boolean; user: { name: string | null; email: string } };
+type ProfileRightOrigin = "INTERNAL" | "PILOT" | "PURCHASE" | "LEGACY_PRESERVED";
+type ProfileRightItem = { origin: ProfileRightOrigin; expiresAt: string | Date | null; revokedAt: string | Date | null; reference: string | null; reason: string };
+type DigitalCardItem = {
+  id: string; companyId: string; slug: string; name: string; profileName: string | null; isActive: boolean;
+  user: { name: string | null; email: string }; company: { name: string };
+  profileRight: ProfileRightItem | null;
+  physicalCards: Array<{ id: string; token: string; status: string; activatedAt: string | Date | null }>;
+};
 type CompanyUserItem = { id: string; companyId: string; name: string | null; email: string; status: string; role: string };
 type NfcStatus = "PENDIENTE_GRABACION" | "GRABADA" | "ENVIADA" | "ENTREGADA" | "ACTIVA" | "SUSPENDIDA";
 type TarjetasClientProps = { cards: PhysicalCardItem[]; companies: CompanyItem[]; digitalCards: DigitalCardItem[]; companyUsers: CompanyUserItem[]; originHost: string };
+
+// A right is "vigente" the same way the server computes it: exists, not revoked, and (no expiry or a future one).
+function rightEffective(right: ProfileRightItem | null): boolean {
+  if (!right || right.revokedAt) return false;
+  return !right.expiresAt || new Date(right.expiresAt).getTime() > Date.now();
+}
+function rightLabel(right: ProfileRightItem | null): string {
+  if (!right) return "— ninguno —";
+  const base = right.origin === "PILOT" ? `PILOT (vence ${new Date(right.expiresAt!).toLocaleDateString("es-CL")})` : right.origin;
+  if (right.revokedAt) return `${base} · revocado`;
+  if (right.origin === "PILOT" && !rightEffective(right)) return `${base} · vencido`;
+  return base;
+}
 
 export default function TarjetasClient({ cards: initialCards, companies, digitalCards, companyUsers, originHost }: TarjetasClientProps) {
   const router = useRouter();
@@ -49,6 +71,11 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
   const [registrationMode, setRegistrationMode] = useState<"guided" | "technical">("guided");
   const [linkingPhysicalCardId, setLinkingPhysicalCardId] = useState<string | null>(null);
   const [targetDigitalCardId, setTargetDigitalCardId] = useState("");
+  const [assigningRightCardId, setAssigningRightCardId] = useState<string | null>(null);
+  const [rightOrigin, setRightOrigin] = useState<"INTERNAL" | "PILOT" | "PURCHASE">("PILOT");
+  const [rightExpiresAt, setRightExpiresAt] = useState("");
+  const [rightReference, setRightReference] = useState("");
+  const [rightReason, setRightReason] = useState("");
 
   const profilesForCompany = (companyId: string) => digitalCards.filter(card => card.companyId === companyId);
   const openRegisterModal = () => { setRegistrationMode("guided"); setErrorMsg(null); setShowRegisterModal(true); };
@@ -83,6 +110,34 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
 
   const copyChipUrl = (token: string) => { const protocol = originHost.includes("localhost") ? "http" : "https"; const chipUrl = `${protocol}://${originHost}/t/${token}`; navigator.clipboard.writeText(chipUrl); alert(`¡URL copiada al portapapeles!\n\n${chipUrl}`); };
 
+  const openAssignRight = (card: DigitalCardItem) => {
+    setErrorMsg(null); setAssigningRightCardId(card.id);
+    setRightOrigin(card.profileRight?.origin === "PURCHASE" ? "PURCHASE" : "PILOT");
+    setRightExpiresAt(card.profileRight?.expiresAt ? new Date(card.profileRight.expiresAt).toISOString().slice(0, 10) : "");
+    setRightReference(card.profileRight?.reference || ""); setRightReason("");
+  };
+  const handleAssignRight = async () => {
+    if (!assigningRightCardId) return; setErrorMsg(null);
+    if (!rightReason.trim()) { setErrorMsg("Indica un motivo para este derecho."); return; }
+    startTransition(async () => {
+      const res = await assignCardProfileRightAction({
+        cardId: assigningRightCardId, origin: rightOrigin,
+        expiresAt: rightOrigin === "PILOT" ? rightExpiresAt || undefined : undefined,
+        reference: rightReference || undefined, reason: rightReason,
+      });
+      if (res.success) { setSuccessMsg("Derecho de perfil actualizado."); setAssigningRightCardId(null); router.refresh(); setTimeout(() => setSuccessMsg(null), 3000); }
+      else setErrorMsg(res.error || "No se pudo asignar el derecho de perfil.");
+    });
+  };
+  const handleRevokeRight = async (cardId: string) => {
+    if (!window.confirm("¿Revocar el derecho de perfil de esta tarjeta? El perfil básico dejará de estar disponible salvo que la empresa tenga una licencia Empresas activa.")) return;
+    startTransition(async () => {
+      const res = await revokeCardProfileRightAction(cardId);
+      if (res.success) { setSuccessMsg("Derecho de perfil revocado."); router.refresh(); setTimeout(() => setSuccessMsg(null), 3000); }
+      else setErrorMsg(res.error || "No se pudo revocar el derecho de perfil.");
+    });
+  };
+
   const filteredCards = cards.filter(card => {
     const matchesSearch = card.token.toLowerCase().includes(searchQuery.toLowerCase()) || card.company.name.toLowerCase().includes(searchQuery.toLowerCase()) || (card.batchCode && card.batchCode.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCompany = !companyFilter || card.company.id === companyFilter;
@@ -93,6 +148,12 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
     return matchesSearch && matchesCompany && matchesDestination;
   });
 
+  const filteredDigitalCards = digitalCards.filter(card => {
+    const matchesSearch = card.slug.toLowerCase().includes(searchQuery.toLowerCase()) || card.company.name.toLowerCase().includes(searchQuery.toLowerCase()) || (card.profileName || card.name).toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCompany = !companyFilter || card.companyId === companyFilter;
+    return matchesSearch && matchesCompany;
+  });
+
   return <div className="space-y-6">
     {errorMsg && <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-bold rounded-xl flex justify-between items-center"><span>⚠️ {errorMsg}</span><button onClick={() => setErrorMsg(null)}>✕</button></div>}
     {successMsg && <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-xl flex justify-between items-center"><span>🎉 {successMsg}</span><button onClick={() => setSuccessMsg(null)}>✕</button></div>}
@@ -100,6 +161,28 @@ export default function TarjetasClient({ cards: initialCards, companies, digital
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{[["Total Tarjetas", cards.length], ["Sin Destino", cards.filter(c => !c.cardId && !c.localTouchpointId).length], ["Vinculadas B2B", cards.filter(c => !!c.cardId).length], ["Vinculadas Local", cards.filter(c => !!c.localTouchpointId).length]].map(([label, value]) => <div key={String(label)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm"><span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest block">{label}</span><h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{value}</h3></div>)}</div>
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row gap-3"><input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar por token, lote o empresa..." className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs"/><select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs"><option value="">Todas las empresas</option>{companies.map(comp => <option key={comp.id} value={comp.id}>{comp.name}</option>)}</select><select value={destinationFilter} onChange={e => setDestinationFilter(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs"><option value="">Todos los destinos</option><option value="FREE">Sin destino</option><option value="B2B">B2B</option><option value="LOCAL">Local</option></select></div>
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800"><th className="px-5 py-3.5">Token / Chip URL</th><th className="px-5 py-3.5">Empresa</th><th className="px-5 py-3.5">Destino</th><th className="px-5 py-3.5">Estado</th><th className="px-5 py-3.5 text-right">Acciones</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{filteredCards.map(card => <tr key={card.id}><td className="px-5 py-4"><div className="font-mono font-bold">{card.token}</div><button onClick={() => copyChipUrl(card.token)} className="mt-1 text-blue-600 underline">Copiar URL chip</button></td><td className="px-5 py-4"><div className="font-bold">{card.company.name}</div><span className="mt-1 block text-[9px] text-slate-500">Empresa fija de producción</span></td><td className="px-5 py-4">{card.card ? <Link href={`/c/${card.card.slug}`} target="_blank" className="text-blue-600 underline">{card.card.name}</Link> : card.localTouchpoint ? <span>Local · {card.localTouchpoint.name}</span> : <span className="text-slate-500">Sin destino</span>}</td><td className="px-5 py-4">{card.status.replaceAll("_", " ")}</td><td className="px-5 py-4 text-right"><div className="flex flex-wrap justify-end gap-2">{!card.cardId && !card.localTouchpointId && <button onClick={() => { setLinkingPhysicalCardId(card.id); setTargetDigitalCardId(""); }} className="rounded-lg bg-blue-500/10 px-2 py-1 text-blue-700">Vincular B2B</button>}{(card.cardId || card.localTouchpointId) && <button onClick={() => handleDisassociate(card.id, card.token)} className="rounded-lg bg-rose-500/10 px-2 py-1 text-rose-700">Desvincular destino</button>}</div></td></tr>)}</tbody></table></div></div>
+    <div className="space-y-3">
+      <div><h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Derechos de Perfil</h2><p className="mt-1 text-xs text-slate-700 dark:text-slate-300 font-medium">INTERNAL/PILOT/PURCHASE se asignan aquí, siempre de forma explícita. Crear una tarjeta no otorga ningún derecho por sí sola.</p></div>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800"><th className="px-5 py-3.5">Perfil</th><th className="px-5 py-3.5">Derecho</th><th className="px-5 py-3.5">NFC física</th><th className="px-5 py-3.5">Estado físico</th><th className="px-5 py-3.5">Uso</th><th className="px-5 py-3.5 text-right">Acciones</th></tr></thead><tbody className="divide-y divide-slate-200 dark:divide-slate-800">{filteredDigitalCards.map(card => {
+        const physical = card.physicalCards[0];
+        return <tr key={card.id}>
+          <td className="px-5 py-4"><Link href={`/c/${card.slug}`} target="_blank" className="font-bold text-blue-600 hover:underline">{card.profileName || card.name}</Link><span className="mt-1 block text-[9px] text-slate-500">{card.company.name} · {card.isActive ? "Activa" : "Inactiva"}</span></td>
+          <td className="px-5 py-4">{rightLabel(card.profileRight)}</td>
+          <td className="px-5 py-4">{physical ? <span className="font-mono">{physical.token}</span> : <span className="text-slate-500">Sin asignar</span>}</td>
+          <td className="px-5 py-4">{physical ? physical.status.replaceAll("_", " ") : "—"}</td>
+          <td className="px-5 py-4">{physical?.activatedAt ? new Date(physical.activatedAt).toLocaleDateString("es-CL") : "Nunca activada"}</td>
+          <td className="px-5 py-4 text-right"><div className="flex flex-wrap justify-end gap-2"><button onClick={() => openAssignRight(card)} className="rounded-lg bg-blue-500/10 px-2 py-1 text-blue-700">{card.profileRight ? "Actualizar derecho" : "Asignar derecho"}</button>{card.profileRight && !card.profileRight.revokedAt && <button onClick={() => handleRevokeRight(card.id)} className="rounded-lg bg-rose-500/10 px-2 py-1 text-rose-700">Revocar</button>}</div></td>
+        </tr>;
+      })}</tbody></table></div></div>
+    </div>
+    {assigningRightCardId && <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"><div className="w-full max-w-md space-y-4 rounded-2xl bg-white dark:bg-slate-900 p-5">
+      <h3 className="font-black">Asignar derecho de perfil</h3>
+      <label className="block text-xs font-bold">Origen<select value={rightOrigin} onChange={e => setRightOrigin(e.target.value as typeof rightOrigin)} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950"><option value="INTERNAL">INTERNAL — uso interno SmartNFC</option><option value="PILOT">PILOT — piloto comercial gratuito</option><option value="PURCHASE">PURCHASE — venta confirmada</option></select></label>
+      {rightOrigin === "PILOT" && <label className="block text-xs font-bold">Vence el<input type="date" value={rightExpiresAt} onChange={e => setRightExpiresAt(e.target.value)} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950"/></label>}
+      <label className="block text-xs font-bold">Referencia (folio de venta, nombre del piloto, etc.)<input value={rightReference} onChange={e => setRightReference(e.target.value)} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950"/></label>
+      <label className="block text-xs font-bold">Motivo<textarea value={rightReason} onChange={e => setRightReason(e.target.value)} required className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" rows={2}/></label>
+      <div className="flex justify-end gap-2"><button onClick={() => setAssigningRightCardId(null)}>Cancelar</button><button disabled={isPending} onClick={handleAssignRight} className="rounded-xl bg-blue-600 px-4 py-2 text-white">Guardar</button></div>
+    </div></div>}
     {linkingPhysicalCardId && <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"><div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-5"><h3 className="font-black">Vincular identidad B2B</h3><select value={targetDigitalCardId} onChange={e => setTargetDigitalCardId(e.target.value)} className="mt-4 w-full rounded-xl border p-3 dark:bg-slate-950"><option value="">Selecciona perfil</option>{profilesForCompany(cards.find(c => c.id === linkingPhysicalCardId)?.companyId || "").map(profile => <option key={profile.id} value={profile.id}>{profile.profileName || profile.name}</option>)}</select><div className="mt-4 flex justify-end gap-2"><button onClick={() => setLinkingPhysicalCardId(null)}>Cancelar</button><button disabled={isPending || !targetDigitalCardId} onClick={() => handleAssociateB2B(linkingPhysicalCardId)} className="rounded-xl bg-blue-600 px-4 py-2 text-white">Vincular</button></div></div></div>}
     {showRegisterModal && registrationMode === "guided" && <CreateCardWizard companies={companies} companyUsers={companyUsers} onClose={() => setShowRegisterModal(false)} onTechnicalMode={() => setRegistrationMode("technical")} />}
     {showRegisterModal && registrationMode === "technical" && <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"><form onSubmit={handleRegisterCard} className="w-full max-w-lg space-y-4 rounded-2xl bg-white dark:bg-slate-900 p-6"><h3 className="text-lg font-black">Registrar solamente tarjeta física</h3><select value={selectedCompanyId} onChange={e => { setSelectedCompanyId(e.target.value); setSelectedDestinationCardId(""); }} className="w-full rounded-xl border p-3 dark:bg-slate-950">{companies.map(comp => <option key={comp.id} value={comp.id}>{comp.name}</option>)}</select><p className="text-[10px] text-slate-500">La empresa elegida será permanente para esta tarjeta física.</p><select value={selectedDestinationCardId} onChange={e => setSelectedDestinationCardId(e.target.value)} className="w-full rounded-xl border p-3 dark:bg-slate-950"><option value="">Sin destino</option>{profilesForCompany(selectedCompanyId).map(profile => <option key={profile.id} value={profile.id}>{profile.profileName || profile.name}</option>)}</select><input value={newToken} onChange={e => setNewToken(e.target.value)} placeholder="Token opcional" className="w-full rounded-xl border p-3 dark:bg-slate-950"/><input value={batchCode} onChange={e => setBatchCode(e.target.value)} placeholder="Lote opcional" className="w-full rounded-xl border p-3 dark:bg-slate-950"/><select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value as NfcStatus)} className="w-full rounded-xl border p-3 dark:bg-slate-950"><option value="PENDIENTE_GRABACION">Pendiente de grabación</option><option value="GRABADA">Grabada</option><option value="ENVIADA">Enviada</option><option value="ENTREGADA">Entregada</option><option value="ACTIVA">Activa</option><option value="SUSPENDIDA">Suspendida</option></select><div className="flex justify-end gap-2"><button type="button" onClick={() => setShowRegisterModal(false)}>Cancelar</button><button disabled={isPending} className="rounded-xl bg-blue-600 px-4 py-2 text-white">Registrar</button></div></form></div>}

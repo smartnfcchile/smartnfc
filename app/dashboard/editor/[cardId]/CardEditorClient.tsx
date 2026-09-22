@@ -34,6 +34,7 @@ type CardLink = {
 };
 
 type CardEditorProps = {
+  canCapture: boolean;
   card: CardProfileData & {
     id: string;
     userId: string;
@@ -55,6 +56,7 @@ type CardEditorProps = {
 };
 
 export default function CardEditorClient({
+  canCapture,
   card,
   updateCardAction,
   addLinkAction,
@@ -602,7 +604,8 @@ export default function CardEditorClient({
                 </div>
 
               {/* PESTAÑA: CRM / Captura de Prospectos */}
-              <div className={activeTab === "crm" ? "space-y-6 animate-fadeIn" : "hidden"}>
+              <fieldset disabled={!canCapture} className={activeTab === "crm" ? "space-y-6 animate-fadeIn" : "hidden"}>
+                  {!canCapture && <p>La captura de prospectos no está disponible. Tu configuración se conserva.</p>}
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Configuración de Captura (CRM)</h2>
                     <p className="text-xs text-slate-400">Activa el formulario de contacto para que tus visitantes compartan su información directo a tu CRM.</p>
@@ -686,7 +689,7 @@ export default function CardEditorClient({
                       </div>
                     </div>
                   )}
-                </div>
+                </fieldset>
 
               {/* PESTAÑA: Enlaces Personalizados */}
               <div className={activeTab === "links" ? "space-y-6 animate-fadeIn" : "hidden"}>

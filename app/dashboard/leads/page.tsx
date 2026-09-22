@@ -4,7 +4,8 @@ import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import LeadsClient from "./LeadsClient";
-import { getProductLicense, isLicenseValid } from "../../../lib/product-access";
+import { hasCapability } from "../../../lib/entitlements";
+import { getCurrentUserContext } from "../../../lib/permissions";
 
 export default async function LeadsPage() {
   const session = await getServerSession(authOptions);
@@ -13,14 +14,9 @@ export default async function LeadsPage() {
     redirect("/login");
   }
 
-  const user = session.user as any;
+  const user = await getCurrentUserContext();
 
-  if (user.role !== "SUPERADMIN") {
-    const license = await getProductLicense(user.companyId, "EMPRESAS");
-    if (!isLicenseValid(license)) {
-      redirect("/dashboard/local");
-    }
-  }
+  if (!(await hasCapability(user.companyId, "CRM"))) redirect("/dashboard");
 
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
 
@@ -29,6 +25,7 @@ export default async function LeadsPage() {
     where: isAdmin
       ? { companyId: user.companyId }
       : {
+          companyId: user.companyId,
           OR: [
             { card: { userId: user.id } },
             { interactions: { some: { card: { userId: user.id } } } },
@@ -56,12 +53,12 @@ export default async function LeadsPage() {
   const cardIds = cardsList.map((c) => c.id);
 
   // 3. Consultar los eventos de interacción de estas tarjetas para armar la línea de tiempo analítica
-  const events = await prisma.event.findMany({
+  const events = await hasCapability(user.companyId, "ANALYTICS") ? await prisma.event.findMany({
     where: {
       cardId: { in: cardIds },
     },
     orderBy: { createdAt: "desc" },
-  });
+  }) : [];
 
   return (
     <div className="space-y-6">

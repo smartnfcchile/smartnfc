@@ -1,20 +1,20 @@
 import type { ContactSource } from "@prisma/client";
 import { prisma } from "../prisma";
-import { isLicenseValid } from "../product-access";
+import { hasCapability } from "../entitlements";
 import { getPublicUrl } from "../public-url";
 import { escapeHtml } from "./report-email";
 import { pointConfigurationSchema, smartLinksSchema } from "./point-config";
 import { findLocalVisit, recordLocalAction, recordLocalArrival, recordTrackingIncident } from "./tracking";
 
 const privateHeaders = { "Cache-Control": "no-store, max-age=0", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow" };
-const unavailable = () => new Response("Este punto no está disponible.", { status: 403, headers: privateHeaders });
+const unavailable = () => new Response('<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Punto Inteligente temporalmente inactivo</title></head><body><main><p>Punto Inteligente temporalmente inactivo</p></main></body></html>', { status: 403, headers: { ...privateHeaders, "Content-Type": "text/html; charset=utf-8" } });
 export async function publicPoint(code: string) {
   if (!/^[a-zA-Z0-9_-]{3,100}$/.test(code)) return null;
   const point = await prisma.localTouchpoint.findUnique({ where: { code },
-    include: { campaign: { include: { company: { include: { productLicenses: { where: { product: "LOCAL" } } } } } } }
+    include: { campaign: { include: { localLocation: true, company: { include: { productLicenses: { where: { product: "LOCAL" } } } } } } }
   });
-  if (!point || !point.isActive || point.campaign.status === "ARCHIVED" || !point.campaign.company.isActive ||
-      !isLicenseValid(point.campaign.company.productLicenses[0] ?? null)) return null;
+  if (!point || !point.isActive || point.campaign.status === "ARCHIVED" || !point.campaign.company.isActive || (point.campaign.localLocation && !point.campaign.localLocation.isActive) ||
+      !(await hasCapability(point.campaign.companyId, "LOCAL_TOUCHPOINTS")) || !(await hasCapability(point.campaign.companyId, `LOCAL_${point.objective}`))) return null;
   if (point.objective === "CLUB") {
     if (point.campaign.status !== "PUBLISHED" || !point.campaign.publishedSnapshot) return null;
   } else {

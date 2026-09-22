@@ -1,3 +1,4 @@
+import { hasCapability } from "../../../lib/entitlements";
 import { findLocalVisit } from "../../../lib/local/tracking";
 import { signConsent } from "../../../lib/local/consent";
 import { notFound } from "next/navigation";
@@ -23,6 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const campaign = await prisma.localCampaign.findUnique({
     where: { slug },
     include: {
+      localLocation: true,
       company: {
         include: {
           productLicenses: {
@@ -33,11 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
   });
 
-  const localLicense = campaign?.company?.productLicenses?.[0];
-  const now = new Date();
-  const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
-  const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
-  const isActive = campaign?.company.isActive && localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+  const isActive = campaign?.company.isActive && (!campaign.localLocation || campaign.localLocation.isActive) && await hasCapability(campaign.companyId, "LOCAL_CLUB");
 
   if (!campaign || campaign.status !== "PUBLISHED" || !campaign.publishedSnapshot || !isActive) {
     return {
@@ -76,6 +74,7 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
   const campaign = await prisma.localCampaign.findUnique({
     where: { slug },
     include: {
+      localLocation: true,
       company: {
         include: {
           productLicenses: {
@@ -92,11 +91,7 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
   }
 
   // 3.1. Validar que la licencia Local de la empresa esté activa (Requisito Parte G y Parte 5)
-  const localLicense = campaign.company.productLicenses?.[0];
-  const now = new Date();
-  const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
-  const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
-  const isActive = campaign?.company.isActive && localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
+  const isActive = campaign?.company.isActive && (!campaign.localLocation || campaign.localLocation.isActive) && await hasCapability(campaign.companyId, "LOCAL_CLUB");
 
   if (!isActive) {
     return (
@@ -105,7 +100,7 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
           <div className="text-4xl">🏪</div>
           <h2 className="text-xl font-black text-white">No Disponible</h2>
           <p className="text-slate-400 text-sm leading-relaxed">
-            Esta experiencia no se encuentra disponible.
+            Punto Inteligente temporalmente inactivo
           </p>
         </div>
       </main>

@@ -1,3 +1,4 @@
+import { hasCapability } from "@/lib/entitlements";
 import { requireCompanyAdmin } from "@/lib/permissions";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "../../../../../lib/prisma";
@@ -9,13 +10,12 @@ type Params = {
   }>;
 };
 
-import { hasActiveProduct } from "../../../../../lib/product-access";
 
 export default async function EditCampaignPage({ params }: Params) {
   const user = await requireCompanyAdmin();
 
 
-  const hasLocal = await hasActiveProduct(user.companyId, "LOCAL");
+  const hasLocal = await hasCapability(user.companyId, "LOCAL_CLUB");
   if (!hasLocal) {
     redirect("/dashboard/local");
   }

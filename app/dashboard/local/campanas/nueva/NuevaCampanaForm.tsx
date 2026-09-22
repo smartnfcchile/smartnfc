@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createLocalCampaignAction } from "../../actions";
 
-export default function NuevaCampanaForm() {
+export default function NuevaCampanaForm({ locations }: { locations: Array<{ id: string; name: string | null }> }) {
+  const [locationId, setLocationId] = useState(locations[0]?.id || "");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -34,7 +35,7 @@ export default function NuevaCampanaForm() {
     startTransition(async () => {
       try {
         // 1. Crear campaña (Requisito 5)
-        const createRes = await createLocalCampaignAction({ name, slug, businessName, clubName });
+        const createRes = await createLocalCampaignAction({ name, slug, businessName, clubName, locationId });
         if (createRes.success && createRes.campaign) {
           // 3. Redirigir al editor
           router.push(`/dashboard/local/campanas/${createRes.campaign.id}`);
@@ -66,6 +67,7 @@ export default function NuevaCampanaForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-6">
+        {locations.length > 0 && <label>Local<select className="block w-full bg-slate-900 p-3" value={locationId} onChange={e => setLocationId(e.target.value)}>{locations.map((l, i) => <option key={l.id} value={l.id}>{l.name || `Local pendiente de identificar ${i + 1}`}</option>)}</select></label>}
         {error && (
           <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl">
             ⚠️ {error}

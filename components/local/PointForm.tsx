@@ -5,7 +5,7 @@ import { savePointAction, type PointFormState } from "../../app/dashboard/local/
 import { mediumLabels, objectiveLabels, pointObjectives, type PointConfiguration } from "../../lib/local/point-config";
 
 type Point = PointConfiguration & { id: string; campaignId: string; configurationVersion: number };
-export default function PointForm({ point, campaigns }: { point?: Point; campaigns: Array<{ id: string; name: string }> }) {
+export default function PointForm({ point, campaigns, locations = [] }: { locations?: Array<{ id: string; name: string | null }>; point?: Point; campaigns: Array<{ id: string; name: string }> }) {
   const [objective, setObjective] = useState<PointConfiguration["objective"]>(point?.objective || "GOOGLE_REVIEW");
   const [campaignId, setCampaignId] = useState(point?.campaignId || campaigns[0]?.id || "__new");
   const [state, action, pending] = useActionState(savePointAction, {} as PointFormState);
@@ -22,6 +22,7 @@ export default function PointForm({ point, campaigns }: { point?: Point; campaig
         {campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
       </select>
     </label>
+    {!point && campaignId === "__new" && locations.length > 0 && <label className="block">Local<select name="locationId" className={field} required>{locations.map((l, i) => <option key={l.id} value={l.id}>{l.name || `Local pendiente de identificar ${i + 1}`}</option>)}</select></label>}
     {campaignId === "__new" && <label className="block">Nombre de la campaña<input name="campaignName" className={field} placeholder="Puntos de mi local" required minLength={2} maxLength={80}/><span className="text-sm text-slate-500">Agrupa los puntos de tu local. Solo el objetivo Club necesita un formulario y beneficio publicados.</span></label>}
     <label className="block">Nombre del punto<input name="name" className={field} defaultValue={point?.name} placeholder="Caja principal" required maxLength={80}/></label>
     <label className="block">Ubicación física<input name="location" className={field} defaultValue={point?.location} placeholder="Mostrador, junto a la caja 1" required maxLength={160}/></label>

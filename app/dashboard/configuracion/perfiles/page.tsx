@@ -1,3 +1,4 @@
+import { hasCapability } from "../../../../lib/entitlements";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUserContext } from "../../../../lib/permissions";
@@ -11,6 +12,7 @@ export default async function ProfileGovernancePage() {
   const user = await getCurrentUserContext();
   if (!isCompanyAdminRole(user.role)) redirect("/dashboard/configuracion");
 
+  if (!(await hasCapability(user.companyId, "PROFILE_EDIT_POLICY"))) redirect("/dashboard/configuracion");
   const policy = await getCompanyProfileEditPolicy(user.companyId);
 
   return (

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { prisma } from "../../../../lib/prisma";
-import { requireLocalAdmin } from "../../../../lib/local/access";
+import { requireLocalPage } from "../../../../lib/local/access";
 import { mediumLabels, objectiveLabels } from "../../../../lib/local/point-config";
 export const dynamic = "force-dynamic";
 export default async function PointsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  const { company } = await requireLocalAdmin();
+  const { company } = await requireLocalPage("LOCAL_TOUCHPOINTS");
+
   const page = Math.max(1, Math.min(10000, Number((await searchParams).page) || 1));
   const points = await prisma.localTouchpoint.findMany({ where: { campaign: { companyId: company.id, status: { not: "ARCHIVED" } } },
     include: { campaign: { select: { name: true } }, physicalNfcCard: { select: { id: true } } },

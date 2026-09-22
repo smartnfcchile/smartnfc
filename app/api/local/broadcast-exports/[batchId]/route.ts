@@ -1,3 +1,4 @@
+import { hasCapability } from "@/lib/entitlements";
 import { requireCompanyAdmin } from "../../../../../lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
@@ -11,6 +12,7 @@ export async function GET(
   if (!user) return new NextResponse("No autorizado.", { status: 403 });
   const { batchId } = await params;
   const companyId = user.companyId;
+  if (!(await hasCapability(companyId, "LOCAL_EXPORTS"))) return new NextResponse("Capacidad no disponible.", { status: 403 });
 
   try {
     // 1. Obtener y validar el lote con sus items

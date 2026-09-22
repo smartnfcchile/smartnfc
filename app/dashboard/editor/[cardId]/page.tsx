@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
 import Link from "next/link";
 import { updateCard, deleteLink, addLink } from "./actions";
-import { getProductLicense, isLicenseValid } from "../../../../lib/product-access";
+import { hasCapability } from "../../../../lib/entitlements";
+import { getCurrentUserContext } from "../../../../lib/permissions";
 import {
-  getCompanyProfileEditPolicy,
+  getEffectiveProfileEditPolicy,
   resolveProfileEditScope,
 } from "../../../../lib/profile-edit-policy";
 import CardEditorClient from "./CardEditorClient";
@@ -23,14 +24,9 @@ export default async function EditorPage({ params }: EditorPageProps) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const user = session.user as any;
+  const user = await getCurrentUserContext();
 
-  if (user.role !== "SUPERADMIN") {
-    const license = await getProductLicense(user.companyId, "EMPRESAS");
-    if (!isLicenseValid(license)) {
-      redirect("/dashboard/local");
-    }
-  }
+  if (!(await hasCapability(user.companyId, "PROFILE_EDIT"))) redirect("/dashboard");
 
   const card = await prisma.card.findUnique({
     where: { id: cardId },
@@ -92,7 +88,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
     );
   }
 
-  const policy = await getCompanyProfileEditPolicy(card.companyId);
+  const policy = await getEffectiveProfileEditPolicy(card.companyId);
   const editScope = resolveProfileEditScope({
     userRole,
     userId: user.id,
@@ -167,6 +163,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
         </>
       )}
       <CardEditorClient
+        canCapture={await hasCapability(user.companyId, "LEAD_CAPTURE")}
         card={card as any}
         updateCardAction={updateCard}
         addLinkAction={addLink}

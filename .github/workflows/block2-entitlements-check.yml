@@ -1,0 +1,95 @@
+name: SmartNFC Block 2 — Entitlements & Migration Safety
+
+# Dedicated CI for Block 2 (commercial catalog + entitlements + Local licensing): the entitlements
+# model, offboarding/expiry behavior, CardProfileRight (H-1), the H-4 deployment-window sweep, and
+# migration-history protection (H-6). Kept separate from empresas-pr-check.yml on purpose (H-5) so
+# this surface has its own clearly identifiable, always-required check instead of silently riding
+# along inside a broader job.
+#
+# This workflow never touches Neon or production. The only PostgreSQL involved is the ephemeral
+# `postgres:16` service below, provisioned fresh for this job and discarded when it ends.
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  block2-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: smartnfc_block2_ci
+          POSTGRES_PASSWORD: block2-ci-only-ephemeral
+          POSTGRES_DB: block2_disposable_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smartnfc_block2_ci -d block2_disposable_ci"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      # Pathname deliberately contains "block2_disposable" — this is what both the suites'
+      # own `{ skip: !allowed }` gate and scripts/ci/assert-block2-test-database.ts require.
+      DATABASE_URL: postgresql://smartnfc_block2_ci:block2-ci-only-ephemeral@127.0.0.1:5432/block2_disposable_ci
+      BLOCK2_TEST_DATABASE_URL: postgresql://smartnfc_block2_ci:block2-ci-only-ephemeral@127.0.0.1:5432/block2_disposable_ci
+      NEXTAUTH_SECRET: ci-only-secret
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -p 5432 -U smartnfc_block2_ci -d block2_disposable_ci && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL service never became ready." >&2
+          exit 1
+
+      - name: Apply migrations (prisma migrate deploy)
+        run: npm run db:migrate
+
+      - name: Guard — refuse to run Block 2 suites without a valid disposable database
+        run: npm run ci:assert-block2-db
+
+      - name: Entitlements — unit tests (no DB)
+        run: npm run test:entitlements
+
+      - name: Entitlements — integration, offboarding, profile rights, backfill (sequential)
+        run: npm run test:entitlements:integration
+
+      - name: H-4 sweep — LocalCampaign/LocalLocation reconciliation
+        run: npm run test:sweep:local-location
+
+      - name: H-6 — migration history protection (frozen manifest)
+        run: npm run test:migration-history
+
+      - name: H-6 — direct idempotency of the migration's backfill SQL
+        run: npm run test:local-location-backfill-idempotency
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Secret scan
+        run: node scripts/check-secrets.mjs

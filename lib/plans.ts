@@ -1,3 +1,4 @@
+import { DIGITAL_CATALOG } from "./entitlements/catalog";
 import { ProductPlanCode, SmartNfcProduct } from "@prisma/client";
 
 export interface PlanCapacity {
@@ -9,6 +10,7 @@ export interface PlanCapacity {
 }
 
 export const PRODUCT_PLANS: Record<ProductPlanCode, PlanCapacity> = {
+  ...Object.fromEntries(Object.entries(DIGITAL_CATALOG).map(([code, offer]) => [code, { name: offer.name, includedIdentities: "identities" in offer ? offer.identities : null, includedCampaigns: null, includedBranches: "locations" in offer ? offer.locations : null, includedTouchpoints: null }])) as Record<ProductPlanCode, PlanCapacity>,
   EMPRESAS_CONECTA: {
     name: "Conecta",
     includedIdentities: 5,

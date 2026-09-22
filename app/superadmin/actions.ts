@@ -15,6 +15,8 @@ import { headers } from "next/headers";
 import { checkRateLimit } from "../../lib/rateLimit";
 
 import { ProductPlanCode, ProductLicenseStatus, SmartNfcProduct } from "@prisma/client";
+import { lockCapacity, setCardProfileRight, revokeCardProfileRight, type ProfileRightGrant } from "../../lib/entitlements";
+import { normalizeLicenseInput } from "../../lib/entitlements/license-input";
 import { canCreateIdentity } from "../../lib/product-access";
 
 function assertStrongPassword(password: string) {
@@ -25,6 +27,11 @@ function assertStrongPassword(password: string) {
 
 function mapPlanCodeToLegacyPlan(code: ProductPlanCode): PlanType {
   switch (code) {
+    case "EMPRESAS_PRO": return PlanType.PRO;
+    case "EMPRESAS_TEAM_5":
+    case "EMPRESAS_TEAM_10":
+    case "EMPRESAS_TEAM_25": return PlanType.BUSINESS;
+    case "EMPRESAS_TEAM_CONTRACT": return PlanType.ENTERPRISE;
     case "EMPRESAS_CONECTA": return PlanType.FREE;
     case "EMPRESAS_CRECE": return PlanType.STARTER;
     case "EMPRESAS_ESCALA": return PlanType.PRO;
@@ -38,6 +45,8 @@ function mapLicenseStatusToLegacyStatus(status: ProductLicenseStatus): string {
     case "ACTIVE": return "ACTIVE";
     case "SUSPENDED": return "SUSPENDED";
     case "CANCELLED": return "CANCELLED";
+    case "EXPIRED": return "EXPIRED";
+    case "PENDING": return "PENDING";
     default: return "ACTIVE";
   }
 }
@@ -69,6 +78,9 @@ export async function createCompanyAction(data: {
 }) {
   try {
     const superadmin = await requireSuperAdmin();
+
+    if (data.empresasLicense) data.empresasLicense = normalizeLicenseInput("EMPRESAS", data.empresasLicense);
+    if (data.localLicense) data.localLicense = normalizeLicenseInput("LOCAL", data.localLicense);
 
     // Normalizar y validar slug
     const normalizedSlug = data.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
@@ -367,10 +379,15 @@ export async function updateCompanyAction(companyId: string, data: {
       return { success: false, error: "Empresa no encontrada." };
     }
 
+    if (data.empresasLicense) data.empresasLicense = normalizeLicenseInput("EMPRESAS", data.empresasLicense);
+    if (data.localLicense) data.localLicense = normalizeLicenseInput("LOCAL", data.localLicense);
     const updated = await prisma.$transaction(async (tx) => {
+      await lockCapacity(tx, companyId);
+      const currentLicense = await tx.companyProductLicense.findUnique({ where: { companyId_product: { companyId, product: "EMPRESAS" } } });
+      const preserveHistoricalCapacity = data.empresasLicense?.planCode === "EMPRESAS_HISTORICO" && currentLicense?.planCode === "EMPRESAS_HISTORICO" && currentLicense.includedIdentities === null;
       // Sincronizar legacy si se provee Empresas, de lo contrario desactivada/cero si es local-only
       const legacyPlan = data.empresasLicense ? mapPlanCodeToLegacyPlan(data.empresasLicense.planCode) : company.plan;
-      const legacyMaxId = data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : 0;
+      const legacyMaxId = preserveHistoricalCapacity ? company.maxIdentities : data.empresasLicense ? Number(data.empresasLicense.includedIdentities) : 0;
       const legacyStatus = data.empresasLicense ? mapLicenseStatusToLegacyStatus(data.empresasLicense.status) : "CANCELLED";
 
       // 1. Actualizar empresa
@@ -398,7 +415,7 @@ export async function updateCompanyAction(companyId: string, data: {
           update: {
             planCode: data.empresasLicense.planCode,
             status: data.empresasLicense.status,
-            includedIdentities: Number(data.empresasLicense.includedIdentities),
+            includedIdentities: preserveHistoricalCapacity ? null : Number(data.empresasLicense.includedIdentities),
             authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
             startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
             expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
@@ -409,7 +426,7 @@ export async function updateCompanyAction(companyId: string, data: {
             product: "EMPRESAS",
             planCode: data.empresasLicense.planCode,
             status: data.empresasLicense.status,
-            includedIdentities: Number(data.empresasLicense.includedIdentities),
+            includedIdentities: preserveHistoricalCapacity ? null : Number(data.empresasLicense.includedIdentities),
             authorizedExtraIdentities: Number(data.empresasLicense.authorizedExtraIdentities),
             startsAt: data.empresasLicense.startsAt ? new Date(data.empresasLicense.startsAt) : null,
             expiresAt: data.empresasLicense.expiresAt ? new Date(data.empresasLicense.expiresAt) : null,
@@ -1005,6 +1022,8 @@ export async function createCompleteCardSuperadminAction(data: {
     const status = data.status || "ENTREGADA";
 
     const result = await prisma.$transaction(async (tx) => {
+      await lockCapacity(tx, data.companyId);
+      if (!(await canCreateIdentity(data.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
       if (!owner) {
         owner = await tx.user.create({
           data: {
@@ -1033,6 +1052,8 @@ export async function createCompleteCardSuperadminAction(data: {
         }
       });
 
+      // Creating the Card and its PhysicalNfcCard is production/provisioning, not a sale. The profile
+      // right (INTERNAL/PILOT/PURCHASE) is assigned separately via assignCardProfileRightAction.
       const physicalCard = await tx.physicalNfcCard.create({
         data: {
           token: finalToken,
@@ -1097,6 +1118,90 @@ export async function createCompleteCardSuperadminAction(data: {
   } catch (err: any) {
     console.error("Error al crear tarjeta completa:", err);
     return { success: false, error: err.message || "No fue posible crear la tarjeta." };
+  }
+}
+
+// 14. Asignar/actualizar el derecho de perfil de una Card (Bloque H-1)
+// Única vía para otorgar INTERNAL/PILOT/PURCHASE. Nunca automática, nunca en la creación de la Card:
+// siempre una decisión explícita y auditada de Superadmin. cardId es la PK de CardProfileRight, así
+// que una conversión (ej. PILOT -> PURCHASE) siempre reescribe la misma fila, nunca crea una segunda.
+export async function assignCardProfileRightAction(data: {
+  cardId: string;
+  origin: "INTERNAL" | "PILOT" | "PURCHASE";
+  expiresAt?: string;
+  reference?: string;
+  reason: string;
+}) {
+  try {
+    const superadmin = await requireSuperAdmin();
+    const card = await prisma.card.findUnique({ where: { id: data.cardId }, select: { id: true, companyId: true } });
+    if (!card) return { success: false, error: "Tarjeta no encontrada." };
+
+    const reason = data.reason?.trim();
+    if (!reason) return { success: false, error: "Indica un motivo para este derecho." };
+    if (data.origin === "PILOT" && !data.expiresAt) return { success: false, error: "Define la fecha de vencimiento del piloto." };
+    if (data.origin !== "PILOT" && data.expiresAt) return { success: false, error: "INTERNAL y PURCHASE no llevan fecha de vencimiento." };
+
+    let expiresAt: Date | null = null;
+    if (data.expiresAt) {
+      expiresAt = new Date(data.expiresAt);
+      if (!Number.isFinite(+expiresAt) || expiresAt <= new Date()) {
+        return { success: false, error: "La fecha de vencimiento del piloto debe ser una fecha futura válida." };
+      }
+    }
+    const reference = data.reference?.trim() || undefined;
+    const grant: ProfileRightGrant = { origin: data.origin, expiresAt, reference, reason };
+
+    await prisma.$transaction(async (tx) => {
+      await lockCapacity(tx, card.companyId);
+      await setCardProfileRight(tx, card.id, card.companyId, superadmin.id, grant);
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "PROFILE_RIGHT_ASSIGNED",
+          entityType: "CARD",
+          entityId: card.id,
+          companyId: card.companyId,
+          metadata: JSON.stringify({ origin: data.origin, expiresAt: expiresAt ? expiresAt.toISOString() : null, reference: reference ?? null, reason })
+        }
+      });
+    });
+
+    revalidatePath("/superadmin/tarjetas");
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("Error al asignar el derecho de perfil:", err);
+    return { success: false, error: err instanceof Error ? err.message : "No fue posible asignar el derecho de perfil." };
+  }
+}
+
+// 15. Revocar el derecho de perfil de una Card (ej. un INTERNAL o PILOT que ya no corresponde)
+export async function revokeCardProfileRightAction(cardId: string) {
+  try {
+    const superadmin = await requireSuperAdmin();
+    const card = await prisma.card.findUnique({ where: { id: cardId }, select: { id: true, companyId: true } });
+    if (!card) return { success: false, error: "Tarjeta no encontrada." };
+
+    await prisma.$transaction(async (tx) => {
+      await lockCapacity(tx, card.companyId);
+      await revokeCardProfileRight(tx, card.id, superadmin.id);
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: superadmin.id,
+          action: "PROFILE_RIGHT_REVOKED",
+          entityType: "CARD",
+          entityId: card.id,
+          companyId: card.companyId,
+          metadata: null
+        }
+      });
+    });
+
+    revalidatePath("/superadmin/tarjetas");
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("Error al revocar el derecho de perfil:", err);
+    return { success: false, error: err instanceof Error ? err.message : "No fue posible revocar el derecho de perfil." };
   }
 }
 

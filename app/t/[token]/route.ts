@@ -1,8 +1,10 @@
+import { hasCardProfileRight } from "../../../lib/entitlements";
 import { resolveLocalPoint } from "../../../lib/local/point-resolver";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { EventType } from "@prisma/client";
 import { getPublicUrl } from "../../../lib/public-url";
+import { PROFILE_INACTIVE_TITLE, PROFILE_INACTIVE_DETAIL } from "../../../lib/public-profile-status";
 
 type Params = {
   params: Promise<{
@@ -21,6 +23,7 @@ export async function GET(request: Request, { params }: Params) {
         card: {
           select: {
             slug: true,
+            isActive: true,
           },
         },
         company: {
@@ -216,14 +219,8 @@ export async function GET(request: Request, { params }: Params) {
 
     // 7. Ruta B2B
     if (physicalCard.cardId && physicalCard.card?.slug) {
-      // Validar licencia Empresas activa (Fail-Closed)
-      const empresasLicense = physicalCard.company.productLicenses.find(l => l.product === "EMPRESAS");
-      const now = new Date();
-      const isEmpresasExpired = empresasLicense?.expiresAt && empresasLicense.expiresAt <= now;
-      const isEmpresasFuture = empresasLicense?.startsAt && empresasLicense.startsAt > now;
-      const isEmpresasActive = empresasLicense?.status === "ACTIVE" && !isEmpresasExpired && !isEmpresasFuture;
-
-      if (!isEmpresasActive) {
+      // Individual deactivation keeps today's security wording (Fail-Closed, unchanged).
+      if (!physicalCard.card.isActive) {
         return new NextResponse(
           `<html>
             <head>
@@ -240,6 +237,29 @@ export async function GET(request: Request, { params }: Params) {
             </body>
           </html>`,
           { headers: { "content-type": "text/html; charset=utf-8" }, status: 403 }
+        );
+      }
+      // Card and Company are active: no permanent right, and no active Empresas license either
+      // (PILOT vencido, or a Teams identity without its own right after the license lapses).
+      // Neutral commercial wording, never exposing plan, payment or vencimiento.
+      if (!(await hasCardProfileRight(physicalCard.cardId, physicalCard.companyId))) {
+        return new NextResponse(
+          `<html>
+            <head>
+              <title>${PROFILE_INACTIVE_TITLE}</title>
+              <meta charset="utf-8">
+              <meta name="robots" content="noindex, follow">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="font-family: sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; text-align: center;">
+              <div style="background: #1e293b; border: 1px solid #334155; padding: 40px; border-radius: 16px; max-width: 400px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+                <span style="font-size: 48px;">🪪</span>
+                <h2 style="margin-top: 20px; font-weight: 900; color: #ffffff;">${PROFILE_INACTIVE_TITLE}</h2>
+                <p style="color: #94a3b8; font-size: 14px; line-height: 1.6;">${PROFILE_INACTIVE_DETAIL}</p>
+              </div>
+            </body>
+          </html>`,
+          { headers: { "content-type": "text/html; charset=utf-8", "Cache-Control": "no-store, max-age=0" }, status: 403 }
         );
       }
 

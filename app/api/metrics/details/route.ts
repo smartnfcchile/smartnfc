@@ -1,3 +1,4 @@
+import { hasCapability } from "@/lib/entitlements";
 // app/api/metrics/details/route.ts
 import { NextResponse } from "next/server";
 import { getCurrentUserContext } from "../../../../lib/permissions";
@@ -21,7 +22,8 @@ export async function GET(request: Request) {
   } catch {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
+  if (!(await hasCapability(user.companyId, "ANALYTICS"))) return NextResponse.json({ error: "Capacidad no disponible." }, { status: 403 });
+  const isAdmin = (user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN") && await hasCapability(user.companyId, "COMPANY_AGGREGATED_ANALYTICS");
 
   const { searchParams } = new URL(request.url);
   const metricType = searchParams.get("type"); // view, nfc, whatsapp, vcard, email, phone
@@ -79,7 +81,7 @@ export async function GET(request: Request) {
     });
 
     // 2. Obtenemos todos los leads de la empresa/usuario para cruzarlos
-    const leads = await prisma.lead.findMany({
+    const leads = await hasCapability(user.companyId, "CRM") ? await prisma.lead.findMany({
       where: { card: cardCondition },
       select: {
         name: true,
@@ -88,7 +90,7 @@ export async function GET(request: Request) {
         ipHash: true,
         cardId: true,
       },
-    });
+    }) : [];
 
     // 3. Mapeamos y cruzamos por ipHash
     const results = events.map((event) => {

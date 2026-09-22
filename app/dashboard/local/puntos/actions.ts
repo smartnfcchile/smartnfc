@@ -12,7 +12,7 @@ export async function savePointAction(_state: PointFormState, form: FormData): P
       name: String(form.get("name") || ""), location: String(form.get("location") || ""),
       objective: String(form.get("objective") || ""), medium: String(form.get("medium") || ""),
       isActive: form.get("isActive") === "on", destinationUrl: String(form.get("destinationUrl") || ""), smartLinks
-    }, String(form.get("pointId") || "") || undefined, Number(form.get("version")), String(form.get("campaignId") || ""), String(form.get("campaignName") || ""));
+    }, String(form.get("pointId") || "") || undefined, Number(form.get("version")), String(form.get("campaignId") || ""), String(form.get("campaignName") || ""), String(form.get("locationId") || "") || undefined);
     revalidatePath("/dashboard/local/puntos");
     revalidatePath("/dashboard/local/puntos/" + pointId);
     return { success: "Punto guardado. El código físico se conserva.", pointId };

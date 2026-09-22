@@ -3,17 +3,18 @@ import { authOptions } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import UsersClient from "./UsersClient";
-import { getProductLicense, isLicenseValid } from "../../../lib/product-access";
+import { getCompanyEntitlements } from "../../../lib/entitlements";
+import { getCurrentUserContext } from "../../../lib/permissions";
 
 export default async function UsersPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const user = session.user as any;
-  if (user.role !== "SUPERADMIN") {
-    const license = await getProductLicense(user.companyId, "EMPRESAS");
-    if (!isLicenseValid(license)) redirect("/dashboard/local");
-  }
+  const user = await getCurrentUserContext();
+  const entitlements = await getCompanyEntitlements(user.companyId);
+  const canManage = entitlements.capabilities.includes("TEAM_MANAGEMENT");
+  // Without TEAM_MANAGEMENT the page stays available in restricted mode: administrators can only reduce access.
+  if (!canManage && !entitlements.capabilities.includes("PROFILE")) redirect("/dashboard");
 
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
   if (!isAdmin) redirect("/dashboard");
@@ -24,6 +25,8 @@ export default async function UsersPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const activeIdentities = await prisma.card.count({ where: { companyId: user.companyId, isActive: true } });
+
   return (
     <div className="space-y-6">
       <div>
@@ -31,8 +34,9 @@ export default async function UsersPage() {
         <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
           Administra a los integrantes de tu empresa. Al registrar un colaborador, SmartNFC crea su tarjeta, envía la invitación y genera la solicitud de producción.
         </p>
+        {canManage && <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Identidades activas: {activeIdentities} de {entitlements.limits.MAX_IDENTITIES ?? 0}</p>}
       </div>
-      <UsersClient initialUsers={users} currentUserId={user.id} />
+      <UsersClient initialUsers={users} currentUserId={user.id} canManage={canManage} />
     </div>
   );
 }

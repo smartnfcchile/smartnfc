@@ -22,3 +22,8 @@ export const PROFILE_EDIT_POLICIES: Array<{
     description: "Las tarjetas son configuradas exclusivamente por administradores de la empresa.",
   },
 ];
+
+// Stored policy is preserved; without PROFILE_EDIT_POLICY the effective policy is FLEXIBLE.
+export function resolveEffectiveProfileEditPolicy(stored: ProfileEditPolicy, canGovern: boolean): ProfileEditPolicy {
+  return canGovern ? stored : "FLEXIBLE";
+}

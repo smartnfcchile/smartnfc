@@ -1,6 +1,8 @@
+import { hasCapability } from "@/lib/entitlements";
+import { prisma } from "../../../../../lib/prisma";
 import { requireCompanyAdmin } from "@/lib/permissions";
 import { redirect } from "next/navigation";
-import { hasActiveProduct, canCreateLocalCampaign } from "../../../../../lib/product-access";
+import { canCreateLocalCampaign } from "../../../../../lib/product-access";
 import Link from "next/link";
 import NuevaCampanaForm from "./NuevaCampanaForm";
 
@@ -9,7 +11,7 @@ export default async function NuevaCampanaPage() {
 
 
   // 1. Verificar licencia activa de Smart NFC Local
-  const hasLocal = await hasActiveProduct(user.companyId, "LOCAL");
+  const hasLocal = await hasCapability(user.companyId, "LOCAL_CLUB");
   if (!hasLocal) {
     redirect("/dashboard/local");
   }
@@ -41,5 +43,6 @@ export default async function NuevaCampanaPage() {
     );
   }
 
-  return <NuevaCampanaForm />;
+  const locations = await prisma.localLocation.findMany({ where: { companyId: user.companyId, isActive: true }, select: { id: true, name: true } });
+  return <NuevaCampanaForm locations={locations} />;
 }

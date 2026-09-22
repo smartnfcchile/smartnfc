@@ -44,6 +44,10 @@ enum EventType {
 }
 
 model Company {
+  profileRights       CardProfileRight[]
+  locations           LocalLocation[]
+  capabilityOverrides CompanyCapabilityOverride[]
+  limitOverrides      CompanyLimitOverride[]
   id                  String                      @id @default(cuid())
   name                String
   slug                String?                     @unique
@@ -104,6 +108,7 @@ model User {
 }
 
 model Card {
+  profileRight  CardProfileRight?
   id            String            @id @default(cuid())
   slug          String            @unique
   name          String
@@ -173,6 +178,8 @@ model Card {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([id, companyId])
 }
 
 enum PhysicalDesignCategory {
@@ -420,13 +427,15 @@ enum LocalEventType {
 }
 
 model LocalCampaign {
-  id        String                @id @default(cuid())
-  companyId String
-  company   Company               @relation(fields: [companyId], references: [id])
-  name      String
-  slug      String                @unique
-  status    LocalCampaignStatus   @default(DRAFT)
-  template  LocalCampaignTemplate @default(URBAN)
+  locationId    String?
+  localLocation LocalLocation?        @relation(fields: [locationId, companyId], references: [id, companyId], onDelete: Restrict)
+  id            String                @id @default(cuid())
+  companyId     String
+  company       Company               @relation(fields: [companyId], references: [id])
+  name          String
+  slug          String                @unique
+  status        LocalCampaignStatus   @default(DRAFT)
+  template      LocalCampaignTemplate @default(URBAN)
 
   // Configuración de borrador
   logoUrl            String?
@@ -602,6 +611,17 @@ enum ProductLicenseStatus {
 }
 
 enum ProductPlanCode {
+  EMPRESAS_PROFILE
+  EMPRESAS_PRO
+  EMPRESAS_PILOT
+  EMPRESAS_TEAM_5
+  EMPRESAS_TEAM_10
+  EMPRESAS_TEAM_25
+  EMPRESAS_TEAM_CONTRACT
+  LOCAL_PRO
+  LOCAL_PACK_3
+  LOCAL_PACK_5
+  LOCAL_CONTRACT
   EMPRESAS_CONECTA
   EMPRESAS_CRECE
   EMPRESAS_ESCALA
@@ -613,12 +633,13 @@ enum ProductPlanCode {
 }
 
 model CompanyProductLicense {
-  id        String               @id @default(cuid())
-  companyId String
-  company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  product   SmartNfcProduct
-  planCode  ProductPlanCode
-  status    ProductLicenseStatus @default(ACTIVE)
+  maxActiveTouchpointsPerLocation Int?
+  id                              String               @id @default(cuid())
+  companyId                       String
+  company                         Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product                         SmartNfcProduct
+  planCode                        ProductPlanCode
+  status                          ProductLicenseStatus @default(ACTIVE)
 
   includedIdentities        Int?
   authorizedExtraIdentities Int? @default(0)
@@ -825,4 +846,80 @@ model LocalReportDelivery {
 
   @@unique([reportId, recipientId, kind])
   @@index([status, nextAttemptAt])
+}
+
+enum ProfileRightOrigin {
+  INTERNAL
+  PILOT
+  PURCHASE
+  LEGACY_PRESERVED
+}
+
+model CardProfileRight {
+  cardId          String             @id
+  companyId       String
+  card            Card               @relation(fields: [cardId, companyId], references: [id, companyId], onDelete: Restrict)
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  origin          ProfileRightOrigin
+  reference       String?
+  reason          String
+  grantedByUserId String?
+  grantedAt       DateTime           @default(now())
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  @@unique([cardId, companyId])
+  @@index([companyId])
+}
+
+model LocalLocation {
+  id        String          @id @default(cuid())
+  companyId String
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  key       String
+  name      String?
+  address   String?
+  origin    String          @default("MANUAL")
+  isActive  Boolean         @default(true)
+  campaigns LocalCampaign[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([id, companyId])
+  @@unique([companyId, key])
+}
+
+model CompanyCapabilityOverride {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  capability      String
+  enabled         Boolean
+  startsAt        DateTime  @default(now())
+  expiresAt       DateTime?
+  reason          String
+  authorUserId    String
+  revokedAt       DateTime?
+  revokedByUserId String?
+  createdAt       DateTime  @default(now())
+
+  @@index([companyId, capability, startsAt])
+}
+
+model CompanyLimitOverride {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  limit           String
+  value           Int
+  startsAt        DateTime  @default(now())
+  expiresAt       DateTime?
+  reason          String
+  authorUserId    String
+  revokedAt       DateTime?
+  revokedByUserId String?
+  createdAt       DateTime  @default(now())
+
+  @@index([companyId, limit, startsAt])
 }

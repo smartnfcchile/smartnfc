@@ -1,6 +1,8 @@
 // app/dashboard/local/actions.ts
 "use server";
 
+import { lockCapacity, requireCapability } from "../../../lib/entitlements";
+import { selectLocation } from "../../../lib/local/locations";
 import { subscribeLocal } from "../../../lib/local/subscription";
 import { prisma } from "../../../lib/prisma";
 import { requireCompanyAdmin } from "../../../lib/permissions";
@@ -16,8 +18,9 @@ import { LocalCampaignStatus } from "@prisma/client";
 import { requireProductAccess, canCreateLocalCampaign, canCreateLocalTouchpoint } from "../../../lib/product-access";
 
 // 1. Crear Campaña Local (Requisito 5)
-export async function createLocalCampaignAction(payload: { name: string; slug: string; businessName?: string; clubName?: string }) {
+export async function createLocalCampaignAction(payload: { name: string; slug: string; businessName?: string; clubName?: string; locationId?: string }) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_CLUB");
 
   // Validar licencia activa
   await requireProductAccess(admin.companyId, "LOCAL");
@@ -41,13 +44,16 @@ export async function createLocalCampaignAction(payload: { name: string; slug: s
 
   // Crear campaña con Touchpoint "Principal" inicial en una transacción
   const campaign = await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"local-capacity:"+admin.companyId}))`;
-    if (!(await canCreateLocalCampaign(admin.companyId)) || !(await canCreateLocalTouchpoint(admin.companyId))) {
+    await lockCapacity(tx, admin.companyId);
+    await requireCapability(admin.companyId, "LOCAL_CLUB", tx);
+    const location = await selectLocation(admin.companyId, payload.locationId, tx);
+    if (!(await canCreateLocalCampaign(admin.companyId, tx)) || !(await canCreateLocalTouchpoint(admin.companyId, location.id, tx))) {
       throw new Error("No hay cupo disponible para la campaña y su punto.");
     }
     return await tx.localCampaign.create({
       data: {
         companyId: admin.companyId,
+        locationId: location.id,
         name: validated.name.trim(),
         businessName: validated.businessName,
         clubName: validated.clubName,
@@ -85,6 +91,7 @@ export async function createLocalCampaignAction(payload: { name: string; slug: s
 // 2. Actualizar Campaña Local (Requisito 5)
 export async function updateLocalCampaignAction(campaignId: string, payload: any) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_CLUB");
 
   // Validar licencia activa
   await requireProductAccess(admin.companyId, "LOCAL");
@@ -144,6 +151,7 @@ export async function updateLocalCampaignAction(campaignId: string, payload: any
 // 3. Publicar Campaña Local (Requisito 5)
 export async function publishLocalCampaignAction(campaignId: string, payload: any) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_CLUB");
 
   // Validar licencia activa
   await requireProductAccess(admin.companyId, "LOCAL");
@@ -156,7 +164,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
 
   // 2. Ejecutar la actualización del borrador y la generación del snapshot atómicamente en una transacción (Parte B)
   const updated = await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"local-capacity:"+admin.companyId}))`;
+    await lockCapacity(tx, admin.companyId);
     // Actualizar campos de borrador
     const campaign = await tx.localCampaign.update({
       where: {
@@ -186,7 +194,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
       }
     });
 
-    if (campaign.status === "ARCHIVED" && !(await canCreateLocalCampaign(admin.companyId))) {
+    if (campaign.status === "ARCHIVED" && !(await canCreateLocalCampaign(admin.companyId, tx))) {
       throw new Error("No hay cupo para republicar esta campaña.");
     }
     // Validar campos requeridos en el servidor antes de publicar (no confiar en el cliente)
@@ -256,6 +264,7 @@ export async function publishLocalCampaignAction(campaignId: string, payload: an
 // 4. Archivar Campaña Local (Requisito 5)
 export async function archiveLocalCampaignAction(campaignId: string) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_CLUB");
 
   // Validar licencia activa
   await requireProductAccess(admin.companyId, "LOCAL");
@@ -420,6 +429,7 @@ export async function disassociateNfcCardAction(payload: { cardPhysicalId: strin
 
 export async function createBroadcastExportBatchAction(campaignId?: string) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_EXPORTS");
   const companyId = admin.companyId;
 
   // Validar licencia activa
@@ -553,6 +563,7 @@ export async function createBroadcastExportBatchAction(campaignId?: string) {
 
 export async function confirmBroadcastExportBatchAction(batchId: string) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_EXPORTS");
   const companyId = admin.companyId;
 
   try {
@@ -639,6 +650,7 @@ export async function confirmBroadcastExportBatchAction(batchId: string) {
 
 export async function cancelBroadcastExportBatchAction(batchId: string) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_EXPORTS");
   const companyId = admin.companyId;
 
   try {
@@ -690,6 +702,7 @@ export async function cancelBroadcastExportBatchAction(batchId: string) {
 
 export async function registerSubscriberOptOutAction(subscriberId: string) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_SUBSCRIBERS");
   const companyId = admin.companyId;
 
   try {
@@ -783,6 +796,7 @@ export async function registerSubscriberOptOutAction(subscriberId: string) {
 
 export async function blockSubscriberAction(subscriberId: string) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_SUBSCRIBERS");
   const companyId = admin.companyId;
 
   try {
@@ -874,6 +888,7 @@ export async function blockSubscriberAction(subscriberId: string) {
 
 export async function confirmBroadcastRemovalAction(removalId: string) {
   const admin = await requireCompanyAdmin();
+  await requireCapability(admin.companyId, "LOCAL_EXPORTS");
   const companyId = admin.companyId;
 
   try {

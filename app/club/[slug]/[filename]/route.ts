@@ -1,3 +1,4 @@
+import { hasCapability } from "../../../../lib/entitlements";
 import { recordLocalAction } from "../../../../lib/local/tracking";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
@@ -31,6 +32,7 @@ export async function GET(
     const campaign = await prisma.localCampaign.findUnique({
       where: { slug },
       include: {
+        localLocation: true,
         company: {
           include: {
             productLicenses: {
@@ -52,22 +54,7 @@ export async function GET(
     }
 
     // 3. Validar licencia Local activa y vigente
-    const localLicense = campaign.company?.productLicenses?.[0];
-    const now = new Date();
-    const isExpired = localLicense?.expiresAt && localLicense.expiresAt <= now;
-    const isFuture = localLicense?.startsAt && localLicense.startsAt > now;
-    const isActive = campaign.company.isActive && localLicense?.status === "ACTIVE" && !isExpired && !isFuture;
-
-    if (!isActive) {
-      return new NextResponse("Esta experiencia no se encuentra disponible.", {
-        status: 403,
-        headers: {
-          "X-Content-Type-Options": "nosniff",
-          "Cache-Control": "no-store"
-        }
-      });
-    }
-
+    if ((campaign.localLocation && !campaign.localLocation.isActive) || !(await hasCapability(campaign.companyId, "LOCAL_CLUB"))) return new Response("Punto Inteligente temporalmente inactivo", { status: 403, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
     // 4. Cargar snapshot publicado
     if (!campaign.publishedSnapshot) {
       return new NextResponse("Contacto no configurado", {

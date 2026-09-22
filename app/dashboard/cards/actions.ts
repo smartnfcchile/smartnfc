@@ -4,8 +4,11 @@
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUserContext } from "../../../lib/permissions";
 import { revalidatePath } from "next/cache";
+import { lockCapacity, hasCapability, requireCapability } from "../../../lib/entitlements";
 import { canCreateIdentity } from "../../../lib/product-access";
 
+// Deactivating an identity only reduces access, so it never depends on TEAM_MANAGEMENT.
+// Reactivating one expands Teams usage: it requires TEAM_MANAGEMENT, a valid user and available capacity.
 export async function toggleCardActive(cardId: string, isActive: boolean) {
   const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
@@ -35,16 +38,19 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
     if (!card.user.isActive || card.user.status !== "ACTIVE") {
       throw new Error("No es posible activar una tarjeta perteneciente a un colaborador suspendido o pendiente.");
     }
-
-    const canAct = await canCreateIdentity(admin.companyId);
-    if (!canAct) {
-      throw new Error("No es posible activar esta tarjeta. Has alcanzado el límite de identidades activas para tu plan.");
-    }
   }
-
-  await prisma.card.update({
-    where: { id: cardId },
-    data: { isActive },
+  await prisma.$transaction(async tx => {
+    await lockCapacity(tx, admin.companyId);
+    const current = await tx.card.findFirstOrThrow({ where: { id: cardId, companyId: admin.companyId } });
+    const canManageTeam = await hasCapability(admin.companyId, "TEAM_MANAGEMENT", tx);
+    if (isActive) {
+      if (!canManageTeam) throw new Error("Reactivar identidades requiere un plan Teams activo.");
+      if (!current.isActive && !(await canCreateIdentity(admin.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
+    } else if (current.userId === admin.id && !canManageTeam) {
+      // Without Teams the administrator could not reactivate their own identity afterwards.
+      throw new Error("No puedes desactivar tu propia identidad mientras tu plan Teams no esté activo, porque no podrías reactivarla.");
+    }
+    await tx.card.update({ where: { id: cardId }, data: { isActive } });
   });
 
   revalidatePath("/dashboard/cards");
@@ -53,6 +59,7 @@ export async function toggleCardActive(cardId: string, isActive: boolean) {
 
 export async function createVirtualCard(name: string, slug: string, userId: string) {
   const admin = await getCurrentUserContext();
+  await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
 
   if (!isAdmin) {
@@ -100,16 +107,22 @@ export async function createVirtualCard(name: string, slug: string, userId: stri
     throw new Error("No es posible crear la tarjeta. Has alcanzado el límite de identidades activas permitidas por tu plan.");
   }
 
-  await prisma.card.create({
-    data: {
-      name: name.trim(),
-      slug: normalizedSlug,
-      userId,
-      companyId: admin.companyId,
-      profileName: name.trim(),
-    },
+  await prisma.$transaction(async tx => {
+    await lockCapacity(tx, admin.companyId);
+    await requireCapability(admin.companyId, "TEAM_MANAGEMENT", tx);
+    if (!(await canCreateIdentity(admin.companyId, tx))) throw new Error("Límite de identidades alcanzado.");
+    // Creating an identity is not itself INTERNAL/PILOT/PURCHASE. It works via the company's active
+    // license (empresasOperational) until Superadmin explicitly assigns a permanent profile right.
+    await tx.card.create({
+      data: {
+        name: name.trim(),
+        slug: normalizedSlug,
+        userId,
+        companyId: admin.companyId,
+        profileName: name.trim(),
+      },
+    });
   });
-
   revalidatePath("/dashboard/cards");
   return { success: true };
 }

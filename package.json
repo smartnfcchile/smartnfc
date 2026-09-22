@@ -16,9 +16,12 @@
     "test:security": "node --test scripts/tests/secret-scan.test.mjs && tsx --test scripts/tests/email-security.test.ts",
     "typecheck": "tsc --noEmit",
     "test:entitlements": "tsx --test scripts/tests/entitlements.test.ts",
-    "test:entitlements:integration": "tsx --test scripts/tests/entitlements-integration.test.ts scripts/tests/entitlements-offboarding.test.ts scripts/tests/entitlements-profile-rights.test.ts scripts/tests/entitlements-backfill.test.ts",
+    "test:entitlements:integration": "tsx --test --test-concurrency=1 scripts/tests/entitlements-integration.test.ts scripts/tests/entitlements-offboarding.test.ts scripts/tests/entitlements-profile-rights.test.ts scripts/tests/entitlements-backfill.test.ts",
     "sweep:local-location": "tsx scripts/maintenance/backfill-local-location-orphans.ts",
-    "test:sweep:local-location": "tsx --test scripts/tests/local-location-orphans.test.ts"
+    "test:sweep:local-location": "tsx --test scripts/tests/local-location-orphans.test.ts",
+    "test:migration-history": "tsx --test scripts/tests/migration-history-protection.test.ts",
+    "test:local-location-backfill-idempotency": "tsx --test scripts/tests/local-location-backfill-idempotency.test.ts",
+    "ci:assert-block2-db": "tsx scripts/ci/assert-block2-test-database.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

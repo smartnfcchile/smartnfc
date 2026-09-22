@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -15,9 +15,11 @@ test("H-1: additive migration preserves historical rows and migration files, wit
   const dir=path.resolve("node_modules/.block2-backfill-"+suffix);fs.mkdirSync(dir,{recursive:true});
   fs.copyFileSync("prisma/schema.prisma",path.join(dir,"schema.prisma"));fs.mkdirSync(path.join(dir,"migrations"));
   const current="20260917010000_commercial_catalog_entitlements";
-  const hash=(file:string)=>createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+  // H-6: whether these historical migration files were modified is no longer this test's concern —
+  // that real, Git-anchored protection now lives in migration-history-protection.test.ts against
+  // prisma/migrations/.history-manifest.json. This test keeps its own job: proving Block 2 applies
+  // correctly, from empty, through every real historical migration file.
   const historical=fs.readdirSync("prisma/migrations").filter(n=>n!==current);
-  const hashes=new Map(historical.filter(n=>n!=="migration_lock.toml").map(n=>[n,hash(`prisma/migrations/${n}/migration.sql`)]));
   for(const item of historical)fs.cpSync(`prisma/migrations/${item}`,path.join(dir,"migrations",item),{recursive:true});
   const deploy=()=>{
     const r=spawnSync(process.execPath,["node_modules/prisma/build/index.js","migrate","deploy","--schema",path.join(dir,"schema.prisma")],{env:{...process.env,DATABASE_URL:uri.toString()},encoding:"utf8"});
@@ -49,6 +51,5 @@ test("H-1: additive migration preserves historical rows and migration files, wit
     const physical=await db.physicalNfcCard.create({data:{companyId:"legacy",cardId:"profile",token:"replaceable-support"}});await db.physicalNfcCard.delete({where:{id:physical.id}});
     assert.equal(await db.cardProfileRight.count(),0);
     deploy();assert.equal(await db.localLocation.count(),1);assert.equal(await db.cardProfileRight.count(),0);
-    for(const [folder,digest] of hashes)assert.equal(hash(`prisma/migrations/${folder}/migration.sql`),digest);
   } finally {await db.$disconnect();}
 });

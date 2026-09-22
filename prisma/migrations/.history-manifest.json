@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "purpose": "H-6: frozen reference for prisma/migrations SQL files applied before Block 2. See scripts/tests/migration-history-protection.test.ts and docs/BLOCK_2_ENTITLEMENTS.md.",
+    "hashAlgorithm": "sha256",
+    "hashInput": "migration.sql content with CRLF normalized to LF before hashing, so the same hash is produced on Windows (checked out with CRLF) and Linux CI (checked out with LF) for identical logical content.",
+    "verifiedAgainstGit": "2026-09-22: for every entry below, `git log --follow` confirmed exactly one commit ever touched that migration.sql, and `git diff <that commit> -- <file>` produced zero output against the current working tree. Each hash below was independently cross-checked to equal sha256(git show <introducing commit>:<path>) — the exact bytes stored in that commit's Git blob, not merely the current disk content.",
+    "excludes": "20260917010000_commercial_catalog_entitlements (Block 2) is deliberately excluded while it remains undeployed. It may still be edited. It must be added here, verified the same way, only after it has been deployed and is being treated as historical.",
+    "updatePolicy": "This file is a deliberate, human-reviewed action only. Never regenerate it automatically from the working tree without first re-running the Git verification described above for every new entry."
+  },
+  "migrations": {
+    "20260718030000_current_schema_baseline": "8964054aa9754b902363f7c7ae8d302f24733e92737306244aeb67eb6a562fc6",
+    "20260718174554_add_public_rate_limit": "ab6cc4989d782436982dd90ecad4f111a309a1a427b30ee0ddf8623decdc3773",
+    "20260718212320_add_product_licenses": "c12b1fba2ac5270d9577f24bb554025fe710f864d4f5e889291520b2fb104193",
+    "20260722012407_init_broadcast": "1c9070e6a7d46c8cc133ff63de317e1549ec3c4a51f4163dd3b82a35db14740b",
+    "20260725174743_add_contact_sharing_and_interactions": "0e293a08f3142ebf37dada0a7bd0c735c5d7a31840e85066a15b4dcaaeb5ab0b",
+    "20260725180500_add_lead_identity_conflict_fields": "8d659eadbfde096cce76dac44b9aba92177865fa0aaffa3f31a11fe4002099a0",
+    "20260726044551_simplify_lead_fields_and_add_share_event": "3569f1739fbbaad41c8400e213896d36b9ddc2125f057efd3bcef93b96ab7912",
+    "20260726161729_add_card_hero_image": "4461664cc126404f302225c9192b9fad3e888034afa875dc83a8193ecb926d4c",
+    "20260806010000_add_physical_card_designs": "3ce144e674fe24cc4fd6be405ce7c9dedfc6f6386ff0eef321e05139762e0afb",
+    "20260817010000_add_local_campaign_hero_image": "f062469f4371eee6f00e941995e86a3d2592f196177d7431c1e68ad21912e412",
+    "20260908153000_add_profile_edit_policy": "1368e08caf719deb2406ab7a37e5e9c55df6040915fa4b3315df60e46380754e",
+    "20260908155500_lock_user_tenant": "b240643083a42375ff11631258c9f9ae9a54fb06b52aee307ca365bdf3af6a03",
+    "20260908160500_lock_business_tenant_boundaries": "1f512e697d5f09928f28a275fd1d86ea8f647ac3b84fe4a6e88f80aef2e13f87",
+    "20260908161500_make_suspension_terminal": "faedef30e238b58156a5c6f58fcc2200893da5e14985d70edabb3673536f5ef9",
+    "20260908190000_protect_company_leads": "9b9f2a1d52818db224f2fc44ce383ba2e3cf034996f336602b53b71c68b8f398",
+    "20260908193000_lock_physical_card_tenant": "a3c51e698eba6af37fc00c1bcc474d5df48567e0c77bf94fd0457cecd4b49b18",
+    "20260909190000_local_automatic_reports": "e14b5b562a56800332fa7284a45c49c5d4a4f4867d30a5b021139f16f384d5b9",
+    "20260909200000_local_tracking_incidents": "32faaed5c40cfbf4e2660496ae72571c4a4632357cc6bafc48baee508dfe0f01",
+    "20260910140000_local_intelligent_points": "f3405b4ed628e36e0b5444f8e953ed321119d0a8ea5e1f13490412d8980ac54b"
+  }
+}

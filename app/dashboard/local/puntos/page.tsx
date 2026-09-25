@@ -2,6 +2,9 @@ import Link from "next/link";
 import { prisma } from "../../../../lib/prisma";
 import { requireLocalPage } from "../../../../lib/local/access";
 import { mediumLabels, objectiveLabels, presentationModeLabels } from "../../../../lib/local/point-config";
+import { promotionStatus, readObjectiveConfig } from "../../../../lib/local/objective-config";
+
+const promotionLabels = { scheduled: "programada", active: "vigente", ended: "terminada" } as const;
 export const dynamic = "force-dynamic";
 export default async function PointsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { company } = await requireLocalPage("LOCAL_TOUCHPOINTS");
@@ -16,7 +19,7 @@ export default async function PointsPage({ searchParams }: { searchParams: Promi
     {!points.length && <p>Todavía no tienes puntos en campañas disponibles.</p>}
     <div className="grid md:grid-cols-2 gap-4">{points.slice(0, 25).map(point => <article key={point.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
       <h2 className="font-bold text-xl">{point.name}</h2><p>{point.location || "Ubicación por completar"} · {point.campaign.name}</p>
-      <p>{objectiveLabels[point.objective]} · {mediumLabels[point.medium]} · {point.presentationMode === "LANDING" && point.objective !== "CLUB" ? presentationModeLabels.LANDING : presentationModeLabels.DIRECT} · {point.isActive ? "Activo" : "Pausado"}</p>
+      <p>{objectiveLabels[point.objective]}{point.objective === "PROMOTION" && ` (${promotionLabels[promotionStatus(readObjectiveConfig(point.objectiveConfig).promotion)]})`} · {mediumLabels[point.medium]} · {point.presentationMode === "LANDING" && point.objective !== "CLUB" ? presentationModeLabels.LANDING : presentationModeLabels.DIRECT} · {point.isActive ? "Activo" : "Pausado"}</p>
       {point.medium !== "QR" && <p className="text-sm">{point.physicalNfcCard ? "Tarjeta NFC vinculada" : "Tarjeta NFC pendiente de vincular"}</p>}
       <div className="flex flex-wrap gap-4 text-blue-600 dark:text-blue-400">
         <Link className="underline" href={`/dashboard/local/puntos/${point.id}`}>Editar punto</Link>

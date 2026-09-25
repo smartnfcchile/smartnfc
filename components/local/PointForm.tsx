@@ -8,7 +8,8 @@ import {
   ACTION_REGISTRY, SOCIAL_ACTION_TYPES, legacyLinkToAction, normalizeActionValue, objectiveActionType, resolveContactActions, resolvePointActions,
   storedActionDestination, storedActionSchema, toPublicActions, whatsappFromUrl, whatsappUrl, type StoredAction,
 } from "../../lib/local/public-actions";
-import { OBJECTIVE_CTA_MAX } from "../../lib/local/objective-config";
+import { OBJECTIVE_CTA_MAX, PROMOTION_LIMITS, promotionStatus, promotionView, type Promotion } from "../../lib/local/objective-config";
+import BrandImageField from "./brand/BrandImageField";
 import LocalLandingView from "./public/LocalLandingView";
 import MobileDeviceFrame from "./brand/MobileDeviceFrame";
 import ActionBuilder, { newActionDraft, type ActionDraft } from "./actions/ActionBuilder";
@@ -30,10 +31,12 @@ const OBJECTIVE_HELP: Partial<Record<Objective, { link: string; hint: string; pl
   PROMOTION: { link: "Enlace de la promoción", placeholder: "https://…", hint: "Página pública con la oferta o promoción vigente." },
 };
 
-export default function PointForm({ point, campaigns, locations = [], brandByCampaign = {}, brandByLocation = {}, companyBrand }: {
+export default function PointForm({ point, campaigns, locations = [], brandByCampaign = {}, brandByLocation = {}, companyBrand, locationByCampaign = {} }: {
   locations?: Array<{ id: string; name: string | null }>; point?: Point; campaigns: Array<{ id: string; name: string }>;
   /** Identidad pública ya resuelta en el servidor (resolveLocalBrand) para la vista previa. */
   brandByCampaign?: Record<string, ResolvedLocalBrand>; brandByLocation?: Record<string, ResolvedLocalBrand>; companyBrand?: ResolvedLocalBrand;
+  /** Local de cada campaña: las imágenes de promoción se suben a su carpeta. */
+  locationByCampaign?: Record<string, string | null>;
 }) {
   const [objective, setObjective] = useState<Objective>(point?.objective || "GOOGLE_REVIEW");
   const [campaignId, setCampaignId] = useState(point?.campaignId || campaigns[0]?.id || "__new");
@@ -56,6 +59,8 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
     : point?.actions.length ? point.actions.map(toDraft)
     : point?.objective === "SMART_LANDING" ? point.smartLinks.map((l, i) => { const a = legacyLinkToAction(l); return newActionDraft(a.type, a.value, a.label, a.message, `lnk${i}${seed(point)}`); })
     : []);
+  // Promoción: contenido y vigencia (días en hora de Chile).
+  const [promo, setPromo] = useState<Promotion>(() => point?.objectiveConfig.promotion ?? { title: "", description: "", imageUrl: "", startDate: "", endDate: "" });
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [state, action, pending] = useActionState(savePointAction, {} as PointFormState);
 
@@ -74,7 +79,10 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
   const submittedActions = club ? [] : social ? networks.filter(n => n.id !== socialFirst?.id)
     : showBuilder ? drafts : drafts.filter(d => storedActionSchema.safeParse(d).success);
   const primaryLabel = social ? (socialFirst?.label ?? "") : ctaLabel;
-  const objectiveConfig = { ctaLabel: club || smart ? "" : primaryLabel };
+  const promotion = objective === "PROMOTION";
+  const promoStatus = promotionStatus(promo);
+  const promoLocationId = campaignId === "__new" ? locationId : locationByCampaign[campaignId] ?? "";
+  const objectiveConfig = { ctaLabel: club || smart ? "" : primaryLabel, ...(promotion ? { promotion: promo } : {}) };
 
   // React Compiler memoiza estos cálculos; no se usa memoización manual.
   const validActions = validStored(drafts);
@@ -82,7 +90,8 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
     ...resolvePointActions({ objective, destinationUrl: smart ? null : destinationUrl || null, smartLinks: [], ctaLabel: primaryLabel,
       actions: social ? socialValid.filter(a => a.id !== socialFirst?.id) : validActions }),
     ...resolveContactActions(brand),
-  ], { interactive: false }) : [];
+  ], { interactive: false }).filter(a => !(promotion && promoStatus !== "active" && a.key === "primary")) : [];
+  const previewPromotion = promotion ? promotionView(promo, promoStatus) : null;
   const visibleNetworks = socialValid.filter(a => a.enabled).length;
 
   if (!point && state.success) return <div role="status" className="rounded-xl border border-green-300 bg-green-50 text-green-950 p-6 space-y-4">
@@ -95,6 +104,27 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
   const linkError = help && linkTouched && link.trim() && !normalizeActionValue(objectiveActionType(objective, link), link).ok
     ? (objective === "GOOGLE_REVIEW" ? "Usa el enlace de reseñas proporcionado por Google." : "Usa una dirección https:// pública válida.") : null;
   const primaryType = objective === "WHATSAPP" ? "WHATSAPP" : destinationUrl ? objectiveActionType(objective, destinationUrl) : objectiveActionType(objective, link);
+  const setPromoField = (key: keyof Promotion) => (e: { target: { value: string } }) => setPromo(p => ({ ...p, [key]: e.target.value }));
+  const promoFields = promotion && <>
+    <label className="block">Título de la promoción
+      <input className={field} value={promo.title} onChange={setPromoField("title")} maxLength={PROMOTION_LIMITS.title} placeholder="2x1 en cafés de especialidad" required/>
+    </label>
+    <label className="block">Descripción <span className="text-sm text-slate-500">(opcional)</span>
+      <textarea className={field} rows={3} value={promo.description} onChange={setPromoField("description")} maxLength={PROMOTION_LIMITS.description} placeholder="Condiciones, horarios o productos incluidos."/>
+    </label>
+    {promoLocationId
+      ? <BrandImageField id="promo-image" kind="promo" locationId={promoLocationId} label="Imagen de la promoción" hint="Opcional. Se muestra en la página del local."
+          value={promo.imageUrl} onChange={url => setPromo(p => ({ ...p, imageUrl: url }))}/>
+      : <p className="text-sm text-slate-500">Para agregar una imagen, la campaña debe estar asignada a un local.</p>}
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="block">Desde <span className="text-sm text-slate-500">(opcional)</span><input type="date" className={field} value={promo.startDate} onChange={setPromoField("startDate")}/></label>
+      <label className="block">Hasta <span className="text-sm text-slate-500">(opcional)</span><input type="date" className={field} value={promo.endDate} min={promo.startDate || undefined} onChange={setPromoField("endDate")}/></label>
+    </div>
+    <p role="status" className={`rounded-lg p-3 text-sm ${promoStatus === "active" ? "bg-green-50 text-green-900 dark:bg-green-500/10 dark:text-green-200" : "bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"}`}>
+      {promoStatus === "active" ? "Vigente hoy." : promoStatus === "scheduled" ? "Programada: hasta la fecha de inicio se muestra el aviso de inicio, sin botón." : "Terminada: se muestra que la promoción terminó, sin botón. El historial de visitas y clics se conserva."}
+      {" "}Las fechas se consideran en hora de Chile.
+    </p>
+  </>;
   const ctaField = (
     <label className="block">Texto del botón principal <span className="text-sm text-slate-500">(opcional)</span>
       <input className={field} value={ctaLabel} onChange={e => setCtaLabel(e.target.value)} maxLength={OBJECTIVE_CTA_MAX} placeholder={ACTION_REGISTRY[primaryType].defaultLabel}/>
@@ -149,6 +179,7 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
 
       {help && <fieldset className="space-y-3">
         <legend className="font-bold">{objectiveLabels[objective]}</legend>
+        {promoFields}
         <label className="block">{help.link}
           <input type="url" className={field} value={link} onChange={e => setLink(e.target.value)} onBlur={() => setLinkTouched(true)} placeholder={help.placeholder} maxLength={2048} aria-invalid={!!linkError}/>
           {linkError && <span role="alert" className="block text-sm text-rose-600">{linkError}</span>}
@@ -194,9 +225,9 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
 
     <aside aria-label="Vista previa del punto" className={`lg:sticky lg:top-6 self-start space-y-3 ${mobileView === "edit" ? "hidden lg:block" : ""}`}>
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Vista previa</p>
-      {effectiveMode === "LANDING" && brand ? <>
+      {(effectiveMode === "LANDING" || (promotion && promoStatus !== "active")) && brand ? <>
         <MobileDeviceFrame compact label="Vista previa de la página del local">
-          <LocalLandingView brand={brand} actions={previewActions} framed emptyHint={smart ? "Agrega una acción para verla aquí." : "Completa el destino para ver la acción principal."} />
+          <LocalLandingView brand={brand} actions={previewActions} promotion={previewPromotion} framed emptyHint={smart ? "Agrega una acción para verla aquí." : "Completa el destino para ver la acción principal."} />
         </MobileDeviceFrame>
         <p className="text-center text-xs text-slate-500 dark:text-slate-400">La identidad se edita en <Link className="underline" href="/dashboard/local/locales">Mis locales</Link>.</p>
       </> : <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 text-sm text-slate-600 dark:text-slate-300">

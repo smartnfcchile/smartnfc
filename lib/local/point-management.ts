@@ -6,7 +6,7 @@ import { prisma } from "../prisma";
 import { requireLocalAdmin } from "./access";
 import { canCreateLocalTouchpoint, canCreateLocalCampaign } from "../product-access";
 import { pointConfigurationSchema, safeDestination } from "./point-config";
-import { newCampaignBrandSource } from "./brand";
+import { isAllowedBrandImageUrl, newCampaignBrandSource } from "./brand";
 import { actionLabel, storedActionDestination, type StoredAction } from "./public-actions";
 
 /**
@@ -59,11 +59,18 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
       throw new Error("Desvincula la tarjeta NFC antes de cambiar el soporte a solo QR.");
     }
     const actions = config.objective === "CLUB" ? [] : config.actions;
+    // El contenido de promoción solo se guarda en promociones; su imagen debe venir de la carpeta del Local del punto.
+    const objectiveConfig = config.objective === "CLUB" ? { ctaLabel: "" }
+      : config.objective === "PROMOTION" ? config.objectiveConfig : { ctaLabel: config.objectiveConfig.ctaLabel };
+    const promoImage = objectiveConfig.promotion?.imageUrl;
+    if (promoImage && (!campaign.locationId || !isAllowedBrandImageUrl(promoImage, campaign.locationId, ["promo"]))) {
+      throw new Error("Sube la imagen de la promoción desde este editor.");
+    }
     const data = { ...config,
       destinationUrl: ["CLUB", "SMART_LANDING"].includes(config.objective) ? null : config.destinationUrl,
       smartLinks: (config.objective !== "SMART_LANDING" ? [] : actions.length ? smartLinksMirror(actions) : config.smartLinks) as Prisma.InputJsonValue,
       actions: actions as Prisma.InputJsonValue,
-      objectiveConfig: (config.objective === "CLUB" ? { ctaLabel: "" } : config.objectiveConfig) as Prisma.InputJsonValue
+      objectiveConfig: objectiveConfig as Prisma.InputJsonValue
     };
     const point = existing
       ? await tx.localTouchpoint.update({ where: { id: existing.id, configurationVersion: version }, data: { ...data, configurationVersion: { increment: 1 } } })

@@ -70,3 +70,20 @@ El formulario de puntos (`components/local/PointForm.tsx`) muestra un editor seg
 - Las reglas del objetivo para Google y Redes usan el registro de acciones (mismas reglas en editor y servidor). Solo amplían lo aceptado antes (p. ej. `m.facebook.com`); ningún punto existente queda inválido.
 - En móvil el formulario tiene pestañas "Editar" / "Vista previa".
 - Textos honestos: el editor aclara que SmartNFC registra el toque, no si el mensaje se envió, la reseña se publicó o la persona siguió la cuenta.
+
+## Promociones (Bloque D)
+
+`objectiveConfig.promotion` (sin migración nueva): `{ title, description, imageUrl, startDate, endDate }`. Las fechas son días `AAAA-MM-DD` en hora de Chile (`America/Santiago`, igual que los reportes), inicio y término inclusivos; ambas opcionales.
+
+| Estado | Condición | Experiencia pública |
+|---|---|---|
+| Vigente | hoy dentro del período (o sin fechas) | DIRECT abre el destino; LANDING muestra identidad + contenido + botón |
+| Programada | hoy < inicio | cualquier entrada (también DIRECT) va a `/l` con "Esta promoción comienza el …", sin botón |
+| Terminada | hoy > término | igual, con "Esta promoción terminó.", sin botón |
+| Desactivada | punto pausado o licencia inactiva | estado neutral "Punto Inteligente temporalmente inactivo" |
+
+- Fuera de vigencia, `/go?action=primary` redirige a la página del local sin registrar clic ni salida. El historial (visitas, vistas, clics) se conserva y al cambiar las fechas el mismo código vuelve a funcionar.
+- Imagen: se sube desde el editor por el mismo flujo controlado de identidad (`kind=promo`, carpeta `local-brand/<localId>/promo-*`) y al guardar se exige que pertenezca a la carpeta del Local del punto. En la landing solo se muestra si es HTTPS.
+- El contenido de promoción solo se guarda en puntos de objetivo Promoción. Lectura tolerante por partes: una promoción inválida en la base se omite sin afectar el texto del botón ni el punto.
+- Métricas honestas: visita, vista de la página (`LANDING_VIEW`) y clic en el botón. No se registran ni se infieren canjes ni ventas.
+- Seguridad de subida (B-2): `/api/local/brand-upload` exige `content-length` y comprueba sesión, rol y Local operativo **antes** de leer el cuerpo.

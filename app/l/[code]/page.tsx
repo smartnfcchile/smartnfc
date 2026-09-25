@@ -34,5 +34,5 @@ export default async function PointLandingPage({ params, searchParams }: Props) 
   if (landing.status === "inactive") return <Inactive />;
   // El punto volvió a DIRECT (o es CLUB): se entrega su comportamiento vigente por la entrada directa.
   if (landing.status === "direct") redirect(`/p/${code}`);
-  return <LocalLandingView brand={landing.brand} actions={landing.actions} />;
+  return <LocalLandingView brand={landing.brand} actions={landing.actions} promotion={landing.promotion} />;
 }

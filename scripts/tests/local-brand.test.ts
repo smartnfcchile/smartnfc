@@ -199,9 +199,9 @@ test("Subida: la ruta rechaza otro origen, cuerpos no multipart o excesivos con 
   assert.equal(notMultipart.status, 400); assert.equal(notMultipart.json.error.code, "INVALID_REQUEST");
   const huge = await call({ "content-type": "multipart/form-data; boundary=x", "content-length": String(6 * 1024 * 1024) });
   assert.equal(huge.status, 413); assert.equal(huge.json.error.message, BRAND_UPLOAD_ERRORS.FILE_TOO_LARGE);
-  const form = new FormData(); form.append("locationId", LOC); form.append("kind", "logo");
-  const missingFile = await POST(new Request("http://localhost:3001/api/local/brand-upload", { method: "POST", body: form }));
-  assert.equal(missingFile.status, 400);
+  const noLength = await call({ "content-type": "multipart/form-data; boundary=x" }, "--x--");
+  assert.equal(noLength.status, 400, "sin content-length no se lee el cuerpo");
+  // Sin sesión: se prueba en la integración (requiere el mock de sesión antes de cargar permisos).
   assert.notEqual(BRAND_UPLOAD_ERRORS.STORAGE_NOT_CONFIGURED, BRAND_UPLOAD_ERRORS.NETWORK, "configuración ≠ conexión");
 });
 
@@ -229,6 +229,14 @@ test("Identidad del Local: autorización, aislamiento y concurrencia", { skip: !
     logoUrl: blob(`local-brand/${a.location.id}/logo-XyZ.png`), phone: "912345678", ...extra });
   const as = (u: { id: string; companyId: string }, role = "COMPANY_OWNER") => { session = { user: { id: u.id, companyId: u.companyId, role } }; };
 
+  await t.test("B-2: sin sesión la subida se rechaza antes de leer el cuerpo", async () => {
+    session = null;
+    const { POST } = require("../../app/api/local/brand-upload/route");
+    const body = ["--x", "Content-Disposition: form-data; name=\"kind\"", "", "logo", "--x--", ""].join("\r\n");
+    const res = await POST(new Request("http://localhost:3001/api/local/brand-upload", { method: "POST", body,
+      headers: { "content-type": "multipart/form-data; boundary=x", "content-length": String(body.length) } }));
+    assert.equal(res.status, 403); assert.equal((await res.json()).error.code, "FORBIDDEN");
+  });
   await t.test("El dueño guarda identidad; se audita y se versiona", async () => {
     as(a.owner);
     const r = await saveLocationIdentity(a.location.id, input(), null);

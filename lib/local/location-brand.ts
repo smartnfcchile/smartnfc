@@ -13,7 +13,12 @@ async function requireLocalBrandEditor() {
   return { actor, company };
 }
 
-/** Autoriza una subida de logo/portada: solo para un local activo de la propia empresa. */
+/** Sesión, rol y producto Local operativo, sin leer el cuerpo de la petición (se usa antes de procesar la subida). */
+export async function authorizeLocalBrandUploader() {
+  await requireLocalBrandEditor();
+}
+
+/** Autoriza una subida de logo/portada/promoción: solo para un local activo de la propia empresa. */
 export async function authorizeLocalBrandUpload(pathname: string) {
   const target = parseBrandUploadPathname(pathname);
   if (!target) throw new Error("Ruta de archivo inválida.");

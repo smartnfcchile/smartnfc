@@ -11,7 +11,7 @@
 // mientras `node -e` (sin .env) usaba el token read-write y funcionaba.
 import { BlobAccessError, BlobStoreNotFoundError, BlobStoreSuspendedError, put } from "@vercel/blob";
 import {
-  BRAND_IMAGE_MAX_BYTES, BRAND_IMAGE_TYPES, LOCATION_ID_PATTERN, brandUploadPathname, detectBrandImageType,
+  BRAND_IMAGE_KINDS, BRAND_IMAGE_MAX_BYTES, BRAND_IMAGE_TYPES, LOCATION_ID_PATTERN, brandUploadPathname, detectBrandImageType,
   isAllowedBrandImageUrl, type BrandImageKind, type BrandUploadErrorCode,
 } from "./brand";
 
@@ -59,8 +59,9 @@ const defaultDeps = (): Deps => ({
 export const BRAND_UPLOAD_MAX_BODY = BRAND_IMAGE_MAX_BYTES + 64 * 1024;
 
 export async function processBrandUpload(input: { locationId: unknown; kind: unknown; file: unknown }, deps: Deps = defaultDeps()) {
-  const { locationId, kind, file } = input;
-  if (typeof locationId !== "string" || !LOCATION_ID_PATTERN.test(locationId) || (kind !== "logo" && kind !== "cover") ||
+  const { locationId, kind: rawKind, file } = input;
+  const kind = BRAND_IMAGE_KINDS.find(k => k === rawKind);
+  if (typeof locationId !== "string" || !LOCATION_ID_PATTERN.test(locationId) || !kind ||
       !(file instanceof Blob)) throw new BrandUploadError("INVALID_REQUEST", 400);
   if (file.size === 0) throw new BrandUploadError("UNSUPPORTED_TYPE", 415);
   if (file.size > BRAND_IMAGE_MAX_BYTES) throw new BrandUploadError("FILE_TOO_LARGE", 413);
@@ -95,6 +96,6 @@ export async function processBrandUpload(input: { locationId: unknown; kind: unk
     throw new BrandUploadError("STORAGE_FAILED", 502, detail);
   }
   // 5. Defensa adicional: la URL devuelta debe cumplir la misma regla que se exige al guardar.
-  if (!isAllowedBrandImageUrl(result.url, locationId)) throw new BrandUploadError("STORAGE_FAILED", 502, "URL devuelta fuera de la carpeta del local");
+  if (!isAllowedBrandImageUrl(result.url, locationId, [kind])) throw new BrandUploadError("STORAGE_FAILED", 502, "URL devuelta fuera de la carpeta del local");
   return { url: result.url };
 }

@@ -1,4 +1,4 @@
-// Subida de logo/portada para la identidad del Local (procesada en el servidor).
+// Subida de logo/portada del Local e imágenes de promociones (procesada en el servidor).
 // Exige administrador con SmartNFC Local operativo y un local activo de la propia empresa;
 // valida tamaño (≤ 4 MB) y contenido real (PNG/JPG/WEBP) y guarda en local-brand/<localId>/.
 // No usa el flujo de token de cliente ni onUploadCompleted: no depende de callbackUrl.
@@ -18,8 +18,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return fail("FORBIDDEN", 403);
   if (!(request.headers.get("content-type") || "").startsWith("multipart/form-data")) return fail("INVALID_REQUEST", 400);
+  // Los navegadores siempre informan el largo de un multipart; sin él no se lee el cuerpo.
   const length = Number(request.headers.get("content-length") || 0);
+  if (!Number.isFinite(length) || length <= 0) return fail("INVALID_REQUEST", 400);
   if (length > BRAND_UPLOAD_MAX_BODY) return fail("FILE_TOO_LARGE", 413);
+  // Sesión, rol y Local operativo ANTES de leer el cuerpo: sin permiso no se procesa ningún archivo.
+  try { await (await import("../../../../lib/local/location-brand")).authorizeLocalBrandUploader(); }
+  catch { return fail("FORBIDDEN", 403); }
 
   let form: FormData;
   try { form = await request.formData(); } catch { return fail("INVALID_REQUEST", 400); }

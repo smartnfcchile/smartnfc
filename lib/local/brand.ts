@@ -15,7 +15,9 @@ export function newCampaignBrandSource(companyName: string) {
 export const BRAND_LIMITS = { displayName: 80, shortDescription: 160, name: 120, address: 240, url: 2048 } as const;
 export const BRAND_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 export const BRAND_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-export type BrandImageKind = "logo" | "cover";
+/** logo y portada del Local; promo: imagen de una promoción de un Punto Inteligente del mismo Local. */
+export type BrandImageKind = "logo" | "cover" | "promo";
+export const BRAND_IMAGE_KINDS: readonly BrandImageKind[] = ["logo", "cover", "promo"];
 
 // ── Colores ──────────────────────────────────────────────────────────────────
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -68,16 +70,17 @@ export function brandUploadPathname(locationId: string, kind: BrandImageKind, co
   return `local-brand/${locationId}/${kind}.${ext}`;
 }
 export function parseBrandUploadPathname(pathname: string): { locationId: string; kind: BrandImageKind } | null {
-  const m = /^local-brand\/([A-Za-z0-9_-]{1,80})\/(logo|cover)\.(png|jpg|jpeg|webp)$/.exec(pathname);
+  const m = /^local-brand\/([A-Za-z0-9_-]{1,80})\/(logo|cover|promo)\.(png|jpg|jpeg|webp)$/.exec(pathname);
   return m ? { locationId: m[1], kind: m[2] as BrandImageKind } : null;
 }
-export function isAllowedBrandImageUrl(value: string, locationId: string): boolean {
+/** Por defecto solo logo/portada (identidad del Local); las promociones pasan ["promo"]. */
+export function isAllowedBrandImageUrl(value: string, locationId: string, kinds: readonly BrandImageKind[] = ["logo", "cover"]): boolean {
   if (!LOCATION_ID_PATTERN.test(locationId) || value.length > BRAND_LIMITS.url) return false;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && !url.username && !url.password && !url.port && !url.search && !url.hash &&
       BLOB_HOST.test(url.hostname) &&
-      new RegExp(`^/local-brand/${locationId}/(logo|cover)(-[A-Za-z0-9]+)?\\.(png|jpe?g|webp)$`).test(url.pathname);
+      new RegExp(`^/local-brand/${locationId}/(${kinds.join("|")})(-[A-Za-z0-9]+)?\\.(png|jpe?g|webp)$`).test(url.pathname);
   } catch { return false; }
 }
 

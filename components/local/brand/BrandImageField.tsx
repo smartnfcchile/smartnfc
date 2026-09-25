@@ -38,6 +38,7 @@ export default function BrandImageField({ id, kind, locationId, label, hint, val
   const [progress, setProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const isLogo = kind === "logo";
+  const noun = isLogo ? "logo" : kind === "promo" ? "imagen" : "portada";
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -70,12 +71,12 @@ export default function BrandImageField({ id, kind, locationId, label, hint, val
           } ${isLogo ? "h-24 w-24 rounded-2xl" : "aspect-[2/1] w-full max-w-md rounded-2xl"}`}>
           {value && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt={isLogo ? "Logo actual" : "Portada actual"} className={`h-full w-full ${isLogo ? "object-contain p-2" : "object-cover"}`} />
+            <img src={value} alt={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} actual`} className={`h-full w-full ${isLogo ? "object-contain p-2" : "object-cover"}`} />
           )}
           {!value && !uploading && (
             <span className="flex flex-col items-center gap-1.5 text-slate-500 dark:text-slate-400">
               <ImagePlus aria-hidden className="h-6 w-6" />
-              <span className="text-xs font-semibold">{isLogo ? "Subir logo" : "Subir portada"}</span>
+              <span className="text-xs font-semibold">{`Subir ${noun}`}</span>
             </span>
           )}
           {uploading && (

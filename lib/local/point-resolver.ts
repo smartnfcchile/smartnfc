@@ -6,7 +6,7 @@ import { escapeHtml } from "./report-email";
 import { campaignPublicBrand } from "./brand";
 import { pointConfigurationSchema, smartLinksSchema } from "./point-config";
 import { PUBLIC_ACTION_ID_PATTERN, readStoredActions, resolveContactActions, resolvePointActions, type ResolvedAction } from "./public-actions";
-import { readObjectiveConfig } from "./objective-config";
+import { promotionStatus, readObjectiveConfig, type Promotion, type PromotionStatus } from "./objective-config";
 import { findLocalVisit, recordActionClick, recordLocalAction, recordLocalArrival, recordTrackingIncident } from "./tracking";
 
 const privateHeaders = { "Cache-Control": "no-store, max-age=0", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow" };
@@ -34,11 +34,21 @@ export async function publicPoint(code: string) {
 }
 export type PublicPoint = NonNullable<Awaited<ReturnType<typeof publicPoint>>>;
 
+/** Promoción del punto y su vigencia hoy (null si el objetivo no es promoción). */
+export function pointPromotion(point: PublicPoint): { promotion: Promotion | undefined; status: PromotionStatus } | null {
+  if (point.objective !== "PROMOTION") return null;
+  const promotion = readObjectiveConfig(point.objectiveConfig).promotion;
+  return { promotion, status: promotionStatus(promotion) };
+}
+
 /** Acciones públicas de un punto (objetivo + adicionales) y, opcionalmente, las de contacto del Local. */
 export function publicPointActions(point: PublicPoint, withContact: boolean): ResolvedAction[] {
   const smartLinks = smartLinksSchema.safeParse(point.smartLinks);
+  const promo = pointPromotion(point);
   const actions = resolvePointActions({ objective: point.objective, destinationUrl: point.destinationUrl,
-    smartLinks: smartLinks.success ? smartLinks.data : [], actions: readStoredActions(point.actions), ctaLabel: readObjectiveConfig(point.objectiveConfig).ctaLabel });
+    smartLinks: smartLinks.success ? smartLinks.data : [], actions: readStoredActions(point.actions), ctaLabel: readObjectiveConfig(point.objectiveConfig).ctaLabel })
+    // Una promoción programada o terminada no ofrece su botón principal.
+    .filter(a => !(promo && promo.status !== "active" && a.id === "primary"));
   return withContact ? [...actions, ...resolveContactActions(campaignPublicBrand(point.campaign, point.campaign.company.name))] : actions;
 }
 
@@ -59,7 +69,9 @@ export async function resolveLocalPoint(code: string, source: ContactSource, hea
   }
   // LANDING: la visita ya quedó registrada arriba (una sola vez). La landing no registra otra;
   // los clics se registran solo cuando el visitante toca una acción (/p/[code]/go).
-  if (point.presentationMode === "LANDING") {
+  // Una promoción programada o terminada muestra su estado en la página del local aunque el punto sea DIRECT.
+  const promo = pointPromotion(point);
+  if (point.presentationMode === "LANDING" || (promo && promo.status !== "active")) {
     return redirect(getPublicUrl(`/l/${point.code}${visitId ? "?v=" + visitId : ""}`));
   }
   if (point.objective === "SMART_LANDING") {
@@ -114,7 +126,13 @@ async function resolveActionById(point: PublicPoint, actionId: string, query: UR
   if (!PUBLIC_ACTION_ID_PATTERN.test(actionId)) return missingAction();
   if (query.get("version") !== String(point.configurationVersion)) return changed();
   const action = publicPointActions(point, true).find(a => a.id === actionId);
-  if (!action) return missingAction();
+  if (!action) {
+    // Botón de una promoción que dejó de estar vigente: se muestra su estado, sin registrar clic ni salir.
+    const promo = pointPromotion(point);
+    if (ping) return new Response(null, { status: 204, headers: privateHeaders });
+    if (actionId === "primary" && promo && promo.status !== "active") return redirect(getPublicUrl(`/l/${point.code}`));
+    return missingAction();
+  }
   const visitId = query.get("v");
   if (visitId) {
     const visit = await findLocalVisit(visitId, point.campaignId);

@@ -18,6 +18,9 @@ export type IdentityFormValues = {
 type Props = {
   locationId: string; companyName: string; initial: IdentityFormValues; brandUpdatedAt: string | null;
   campaignFallback: BrandCampaignSource | null; campaignFallbackName: string | null;
+  /** Campañas vigentes del local: con más de una, cada punto completa con su propia campaña. */
+  campaignCount?: number;
+  inactive?: boolean;
 };
 
 const inputClass = (error?: string) =>
@@ -62,7 +65,7 @@ function IconInput({ icon, ...props }: { icon: ReactNode } & React.InputHTMLAttr
   );
 }
 
-export default function LocationIdentityEditor({ locationId, companyName, initial, brandUpdatedAt, campaignFallback, campaignFallbackName }: Props) {
+export default function LocationIdentityEditor({ locationId, companyName, initial, brandUpdatedAt, campaignFallback, campaignFallbackName, campaignCount = 0, inactive = false }: Props) {
   const router = useRouter();
   const [values, setValues] = useState<IdentityFormValues>(initial);
   const [saved, setSaved] = useState<IdentityFormValues>(initial);
@@ -246,7 +249,13 @@ export default function LocationIdentityEditor({ locationId, companyName, initia
 
           {campaignFallbackName && (
             <p className="px-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Los campos vacíos se completan con la campaña “{campaignFallbackName}” de este local. El Club conserva su propia configuración.
+              Los campos vacíos se completan con la campaña “{campaignFallbackName}” de este local{campaignCount > 1 ? " (vista previa)" : ""}. El Club conserva su propia configuración.
+              {campaignCount > 1 && " Este local tiene varias campañas: cada Punto Inteligente completa los campos vacíos con los datos de su propia campaña."}
+            </p>
+          )}
+          {inactive && (
+            <p role="status" className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+              Este local está inactivo: sus Puntos Inteligentes muestran “Punto Inteligente temporalmente inactivo”. Puedes actualizar sus datos; guardar no cambia su estado.
             </p>
           )}
         </div>

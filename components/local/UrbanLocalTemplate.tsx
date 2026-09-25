@@ -61,6 +61,7 @@ export default function UrbanLocalTemplate({
   onWhatsappClick,
   slug = ""
 }: UrbanLocalTemplateProps) {
+  const BusinessHeading = mode === "public" ? "h1" : "h2";
   const primaryColor = data.primaryColor || "#2563eb";
   const secondaryColor = data.secondaryColor || "#d4af37";
 
@@ -126,9 +127,10 @@ export default function UrbanLocalTemplate({
             </span>
           )}
 
-          <h2 className="text-xl font-black tracking-tight text-slate-900 leading-tight">
+          {/* En la página pública el nombre del negocio es el título principal; en la vista previa del editor, no. */}
+          <BusinessHeading className="text-xl font-black tracking-tight text-slate-900 leading-tight">
             {data.businessName || "Nombre del Negocio"}
-          </h2>
+          </BusinessHeading>
         </div>
 
         {/* Titulares */}
@@ -225,10 +227,11 @@ export default function UrbanLocalTemplate({
 
             {/* Input de Nombre */}
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
+              <label htmlFor="club-form-name" className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
                 Tu Nombre
               </label>
               <input
+                id="club-form-name"
                 type="text"
                 required
                 disabled={mode === "preview" || isSubmitting}
@@ -242,10 +245,11 @@ export default function UrbanLocalTemplate({
 
             {/* Input de WhatsApp */}
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
+              <label htmlFor="club-form-whatsapp" className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
                 Tu WhatsApp
               </label>
               <input
+                id="club-form-whatsapp"
                 type="tel"
                 required
                 disabled={mode === "preview" || isSubmitting}

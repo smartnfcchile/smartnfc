@@ -22,10 +22,12 @@ export default function LocalLandingView({ brand, actions, framed = false, empty
   const primary = visibleActions(actions, "primary");
   const secondary = visibleActions(actions, "secondary");
   const contact = visibleActions(actions, "contact");
+  // En las vistas previas (framed) no se declara otro <main>: el landmark principal es el de la página que la contiene.
+  const Main = framed ? "div" : "main";
   return (
     <LocalPublicShell brand={brand} framed={framed}>
-      <LocalBrandHeader brand={brand} />
-      <main className="space-y-3 px-6 pt-7">
+      <LocalBrandHeader brand={brand} headingLevel={framed ? 2 : 1} />
+      <Main className="space-y-3 px-6 pt-7">
         {promotion && <LocalPromotionCard promotion={promotion} brand={brand} />}
         <LocalActionList actions={primary} brand={brand} variant="primary" label="Acción principal" />
         <LocalActionList actions={secondary} brand={brand} variant="secondary" label="Más acciones" />
@@ -34,7 +36,7 @@ export default function LocalLandingView({ brand, actions, framed = false, empty
             {emptyHint}
           </div>
         )}
-      </main>
+      </Main>
       {contact.length > 0 && (
         <section aria-label="Contacto y ubicación" className="px-6 pt-8">
           <h2 className="px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Contacto</h2>

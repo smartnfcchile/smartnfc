@@ -101,6 +101,7 @@ export const BRAND_UPLOAD_ERRORS = {
   STORAGE_NOT_CONFIGURED: "El almacenamiento de imágenes no está configurado en este entorno. Avisa al administrador de la plataforma.",
   STORAGE_ACCESS: "El almacenamiento de imágenes rechazó la carga por configuración. Avisa al administrador de la plataforma.",
   STORAGE_FAILED: "El servicio de almacenamiento no pudo guardar la imagen. Inténtalo nuevamente en unos minutos.",
+  TOO_MANY_UPLOADS: "Subiste muchas imágenes seguidas. Espera unos minutos e inténtalo nuevamente.",
   NETWORK: "No pudimos conectar con el servidor. Revisa tu conexión e inténtalo nuevamente.",
 } as const;
 export type BrandUploadErrorCode = keyof typeof BRAND_UPLOAD_ERRORS;

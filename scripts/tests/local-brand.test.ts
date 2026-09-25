@@ -292,5 +292,30 @@ test("Identidad del Local: autorización, aislamiento y concurrencia", { skip: !
     const after = await prisma.localCampaign.findUniqueOrThrow({ where: { id: campaign.id } });
     assert.equal(after.primaryColor, "#123456"); assert.equal(after.updatedAt.getTime(), campaign.updatedAt.getTime());
   });
+  await t.test("M-2: una edición con datos antiguos no sobrescribe en silencio el nombre ni la dirección", async () => {
+    as(a.owner);
+    const stale = (await prisma.localLocation.findUniqueOrThrow({ where: { id: a.location.id } })).brandUpdatedAt?.toISOString() ?? null;
+    const current = await prisma.localLocation.findUniqueOrThrow({ where: { id: a.location.id } });
+    const same = { ...base, name: current.name!, displayName: current.displayName ?? "", primaryColor: current.primaryColor ?? "", logoUrl: current.logoUrl ?? "", phone: current.phone ?? "" };
+    // Persona A cambia solo el nombre interno (antes no avanzaba la versión).
+    const first = await saveLocationIdentity(a.location.id, { ...same, name: "Sucursal Renombrada" }, stale);
+    assert.notEqual(first.brandUpdatedAt, stale, "cambiar el nombre avanza la versión");
+    // Persona B, con la versión anterior, cambia el color: se rechaza en vez de revertir el nombre.
+    await assert.rejects(() => saveLocationIdentity(a.location.id, { ...same, primaryColor: "#1d4ed8" }, stale), /cambió mientras/);
+    assert.equal((await prisma.localLocation.findUniqueOrThrow({ where: { id: a.location.id } })).name, "Sucursal Renombrada");
+    const unchanged = await saveLocationIdentity(a.location.id, { ...same, name: "Sucursal Renombrada" }, first.brandUpdatedAt);
+    assert.equal(unchanged.brandUpdatedAt, first.brandUpdatedAt, "guardar sin cambios no avanza la versión");
+  });
+  await t.test("B-1: un local inactivo propio se puede editar y subir imágenes sin cambiar su estado", async () => {
+    as(a.owner);
+    await prisma.localLocation.update({ where: { id: a.location.id }, data: { isActive: false } });
+    const current = await prisma.localLocation.findUniqueOrThrow({ where: { id: a.location.id } });
+    await saveLocationIdentity(a.location.id, { ...base, name: "Sucursal Inactiva", displayName: "", primaryColor: "", logoUrl: "", phone: "" }, current.brandUpdatedAt?.toISOString() ?? null);
+    const after = await prisma.localLocation.findUniqueOrThrow({ where: { id: a.location.id } });
+    assert.equal(after.name, "Sucursal Inactiva"); assert.equal(after.isActive, false, "editar no reactiva el local");
+    assert.ok(await authorizeLocalBrandUpload(`local-brand/${a.location.id}/logo.png`));
+    as(b.owner);
+    await assert.rejects(() => authorizeLocalBrandUpload(`local-brand/${a.location.id}/logo.png`), "sigue aislado por empresa");
+  });
   await prisma.$disconnect();
 });

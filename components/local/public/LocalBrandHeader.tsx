@@ -3,7 +3,9 @@
 import { MapPin } from "lucide-react";
 import type { ResolvedLocalBrand } from "../../../lib/local/brand";
 
-export default function LocalBrandHeader({ brand }: { brand: ResolvedLocalBrand }) {
+/** `headingLevel` 2 en vistas previas dentro del dashboard (la página ya tiene su propio h1). */
+export default function LocalBrandHeader({ brand, headingLevel = 1 }: { brand: ResolvedLocalBrand; headingLevel?: 1 | 2 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   const coverStyle = brand.coverImageUrl
     ? undefined
     : { background: `radial-gradient(120% 90% at 85% 0%, ${brand.secondaryColor}cc 0%, transparent 60%), linear-gradient(135deg, ${brand.primaryColor} 0%, ${brand.secondaryColor} 100%)` };
@@ -30,7 +32,7 @@ export default function LocalBrandHeader({ brand }: { brand: ResolvedLocalBrand 
             </div>
           )}
         </div>
-        <h1 className="mt-4 text-[26px] font-bold leading-tight tracking-[-0.02em] text-slate-900 break-words">{brand.displayName}</h1>
+        <Heading className="mt-4 text-[26px] font-bold leading-tight tracking-[-0.02em] text-slate-900 break-words">{brand.displayName}</Heading>
         {brand.shortDescription && <p className="mt-2 text-[15px] leading-relaxed text-slate-600 break-words">{brand.shortDescription}</p>}
         {brand.address && (
           <p className="mt-3 flex items-start gap-1.5 text-[13px] font-medium text-slate-500">

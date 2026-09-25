@@ -15,7 +15,8 @@ async function requireLocalBrandEditor() {
 
 /** Sesión, rol y producto Local operativo, sin leer el cuerpo de la petición (se usa antes de procesar la subida). */
 export async function authorizeLocalBrandUploader() {
-  await requireLocalBrandEditor();
+  const { actor, company } = await requireLocalBrandEditor();
+  return { actorId: actor.id, companyId: company.id };
 }
 
 /** Autoriza una subida de logo/portada/promoción: solo para un local activo de la propia empresa. */
@@ -23,7 +24,8 @@ export async function authorizeLocalBrandUpload(pathname: string) {
   const target = parseBrandUploadPathname(pathname);
   if (!target) throw new Error("Ruta de archivo inválida.");
   const { actor, company } = await requireLocalBrandEditor();
-  const location = await prisma.localLocation.findFirst({ where: { id: target.locationId, companyId: company.id, isActive: true }, select: { id: true } });
+  // B-1: un local inactivo de la propia empresa también puede actualizar su identidad (no cambia su estado).
+  const location = await prisma.localLocation.findFirst({ where: { id: target.locationId, companyId: company.id }, select: { id: true } });
   if (!location) throw new Error("Local no disponible.");
   return { actorId: actor.id, companyId: company.id, locationId: location.id, kind: target.kind };
 }
@@ -43,17 +45,21 @@ export async function saveLocationIdentity(locationId: string, input: unknown, e
     const current = await tx.localLocation.findFirst({ where: { id: locationId, companyId: company.id } });
     if (!current) throw new Error("Local no disponible.");
     const changed = BRAND_FIELDS.filter(field => (current[field] ?? null) !== data[field]);
+    const nameChanged = current.name !== data.name, addressChanged = (current.address ?? null) !== data.address;
+    // M-2: la versión de edición avanza con cualquier cambio del editor (identidad, nombre interno o dirección),
+    // así una edición abierta con datos antiguos no puede sobrescribir en silencio el nombre o la dirección.
+    const bump = changed.length > 0 || nameChanged || addressChanged;
     const now = new Date();
     const updated = await tx.localLocation.updateMany({
       where: { id: locationId, companyId: company.id, brandUpdatedAt: expected },
-      data: { ...data, ...(changed.length ? { brandUpdatedAt: now } : {}) },
+      data: { ...data, ...(bump ? { brandUpdatedAt: now } : {}) },
     });
     if (updated.count !== 1) throw new Error("La identidad cambió mientras la editabas. Recarga la página antes de guardar.");
     await tx.adminAuditLog.create({ data: {
       actorUserId: actor.id, companyId: company.id, action: "LOCATION_IDENTITY_UPDATE", entityType: "LOCAL_LOCATION", entityId: locationId,
-      metadata: JSON.stringify({ changed, nameChanged: current.name !== data.name, addressChanged: (current.address ?? null) !== data.address }),
+      metadata: JSON.stringify({ changed, nameChanged, addressChanged }),
     } });
-    return { brandUpdatedAt: (changed.length ? now : current.brandUpdatedAt)?.toISOString() ?? null };
+    return { brandUpdatedAt: (bump ? now : current.brandUpdatedAt)?.toISOString() ?? null };
   });
 }
 
@@ -63,4 +69,9 @@ export async function findBrandFallbackCampaign(companyId: string, locationId: s
   const where = { companyId, locationId, status: { not: "ARCHIVED" as const } };
   return (await prisma.localCampaign.findFirst({ where: { ...where, status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, select }))
     ?? prisma.localCampaign.findFirst({ where, orderBy: { updatedAt: "desc" }, select });
+}
+
+/** Campañas vigentes del local (B-3: la vista previa usa una; cada punto completa con la suya). */
+export async function countLocationCampaigns(companyId: string, locationId: string) {
+  return prisma.localCampaign.count({ where: { companyId, locationId, status: { not: "ARCHIVED" } } });
 }

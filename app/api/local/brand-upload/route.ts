@@ -23,8 +23,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!Number.isFinite(length) || length <= 0) return fail("INVALID_REQUEST", 400);
   if (length > BRAND_UPLOAD_MAX_BODY) return fail("FILE_TOO_LARGE", 413);
   // Sesión, rol y Local operativo ANTES de leer el cuerpo: sin permiso no se procesa ningún archivo.
-  try { await (await import("../../../../lib/local/location-brand")).authorizeLocalBrandUploader(); }
+  let actorId: string;
+  try { ({ actorId } = await (await import("../../../../lib/local/location-brand")).authorizeLocalBrandUploader()); }
   catch { return fail("FORBIDDEN", 403); }
+  // Límite por usuario (no por IP): evita llenar el almacenamiento con subidas repetidas.
+  const { checkRateLimit } = await import("../../../../lib/rateLimit");
+  if (!(await checkRateLimit("user:" + actorId, "LOCAL_BRAND_UPLOAD")).allowed) return fail("TOO_MANY_UPLOADS", 429);
 
   let form: FormData;
   try { form = await request.formData(); } catch { return fail("INVALID_REQUEST", 400); }

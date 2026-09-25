@@ -43,18 +43,15 @@ export default async function LocationsPage() {
                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">{l.displayName ? label(l, i) : "Nombre comercial sin definir"}</p>
                 {l.address && <p className="mt-2 flex items-center gap-1.5 truncate text-xs text-slate-500 dark:text-slate-400"><MapPin aria-hidden className="h-3.5 w-3.5 shrink-0" />{l.address}</p>}
                 {l.origin === "LEGACY_TECHNICAL" && !l.name && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Este registro agrupa campañas existentes. Completa sus datos para identificar el local.</p>}
-                {l.isActive && (
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 dark:text-blue-400">
-                    <Palette aria-hidden className="h-4 w-4" />{hasIdentity ? "Editar identidad" : "Configurar identidad"}<ChevronRight aria-hidden className="h-4 w-4" />
-                  </span>
-                )}
+                <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 dark:text-blue-400">
+                  <Palette aria-hidden className="h-4 w-4" />{!l.isActive ? "Ver y editar datos" : hasIdentity ? "Editar identidad" : "Configurar identidad"}<ChevronRight aria-hidden className="h-4 w-4" />
+                </span>
               </div>
             </>
           );
           const cls = "block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition dark:border-slate-800 dark:bg-slate-900";
-          return l.isActive
-            ? <Link key={l.id} href={`/dashboard/local/locales/${l.id}`} className={`${cls} hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500`}>{card}</Link>
-            : <div key={l.id} className={`${cls} opacity-70`}>{card}</div>;
+          // B-1: los locales inactivos también se abren para actualizar sus datos.
+          return <Link key={l.id} href={`/dashboard/local/locales/${l.id}`} className={`${cls} ${l.isActive ? "" : "opacity-80 "}hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500`}>{card}</Link>;
         })}
         {!locations.length && <p className="text-sm text-slate-500 dark:text-slate-400">Todavía no tienes locales. Crea el primero para configurar su identidad.</p>}
       </section>

@@ -86,7 +86,7 @@ El formulario de puntos (`components/local/PointForm.tsx`) muestra un editor seg
 - Imagen: se sube desde el editor por el mismo flujo controlado de identidad (`kind=promo`, carpeta `local-brand/<localId>/promo-*`) y al guardar se exige que pertenezca a la carpeta del Local del punto. En la landing solo se muestra si es HTTPS.
 - El contenido de promoción solo se guarda en puntos de objetivo Promoción. Lectura tolerante por partes: una promoción inválida en la base se omite sin afectar el texto del botón ni el punto.
 - Métricas honestas: visita, vista de la página (`LANDING_VIEW`) y clic en el botón. No se registran ni se infieren canjes ni ventas.
-- Seguridad de subida (B-2): `/api/local/brand-upload` exige `content-length` y comprueba sesión, rol y Local operativo **antes** de leer el cuerpo.
+- Seguridad de subida (B-2): `/api/local/brand-upload` exige `content-length` y comprueba sesión, rol y Local operativo **antes** de leer el cuerpo. Además limita las subidas a 30 cada 10 minutos por usuario (`LOCAL_BRAND_UPLOAD`, respuesta 429 con mensaje claro).
 
 ## Club integrado (Bloque E)
 

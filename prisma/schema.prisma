@@ -882,6 +882,20 @@ model LocalLocation {
   address   String?
   origin    String          @default("MANUAL")
   isActive  Boolean         @default(true)
+
+  // Identidad digital del local (Bloque 1). Todos opcionales: la resolución
+  // central (lib/local/brand.ts) aplica fallback LocalLocation → LocalCampaign → Company.
+  displayName      String?
+  logoUrl          String?
+  coverImageUrl    String?
+  shortDescription String?
+  primaryColor     String?
+  secondaryColor   String?
+  phone            String?
+  websiteUrl       String?
+  mapsUrl          String?
+  brandUpdatedAt   DateTime?
+
   campaigns LocalCampaign[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt

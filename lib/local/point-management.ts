@@ -62,7 +62,8 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
     const data = { ...config,
       destinationUrl: ["CLUB", "SMART_LANDING"].includes(config.objective) ? null : config.destinationUrl,
       smartLinks: (config.objective !== "SMART_LANDING" ? [] : actions.length ? smartLinksMirror(actions) : config.smartLinks) as Prisma.InputJsonValue,
-      actions: actions as Prisma.InputJsonValue
+      actions: actions as Prisma.InputJsonValue,
+      objectiveConfig: (config.objective === "CLUB" ? { ctaLabel: "" } : config.objectiveConfig) as Prisma.InputJsonValue
     };
     const point = existing
       ? await tx.localTouchpoint.update({ where: { id: existing.id, configurationVersion: version }, data: { ...data, configurationVersion: { increment: 1 } } })

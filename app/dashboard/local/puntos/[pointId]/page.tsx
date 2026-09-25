@@ -4,6 +4,7 @@ import { requireLocalPage } from "../../../../../lib/local/access";
 import { smartLinksSchema } from "../../../../../lib/local/point-config";
 import { campaignPublicBrand } from "../../../../../lib/local/brand";
 import { readStoredActions } from "../../../../../lib/local/public-actions";
+import { readObjectiveConfig } from "../../../../../lib/local/objective-config";
 import PointForm from "../../../../../components/local/PointForm";
 export default async function EditPointPage({ params }: { params: Promise<{ pointId: string }> }) {
   const { company } = await requireLocalPage("LOCAL_TOUCHPOINTS");
@@ -15,6 +16,6 @@ export default async function EditPointPage({ params }: { params: Promise<{ poin
       brandByCampaign={{ [point.campaign.id]: campaignPublicBrand(point.campaign, company.name) }}
       point={{ id: point.id, name: point.name, location: point.location || "", objective: point.objective,
       medium: point.medium, isActive: point.isActive, campaignId: point.campaignId, configurationVersion: point.configurationVersion,
-      destinationUrl: point.destinationUrl || "", smartLinks: smartLinksSchema.parse(point.smartLinks), presentationMode: point.presentationMode, actions: readStoredActions(point.actions) }}/>
+      destinationUrl: point.destinationUrl || "", smartLinks: smartLinksSchema.parse(point.smartLinks), presentationMode: point.presentationMode, actions: readStoredActions(point.actions), objectiveConfig: readObjectiveConfig(point.objectiveConfig) }}/>
   </div>;
 }

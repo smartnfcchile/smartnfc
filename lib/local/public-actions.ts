@@ -11,6 +11,8 @@ export const PUBLIC_ACTION_TYPES = [
   "GOOGLE_REVIEW", "WEB", "MENU", "PROMOTION", "LOCATION", "PHONE", "LINK",
 ] as const;
 export type PublicActionType = (typeof PUBLIC_ACTION_TYPES)[number];
+/** Redes sociales (objetivo SOCIAL y su editor). */
+export const SOCIAL_ACTION_TYPES = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X", "THREADS"] as const satisfies readonly PublicActionType[];
 export type ActionRole = "primary" | "secondary" | "contact";
 
 type ActionInput = "url" | "phone" | "whatsapp";
@@ -63,7 +65,7 @@ export function actionTypeFromUrl(url: string): PublicActionType {
   const host = hostOf(url);
   if (!host) return "LINK";
   if (host === "wa.me" || matches(host, ["api.whatsapp.com", "whatsapp.com"])) return "WHATSAPP";
-  for (const type of ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X", "THREADS"] as const) {
+  for (const type of SOCIAL_ACTION_TYPES) {
     if (matches(host, ACTION_REGISTRY[type].hosts!)) return type;
   }
   if (matches(host, ["g.page", "search.google.com"]) || (/(^|\.)google\.[a-z.]+$/.test(host) && /review|writereview|lrd=/i.test(url))) return "GOOGLE_REVIEW";
@@ -83,6 +85,15 @@ function whatsappDigits(value: string): string | null {
   }
   const phone = normalizePhone(v);
   return phone ? phone.slice(1) : null;
+}
+/** Número y mensaje desde un enlace de WhatsApp guardado (para volver a editarlo sin pérdida). */
+export function whatsappFromUrl(url: string | null | undefined): { phone: string; message: string } | null {
+  if (!url) return null;
+  const digits = whatsappDigits(url);
+  if (!digits) return null;
+  let message = "";
+  try { message = new URL(url).searchParams.get("text") || ""; } catch { /* sin mensaje */ }
+  return { phone: "+" + digits, message: message.slice(0, ACTION_LIMITS.message) };
 }
 /** Enlace de WhatsApp construido en el servidor desde datos estructurados (nunca una URL libre). */
 export function whatsappUrl(phoneOrDigits: string, message?: string | null) {
@@ -169,6 +180,8 @@ export type ResolvedAction = {
 export type PointActionSource = {
   objective: PointObjective; destinationUrl: string | null;
   smartLinks: Array<{ label: string; url: string }>; actions: StoredAction[];
+  /** Texto del botón principal elegido en el editor del objetivo (vacío = texto por defecto del tipo). */
+  ctaLabel?: string;
 };
 
 /**
@@ -188,7 +201,7 @@ export function resolvePointActions(point: PointActionSource): ResolvedAction[] 
   const out: ResolvedAction[] = [];
   if (point.destinationUrl) {
     const type = objectiveActionType(point.objective, point.destinationUrl);
-    out.push({ id: "primary", type, label: ACTION_REGISTRY[type].defaultLabel, destination: point.destinationUrl, role: "primary" });
+    out.push({ id: "primary", type, label: point.ctaLabel?.trim() || ACTION_REGISTRY[type].defaultLabel, destination: point.destinationUrl, role: "primary" });
   }
   return [...out, ...stored.map(a => ({ ...a, role: "secondary" as const }))];
 }

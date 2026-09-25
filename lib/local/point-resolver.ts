@@ -6,6 +6,7 @@ import { escapeHtml } from "./report-email";
 import { campaignPublicBrand } from "./brand";
 import { pointConfigurationSchema, smartLinksSchema } from "./point-config";
 import { PUBLIC_ACTION_ID_PATTERN, readStoredActions, resolveContactActions, resolvePointActions, type ResolvedAction } from "./public-actions";
+import { readObjectiveConfig } from "./objective-config";
 import { findLocalVisit, recordActionClick, recordLocalAction, recordLocalArrival, recordTrackingIncident } from "./tracking";
 
 const privateHeaders = { "Cache-Control": "no-store, max-age=0", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow" };
@@ -26,7 +27,7 @@ export async function publicPoint(code: string) {
     // Acciones guardadas: lectura tolerante (una acción que ya no valida se omite; el punto sigue funcionando).
     const valid = pointConfigurationSchema.safeParse({ name: point.name, location: point.location || "Sin ubicación",
       objective: point.objective, medium: point.medium, isActive: point.isActive, destinationUrl: point.destinationUrl || "", smartLinks: point.smartLinks,
-      presentationMode: point.presentationMode, actions: readStoredActions(point.actions) });
+      presentationMode: point.presentationMode, actions: readStoredActions(point.actions), objectiveConfig: readObjectiveConfig(point.objectiveConfig) });
     if (!valid.success) return null;
   }
   return point;
@@ -37,7 +38,7 @@ export type PublicPoint = NonNullable<Awaited<ReturnType<typeof publicPoint>>>;
 export function publicPointActions(point: PublicPoint, withContact: boolean): ResolvedAction[] {
   const smartLinks = smartLinksSchema.safeParse(point.smartLinks);
   const actions = resolvePointActions({ objective: point.objective, destinationUrl: point.destinationUrl,
-    smartLinks: smartLinks.success ? smartLinks.data : [], actions: readStoredActions(point.actions) });
+    smartLinks: smartLinks.success ? smartLinks.data : [], actions: readStoredActions(point.actions), ctaLabel: readObjectiveConfig(point.objectiveConfig).ctaLabel });
   return withContact ? [...actions, ...resolveContactActions(campaignPublicBrand(point.campaign, point.campaign.company.name))] : actions;
 }
 

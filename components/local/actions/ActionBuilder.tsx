@@ -22,9 +22,12 @@ export function newActionDraft(type: PublicActionType, value = "", label = "", m
   return { id, type, label, value, message, enabled: true };
 }
 
-export default function ActionBuilder({ actions, onChange, title, hint, emptyText }: {
+export default function ActionBuilder({ actions, onChange, title, hint, emptyText, types, firstLabel = "Se muestra primero", addLabel = "Agregar acción" }: {
   actions: ActionDraft[]; onChange: (next: ActionDraft[]) => void; title: string; hint?: string; emptyText: string;
+  /** Tipos permitidos (p. ej. solo redes sociales). Por defecto, todos. */
+  types?: readonly PublicActionType[]; firstLabel?: string; addLabel?: string;
 }) {
+  const groups = types ? GROUPS.map(g => ({ ...g, types: g.types.filter(t => types.includes(t)) })).filter(g => g.types.length) : GROUPS;
   const uid = useId();
   const [picking, setPicking] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -54,7 +57,7 @@ export default function ActionBuilder({ actions, onChange, title, hint, emptyTex
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"><Icon aria-hidden className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{def.name}</span>
-                  <span className="block text-xs text-slate-500 dark:text-slate-400">{index === 0 ? "Se muestra primero" : `Posición ${index + 1}`}</span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400">{index === 0 ? firstLabel : `Posición ${index + 1}`}</span>
                 </span>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={action.enabled} onChange={e => update(action.id, { enabled: e.target.checked })} />
@@ -96,7 +99,7 @@ export default function ActionBuilder({ actions, onChange, title, hint, emptyTex
         <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
           <div className="flex items-center justify-between"><p className="font-semibold">¿Qué quieres que haga la persona?</p>
             <button type="button" onClick={() => setPicking(false)} aria-label="Cerrar" className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"><Close aria-hidden className="h-4 w-4" /></button></div>
-          {GROUPS.map(group => (
+          {groups.map(group => (
             <div key={group.title} className="mt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.title}</p>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -112,7 +115,7 @@ export default function ActionBuilder({ actions, onChange, title, hint, emptyTex
       ) : (
         <button type="button" onClick={() => setPicking(true)} disabled={full}
           className="inline-flex items-center gap-2 rounded-lg border border-blue-300 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-500/40 dark:text-blue-300 dark:hover:bg-slate-800">
-          <Plus aria-hidden className="h-4 w-4" />{full ? `Máximo ${MAX_POINT_ACTIONS} acciones` : "Agregar acción"}
+          <Plus aria-hidden className="h-4 w-4" />{full ? `Máximo ${MAX_POINT_ACTIONS} acciones` : addLabel}
         </button>
       )}
     </fieldset>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { safeDestination } from "./safe-url";
-import { pointActionsSchema } from "./public-actions";
+import { SOCIAL_ACTION_TYPES, actionTypeFromUrl, normalizeActionValue, pointActionsSchema } from "./public-actions";
+import { objectiveConfigSchema } from "./objective-config";
 
 export const pointObjectives = ["GOOGLE_REVIEW", "WHATSAPP", "SOCIAL", "CLUB", "PROMOTION", "MENU", "SMART_LANDING"] as const;
 export const objectiveLabels: Record<typeof pointObjectives[number], string> = {
@@ -28,7 +29,9 @@ export const pointConfigurationSchema = z.object({
   smartLinks: smartLinksSchema.default([]),
   presentationMode: z.enum(pointPresentationModes).default("DIRECT"),
   // Action Builder: todas las acciones de SMART_LANDING, o las acciones adicionales de los demás objetivos.
-  actions: pointActionsSchema.default([])
+  actions: pointActionsSchema.default([]),
+  // Editores por objetivo: texto del botón principal (y contenido de promoción).
+  objectiveConfig: objectiveConfigSchema.default({ ctaLabel: "" })
 }).strict().superRefine((point, ctx) => {
   const issue = (message: string) => ctx.addIssue({ code: "custom", message });
   if (point.objective === "CLUB") {
@@ -43,13 +46,13 @@ export const pointConfigurationSchema = z.object({
   const url = new URL(point.destinationUrl);
   const host = url.hostname.toLowerCase();
   if (point.objective === "WHATSAPP" && !(host === "wa.me" && /^\/[1-9]\d{7,14}$/.test(url.pathname))) {
-    issue("Usa un enlace https://wa.me/ seguido del número con código de país, sin + ni espacios.");
+    issue("Ingresa un número de WhatsApp válido con código de país, por ejemplo +56 9 1234 5678.");
   }
-  const google = ["g.page", "maps.app.goo.gl", "google.com", "www.google.com", "search.google.com", "maps.google.com", "google.cl", "www.google.cl"];
-  if (point.objective === "GOOGLE_REVIEW" && !google.includes(host)) issue("Usa el enlace de reseñas proporcionado por Google.");
-  const social = ["instagram.com", "facebook.com", "tiktok.com", "linkedin.com", "youtube.com", "youtu.be", "x.com", "twitter.com", "threads.net", "threads.com"];
-  if (point.objective === "SOCIAL" && !social.some(domain => host === domain || host === "www." + domain)) {
-    issue("Usa un perfil de Instagram, Facebook, TikTok, LinkedIn, YouTube, X o Threads.");
+  // Mismas reglas que el registro de acciones (editor y servidor validan igual). Solo amplía lo aceptado antes.
+  if (point.objective === "GOOGLE_REVIEW" && !normalizeActionValue("GOOGLE_REVIEW", point.destinationUrl).ok) issue("Usa el enlace de reseñas proporcionado por Google.");
+  if (point.objective === "SOCIAL") {
+    const type = actionTypeFromUrl(point.destinationUrl);
+    if (!(SOCIAL_ACTION_TYPES as readonly string[]).includes(type)) issue("Usa un perfil de Instagram, Facebook, TikTok, LinkedIn, YouTube, X o Threads.");
   }
 });
 export type PointConfiguration = z.infer<typeof pointConfigurationSchema>;

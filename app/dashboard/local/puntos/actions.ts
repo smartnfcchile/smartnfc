@@ -11,12 +11,14 @@ export async function savePointAction(_state: PointFormState, form: FormData): P
     // Action Builder: JSON con las acciones; se valida completo en el servidor (pointConfigurationSchema).
     const rawActions = String(form.get("actions") ?? "[]");
     let actions: unknown;
-    try { actions = JSON.parse(rawActions); } catch { return { error: "No se pudieron leer las acciones. Recarga la página e inténtalo nuevamente." }; }
+    let objectiveConfig: unknown;
+    try { actions = JSON.parse(rawActions); objectiveConfig = JSON.parse(String(form.get("objectiveConfig") ?? "{}")); }
+    catch { return { error: "No se pudieron leer las acciones. Recarga la página e inténtalo nuevamente." }; }
     const pointId = await saveLocalPoint({
       name: String(form.get("name") || ""), location: String(form.get("location") || ""),
       objective: String(form.get("objective") || ""), medium: String(form.get("medium") || ""),
       isActive: form.get("isActive") === "on", destinationUrl: String(form.get("destinationUrl") || ""), smartLinks,
-      presentationMode: String(form.get("presentationMode") || "DIRECT"), actions
+      presentationMode: String(form.get("presentationMode") || "DIRECT"), actions, objectiveConfig
     }, String(form.get("pointId") || "") || undefined, Number(form.get("version")), String(form.get("campaignId") || ""), String(form.get("campaignName") || ""), String(form.get("locationId") || "") || undefined);
     revalidatePath("/dashboard/local/puntos");
     revalidatePath("/dashboard/local/puntos/" + pointId);

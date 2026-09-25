@@ -518,6 +518,8 @@ model LocalTouchpoint {
   presentationMode     LocalPointPresentationMode @default(DIRECT)
   // Action Builder: acciones de SMART_LANDING o acciones adicionales de la landing (lib/local/public-actions.ts).
   actions              Json                       @default("[]")
+  // Configuración estructurada del objetivo (texto del botón principal; contenido de promoción). lib/local/objective-config.ts
+  objectiveConfig      Json                       @default("{}")
 
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt

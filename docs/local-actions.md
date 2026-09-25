@@ -51,3 +51,22 @@ Bloques A (Action Builder) y B (tracking de acciones). Se apoya en la Identidad 
 ## Migración
 
 `20260926120000_local_action_tracking`: `ALTER TYPE ... ADD VALUE 'LANDING_VIEW'`, `LocalTouchpoint.actions JSONB NOT NULL DEFAULT '[]'` (sin reescritura en PostgreSQL 11+) y tabla nueva `LocalActionClick`. Sin backfill ni cambios a datos existentes; rollback documentado en el SQL.
+
+## Editores por objetivo (Bloque C)
+
+El formulario de puntos (`components/local/PointForm.tsx`) muestra un editor según lo que el negocio quiere lograr. `destinationUrl` sigue siendo el destino principal (DIRECT y versiones anteriores lo leen sin cambios); los editores lo derivan de datos estructurados:
+
+| Objetivo | Editor | Destino principal |
+|---|---|---|
+| WhatsApp | número + mensaje sugerido + texto del botón | `whatsappUrl(número, mensaje)`; se vuelve a editar sin pérdida con `whatsappFromUrl` |
+| Redes sociales | Action Builder limitado a redes (orden, mostrar/ocultar) | la primera red visible; las demás se guardan como acciones. En DIRECT con varias redes se sugiere "Mostrar página del local" |
+| Reseñas de Google | enlace de "Pedir reseñas" + texto del botón | el enlace (validado igual que en el registro) |
+| Menú o catálogo | enlace web/PDF + texto del botón | el enlace |
+| Promoción | enlace + texto del botón (contenido enriquecido: bloque D) | el enlace |
+| Página con varias acciones | Action Builder completo | — |
+| Club | sin cambios (siempre DIRECT) | — |
+
+- `LocalTouchpoint.objectiveConfig` (JSONB, `{}` por defecto; migración `20260927120000_local_objective_config`): `{ ctaLabel }`. Lectura tolerante (`readObjectiveConfig`): contenido inválido = configuración vacía y texto por defecto. Club la ignora.
+- Las reglas del objetivo para Google y Redes usan el registro de acciones (mismas reglas en editor y servidor). Solo amplían lo aceptado antes (p. ej. `m.facebook.com`); ningún punto existente queda inválido.
+- En móvil el formulario tiene pestañas "Editar" / "Vista previa".
+- Textos honestos: el editor aclara que SmartNFC registra el toque, no si el mensaje se envió, la reseña se publicó o la persona siguió la cuenta.

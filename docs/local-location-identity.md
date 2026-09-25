@@ -14,18 +14,20 @@ Rama: `feat/local-location-identity`. No cambia objetivos, Puntos Inteligentes, 
 
 | Campo | Orden |
 |---|---|
-| Nombre comercial | Local.displayName → Campaña.businessName → Local.name → Company.name → "Mi local" |
+| Nombre comercial | Local.displayName → Campaña.businessName → Company.name → "Mi local" |
 | Logo | Local → Campaña.logoUrl |
 | Portada | Local → Campaña.heroImageUrl |
 | Colores | Local → Campaña → #2563eb / #0f172a |
 | Dirección | Local.address → Campaña.address |
 | Descripción, teléfono, web, mapa | Solo Local |
 
+`LocalLocation.name` es un nombre interno/administrativo (visible solo en el dashboard) y nunca se usa como nombre público ni como fallback público.
+
 El texto sobre el color principal se elige automáticamente (blanco u oscuro) por contraste WCAG. El Club conserva sus propios campos; su integración formal es el Bloque 9. No se copia nada desde campañas.
 
 ## Componentes reutilizables
 
-`components/local/public/`: `LocalPublicShell`, `LocalBrandHeader`, `LocalActionLink`, `LocalContactActions`, `LocalIdentityPreview`. Son de presentación pura (sin estado) para reutilizarlos en las landings del Bloque 4. `components/local/brand/` contiene piezas exclusivas del editor.
+`components/local/public/`: `LocalPublicShell`, `LocalBrandHeader`, `LocalActionLink`, `LocalContactActions`, `LocalIdentityPreview`. Son de presentación pura (sin estado). Desde la Landing Pública, la composición única es `LocalLandingView` (ver `docs/local-landing.md`). `components/local/brand/` contiene piezas exclusivas del editor.
 
 ## Seguridad
 

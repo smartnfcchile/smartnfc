@@ -63,7 +63,13 @@ test("Identidad: resolución centralizada Local → Campaña → Empresa → def
   assert.equal(full.logoUrl, "https://l/logo.png"); assert.equal(full.primaryColor, "#0f766e"); assert.equal(full.address, "Calle Local 2");
   assert.equal(full.coverImageUrl, "https://c/hero.png", "campo vacío del local hereda de la campaña");
   assert.equal(full.phone, "+56912345678"); assert.equal(full.initials, "LD");
-  assert.equal(resolveLocalBrand({ location: { name: "Sucursal Demo" }, company }).displayName, "Sucursal Demo");
+  // El nombre interno del local (LocalLocation.name) nunca es nombre público.
+  const internalOnly = resolveLocalBrand({ location: { name: "Sucursal Demo" }, company });
+  assert.equal(internalOnly.displayName, "Negocio Demo"); assert.equal(internalOnly.sources.displayName, "company");
+  assert.equal(resolveLocalBrand({ location: { name: "Sucursal Demo" } }).displayName, "Mi local");
+  // Imágenes públicas: solo HTTPS (campañas antiguas pueden tener URLs sin validar).
+  const unsafe = resolveLocalBrand({ campaign: { logoUrl: "javascript:alert(1)", heroImageUrl: "http://inseguro.example/x.png" }, company });
+  assert.equal(unsafe.logoUrl, null); assert.equal(unsafe.coverImageUrl, null);
 });
 
 test("Identidad: texto sobre color de marca elige el de mayor contraste", () => {

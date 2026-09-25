@@ -6,6 +6,10 @@ export const objectiveLabels: Record<typeof pointObjectives[number], string> = {
   CLUB: "Club de clientes", PROMOTION: "Promoción", MENU: "Menú o catálogo", SMART_LANDING: "Página con varias acciones"
 };
 export const mediumLabels = { NFC: "NFC", QR: "QR", NFC_QR: "NFC + QR" };
+export const pointPresentationModes = ["DIRECT", "LANDING"] as const;
+export const presentationModeLabels: Record<typeof pointPresentationModes[number], string> = {
+  DIRECT: "Abrir directamente", LANDING: "Mostrar página del local"
+};
 
 // Browser destinations only. No URL is fetched on the server.
 export function safeDestination(value: string): boolean {
@@ -28,10 +32,14 @@ export const pointConfigurationSchema = z.object({
   medium: z.enum(["NFC", "QR", "NFC_QR"]),
   isActive: z.boolean(),
   destinationUrl: z.string().trim().max(2048).optional().default(""),
-  smartLinks: smartLinksSchema.default([])
+  smartLinks: smartLinksSchema.default([]),
+  presentationMode: z.enum(pointPresentationModes).default("DIRECT")
 }).strict().superRefine((point, ctx) => {
   const issue = (message: string) => ctx.addIssue({ code: "custom", message });
-  if (point.objective === "CLUB") return;
+  if (point.objective === "CLUB") {
+    if (point.presentationMode !== "DIRECT") issue("El Club usa su propia página: el punto debe abrirse directamente.");
+    return;
+  }
   if (point.objective === "SMART_LANDING") {
     if (!point.smartLinks.length) issue("Agrega al menos una acción a la página.");
     return;

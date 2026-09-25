@@ -1,56 +1,111 @@
 "use client";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { savePointAction, type PointFormState } from "../../app/dashboard/local/puntos/actions";
-import { mediumLabels, objectiveLabels, pointObjectives, type PointConfiguration } from "../../lib/local/point-config";
+import { mediumLabels, objectiveLabels, pointObjectives, presentationModeLabels, type PointConfiguration } from "../../lib/local/point-config";
+import type { ResolvedLocalBrand } from "../../lib/local/brand";
+import { buildContactActions, buildPointActions } from "../../lib/local/public-actions";
+import LocalLandingView from "./public/LocalLandingView";
+import MobileDeviceFrame from "./brand/MobileDeviceFrame";
 
 type Point = PointConfiguration & { id: string; campaignId: string; configurationVersion: number };
-export default function PointForm({ point, campaigns, locations = [] }: { locations?: Array<{ id: string; name: string | null }>; point?: Point; campaigns: Array<{ id: string; name: string }> }) {
+type Mode = PointConfiguration["presentationMode"];
+
+export default function PointForm({ point, campaigns, locations = [], brandByCampaign = {}, brandByLocation = {}, companyBrand }: {
+  locations?: Array<{ id: string; name: string | null }>; point?: Point; campaigns: Array<{ id: string; name: string }>;
+  /** Identidad pública ya resuelta en el servidor (resolveLocalBrand) para la vista previa. */
+  brandByCampaign?: Record<string, ResolvedLocalBrand>; brandByLocation?: Record<string, ResolvedLocalBrand>; companyBrand?: ResolvedLocalBrand;
+}) {
   const [objective, setObjective] = useState<PointConfiguration["objective"]>(point?.objective || "GOOGLE_REVIEW");
   const [campaignId, setCampaignId] = useState(point?.campaignId || campaigns[0]?.id || "__new");
+  const [locationId, setLocationId] = useState(locations[0]?.id || "");
+  const [mode, setMode] = useState<Mode>(point?.presentationMode || "DIRECT");
+  const [destinationUrl, setDestinationUrl] = useState(point?.destinationUrl || "");
+  const [links, setLinks] = useState(() => Array.from({ length: 6 }, (_, i) => ({ label: point?.smartLinks[i]?.label || "", url: point?.smartLinks[i]?.url || "" })));
   const [state, action, pending] = useActionState(savePointAction, {} as PointFormState);
+
+  const effectiveMode: Mode = objective === "CLUB" ? "DIRECT" : mode;
+  const brand = (campaignId === "__new" ? brandByLocation[locationId] : brandByCampaign[campaignId]) || companyBrand;
+  // Vista previa: exactamente LocalLandingView con las acciones que tendría la landing pública (sin enlaces).
+  const previewActions = useMemo(() => brand ? [
+    ...buildPointActions({ code: "vista-previa", objective, destinationUrl, configurationVersion: 1,
+      smartLinks: links.filter(l => l.label.trim() && l.url.trim()) }, { interactive: false }),
+    ...buildContactActions(brand, { interactive: false }),
+  ] : [], [brand, objective, destinationUrl, links]);
+
   if (!point && state.success) return <div role="status" className="rounded-xl border border-green-300 bg-green-50 text-green-950 p-6 space-y-4">
     <p className="font-semibold">{state.success}</p>
     <Link className="underline" href="/dashboard/local/puntos">Volver a mis puntos</Link>
   </div>;
   const field = "block w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 mt-1";
-  return <form action={action} className="max-w-2xl space-y-5">
-    {point && <><input type="hidden" name="pointId" value={point.id}/><input type="hidden" name="version" value={point.configurationVersion}/></>}
-    <label className="block">Campaña
-      <select name="campaignId" className={field} value={campaignId} onChange={event => setCampaignId(event.target.value)} disabled={!!point} required>
-        {!point && <option value="__new">Crear una campaña nueva</option>}
-        {campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
-      </select>
-    </label>
-    {!point && campaignId === "__new" && locations.length > 0 && <label className="block">Local<select name="locationId" className={field} required>{locations.map((l, i) => <option key={l.id} value={l.id}>{l.name || `Local pendiente de identificar ${i + 1}`}</option>)}</select></label>}
-    {campaignId === "__new" && <label className="block">Nombre de la campaña<input name="campaignName" className={field} placeholder="Puntos de mi local" required minLength={2} maxLength={80}/><span className="text-sm text-slate-500">Agrupa los puntos de tu local. Solo el objetivo Club necesita un formulario y beneficio publicados.</span></label>}
-    <label className="block">Nombre del punto<input name="name" className={field} defaultValue={point?.name} placeholder="Caja principal" required maxLength={80}/></label>
-    <label className="block">Ubicación física<input name="location" className={field} defaultValue={point?.location} placeholder="Mostrador, junto a la caja 1" required maxLength={160}/></label>
-    <label className="block">¿Qué quieres conseguir?
-      <select name="objective" className={field} value={objective} onChange={event => setObjective(event.target.value as PointConfiguration["objective"])}>
-        {pointObjectives.map(value => <option key={value} value={value}>{objectiveLabels[value]}</option>)}
-      </select>
-    </label>
-    <label className="block">Soporte del punto
-      <select name="medium" className={field} defaultValue={point?.medium || "NFC_QR"}>
-        {Object.entries(mediumLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select>
-    </label>
-    {objective === "CLUB" ? <p className="rounded-lg bg-blue-50 text-blue-950 p-4">El punto abrirá el Club publicado de esta campaña, con registro y consentimiento.</p>
-      : objective === "SMART_LANDING" ? <fieldset className="space-y-3"><legend className="font-bold">Acciones de tu página · hasta 6</legend>
-        {Array.from({ length: 6 }, (_, index) => <div key={index} className="grid sm:grid-cols-2 gap-2">
-          <label>Nombre de la acción {index + 1}<input name={`label${index}`} className={field} defaultValue={point?.smartLinks[index]?.label} maxLength={60}/></label>
-          <label>Enlace de la acción {index + 1}<input name={`url${index}`} type="url" className={field} defaultValue={point?.smartLinks[index]?.url} placeholder="https://…" maxLength={2048}/></label>
-        </div>)}
-      </fieldset>
-      : <label className="block">Enlace de destino
-        <input name="destinationUrl" type="url" className={field} defaultValue={point?.destinationUrl} placeholder={objective === "WHATSAPP" ? "https://wa.me/56912345678" : "https://…"} required maxLength={2048}/>
-        <span className="text-sm text-slate-500">{objective === "GOOGLE_REVIEW" ? "Copia el enlace para solicitar reseñas desde tu perfil de negocio en Google." : objective === "MENU" ? "Enlace público a tu menú, PDF o catálogo." : objective === "PROMOTION" ? "Enlace público a la oferta o promoción vigente." : "Podrás cambiar este enlace conservando el mismo NFC y QR."}</span>
-      </label>}
-    <label className="flex gap-3 items-center"><input type="checkbox" name="isActive" defaultChecked={point?.isActive || false}/> Activar el punto</label>
-    <p className="text-sm text-slate-500">Guardar actualiza el destino de este punto. Desactívalo si todavía estás preparando la experiencia.</p>
-    {state.error && <p role="alert" className="text-red-700 dark:text-red-300">{state.error}</p>}
-    {state.success && <p role="status" className="text-green-700 dark:text-green-300">{state.success} <Link className="underline" href="/dashboard/local/puntos">Volver a mis puntos</Link></p>}
-    <button disabled={pending} className="rounded-lg bg-blue-700 text-white px-6 py-3 disabled:opacity-50">{pending ? "Guardando…" : "Guardar punto"}</button>
-  </form>;
+  const destinationHost = (() => { try { return new URL(destinationUrl).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+
+  return <div className="grid gap-8 lg:grid-cols-[minmax(0,42rem)_minmax(0,1fr)]">
+    <form action={action} className="max-w-2xl space-y-5">
+      {point && <><input type="hidden" name="pointId" value={point.id}/><input type="hidden" name="version" value={point.configurationVersion}/></>}
+      <label className="block">Campaña
+        <select name="campaignId" className={field} value={campaignId} onChange={event => setCampaignId(event.target.value)} disabled={!!point} required>
+          {!point && <option value="__new">Crear una campaña nueva</option>}
+          {campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+        </select>
+      </label>
+      {!point && campaignId === "__new" && locations.length > 0 && <label className="block">Local<select name="locationId" className={field} required value={locationId} onChange={e => setLocationId(e.target.value)}>{locations.map((l, i) => <option key={l.id} value={l.id}>{l.name || `Local pendiente de identificar ${i + 1}`}</option>)}</select></label>}
+      {campaignId === "__new" && <label className="block">Nombre de la campaña<input name="campaignName" className={field} placeholder="Puntos de mi local" required minLength={2} maxLength={80}/><span className="text-sm text-slate-500">Agrupa los puntos de tu local. Solo el objetivo Club necesita un formulario y beneficio publicados.</span></label>}
+      <label className="block">Nombre del punto<input name="name" className={field} defaultValue={point?.name} placeholder="Caja principal" required maxLength={80}/></label>
+      <label className="block">Ubicación física<input name="location" className={field} defaultValue={point?.location} placeholder="Mostrador, junto a la caja 1" required maxLength={160}/></label>
+      <label className="block">¿Qué quieres conseguir?
+        <select name="objective" className={field} value={objective} onChange={event => setObjective(event.target.value as PointConfiguration["objective"])}>
+          {pointObjectives.map(value => <option key={value} value={value}>{objectiveLabels[value]}</option>)}
+        </select>
+      </label>
+      <label className="block">Soporte del punto
+        <select name="medium" className={field} defaultValue={point?.medium || "NFC_QR"}>
+          {Object.entries(mediumLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+      {objective === "CLUB" ? <p className="rounded-lg bg-blue-50 text-blue-950 p-4">El punto abrirá el Club publicado de esta campaña, con registro y consentimiento.</p>
+        : objective === "SMART_LANDING" ? <fieldset className="space-y-3"><legend className="font-bold">Acciones de tu página · hasta 6</legend>
+          {links.map((link, index) => <div key={index} className="grid sm:grid-cols-2 gap-2">
+            <label>Nombre de la acción {index + 1}<input name={`label${index}`} className={field} value={link.label} maxLength={60}
+              onChange={e => setLinks(ls => ls.map((l, i) => i === index ? { ...l, label: e.target.value } : l))}/></label>
+            <label>Enlace de la acción {index + 1}<input name={`url${index}`} type="url" className={field} value={link.url} placeholder="https://…" maxLength={2048}
+              onChange={e => setLinks(ls => ls.map((l, i) => i === index ? { ...l, url: e.target.value } : l))}/></label>
+          </div>)}
+        </fieldset>
+        : <label className="block">Enlace de destino
+          <input name="destinationUrl" type="url" className={field} value={destinationUrl} onChange={e => setDestinationUrl(e.target.value)} placeholder={objective === "WHATSAPP" ? "https://wa.me/56912345678" : "https://…"} required maxLength={2048}/>
+          <span className="text-sm text-slate-500">{objective === "GOOGLE_REVIEW" ? "Copia el enlace para solicitar reseñas desde tu perfil de negocio en Google." : objective === "MENU" ? "Enlace público a tu menú, PDF o catálogo." : objective === "PROMOTION" ? "Enlace público a la oferta o promoción vigente." : "Podrás cambiar este enlace conservando el mismo NFC y QR."}</span>
+        </label>}
+      {objective !== "CLUB" && <fieldset className="space-y-2">
+        <legend className="font-bold">Al escanear el NFC o QR</legend>
+        {(["DIRECT", "LANDING"] as const).map(value => <label key={value} className="flex gap-3 items-start rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+          <input type="radio" name="presentationMode" value={value} checked={mode === value} onChange={() => setMode(value)} className="mt-1"/>
+          <span><span className="block font-semibold">{presentationModeLabels[value]}</span>
+            <span className="block text-sm text-slate-500">{value === "DIRECT"
+              ? (objective === "SMART_LANDING" ? "Muestra la página de acciones actual, sin la identidad del local." : "Abre el destino de inmediato, sin una página intermedia.")
+              : "Muestra la página con la identidad del local y la acción principal. Cambiarlo no requiere regrabar el NFC ni reimprimir el QR."}</span></span>
+        </label>)}
+      </fieldset>}
+      {objective === "CLUB" && <input type="hidden" name="presentationMode" value="DIRECT"/>}
+      <label className="flex gap-3 items-center"><input type="checkbox" name="isActive" defaultChecked={point?.isActive || false}/> Activar el punto</label>
+      <p className="text-sm text-slate-500">Guardar actualiza el destino de este punto. Desactívalo si todavía estás preparando la experiencia.</p>
+      {state.error && <p role="alert" className="text-red-700 dark:text-red-300">{state.error}</p>}
+      {state.success && <p role="status" className="text-green-700 dark:text-green-300">{state.success} <Link className="underline" href="/dashboard/local/puntos">Volver a mis puntos</Link></p>}
+      <button disabled={pending} className="rounded-lg bg-blue-700 text-white px-6 py-3 disabled:opacity-50">{pending ? "Guardando…" : "Guardar punto"}</button>
+    </form>
+
+    <aside aria-label="Vista previa del punto" className="lg:sticky lg:top-6 self-start space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Vista previa</p>
+      {effectiveMode === "LANDING" && brand ? <>
+        <MobileDeviceFrame compact label="Vista previa de la página del local">
+          <LocalLandingView brand={brand} actions={previewActions} framed emptyHint="Completa el destino para ver la acción principal." />
+        </MobileDeviceFrame>
+        <p className="text-center text-xs text-slate-500 dark:text-slate-400">La identidad se edita en <Link className="underline" href="/dashboard/local/locales">Mis locales</Link>.</p>
+      </> : <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 text-sm text-slate-600 dark:text-slate-300">
+        {objective === "CLUB" ? "Al escanear se abre el Club publicado de la campaña."
+          : objective === "SMART_LANDING" ? "Al escanear se muestra la página de acciones actual."
+          : destinationHost ? `Al escanear se abre directamente ${destinationHost}.` : "Al escanear se abrirá directamente el enlace de destino."}
+      </div>}
+    </aside>
+  </div>;
 }

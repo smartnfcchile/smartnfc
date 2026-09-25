@@ -151,6 +151,12 @@ export type ResolvedLocalBrand = {
   sources: Record<"displayName" | "logoUrl" | "coverImageUrl" | "primaryColor" | "secondaryColor" | "address", BrandSource>;
 };
 
+/** URL HTTPS pública sin credenciales ni caracteres de control (imágenes mostradas públicamente). */
+export function isPublicHttpsUrl(value: string): boolean {
+  if (value.length > BRAND_LIMITS.url || /[\u0000-\u0020"'<>\\]/.test(value)) return false;
+  try { const u = new URL(value); return u.protocol === "https:" && !u.username && !u.password; } catch { return false; }
+}
+
 function pick<T>(chain: Array<[T | null | undefined, BrandSource]>, fallback: [T, BrandSource]): [T, BrandSource] {
   for (const [value, source] of chain) if (value !== null && value !== undefined && value !== "") return [value, source];
   return fallback;
@@ -162,6 +168,7 @@ export function brandInitials(name: string) {
 
 /**
  * Única función de resolución de identidad: LocalLocation → LocalCampaign (cuando se entrega) → Company → default.
+ * El nombre público nunca usa LocalLocation.name (es el nombre interno del local).
  * La campaña solo aporta los campos que ya tenía (nombre comercial, logo, portada, colores, dirección).
  * Teléfono, web, mapa y descripción son exclusivos del Local.
  */
@@ -170,9 +177,12 @@ export function resolveLocalBrand(input: {
 }): ResolvedLocalBrand {
   const l = input.location ?? {}, c = input.campaign ?? {}, co = input.company ?? {};
   const color = (v?: string | null) => (v ? normalizeHexColor(v) : null);
-  const [displayName, displayNameSrc] = pick<string>([[l.displayName, "location"], [c.businessName, "campaign"], [l.name, "location"], [co.name, "company"]], ["Mi local", "default"]);
-  const [logoUrl, logoSrc] = pick<string | null>([[l.logoUrl, "location"], [c.logoUrl, "campaign"]], [null, "default"]);
-  const [coverImageUrl, coverSrc] = pick<string | null>([[l.coverImageUrl, "location"], [c.heroImageUrl, "campaign"]], [null, "default"]);
+  // Nombre público: nunca LocalLocation.name (nombre interno/administrativo del local).
+  const [displayName, displayNameSrc] = pick<string>([[l.displayName, "location"], [c.businessName, "campaign"], [co.name, "company"]], ["Mi local", "default"]);
+  // Imágenes: solo HTTPS (las de campañas antiguas no pasaron por la validación estricta del Bloque 1).
+  const img = (v?: string | null) => (v && isPublicHttpsUrl(v) ? v : null);
+  const [logoUrl, logoSrc] = pick<string | null>([[img(l.logoUrl), "location"], [img(c.logoUrl), "campaign"]], [null, "default"]);
+  const [coverImageUrl, coverSrc] = pick<string | null>([[img(l.coverImageUrl), "location"], [img(c.heroImageUrl), "campaign"]], [null, "default"]);
   const [primaryColor, primarySrc] = pick<string>([[color(l.primaryColor), "location"], [color(c.primaryColor), "campaign"]], [BRAND_DEFAULT_PRIMARY, "default"]);
   const [secondaryColor, secondarySrc] = pick<string>([[color(l.secondaryColor), "location"], [color(c.secondaryColor), "campaign"]], [BRAND_DEFAULT_SECONDARY, "default"]);
   const [address, addressSrc] = pick<string | null>([[l.address, "location"], [c.address, "campaign"]], [null, "default"]);

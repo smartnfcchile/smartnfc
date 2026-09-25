@@ -486,6 +486,11 @@ enum LocalPointObjective {
   SMART_LANDING
 }
 
+enum LocalPointPresentationMode {
+  DIRECT
+  LANDING
+}
+
 enum LocalPointMedium {
   NFC
   QR
@@ -493,19 +498,21 @@ enum LocalPointMedium {
 }
 
 model LocalTouchpoint {
-  id                   String              @id @default(cuid())
+  id                   String                     @id @default(cuid())
   campaignId           String
-  campaign             LocalCampaign       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  campaign             LocalCampaign              @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   name                 String
-  code                 String              @unique
-  isActive             Boolean             @default(true)
+  code                 String                     @unique
+  isActive             Boolean                    @default(true)
   physicalNfcCard      PhysicalNfcCard?
-  objective            LocalPointObjective @default(CLUB)
-  medium               LocalPointMedium    @default(NFC_QR)
+  objective            LocalPointObjective        @default(CLUB)
+  medium               LocalPointMedium           @default(NFC_QR)
   location             String?
   destinationUrl       String?
-  smartLinks           Json                @default("[]")
-  configurationVersion Int                 @default(1)
+  smartLinks           Json                       @default("[]")
+  configurationVersion Int                        @default(1)
+  // DIRECT: comportamiento histórico (redirect o página legada). LANDING: landing pública /l/[code].
+  presentationMode     LocalPointPresentationMode @default(DIRECT)
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

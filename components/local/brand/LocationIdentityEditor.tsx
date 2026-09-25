@@ -130,8 +130,8 @@ export default function LocationIdentityEditor({ locationId, companyName, initia
     });
   }
 
-  const fallbackName = brand.sources.displayName === "location" && values.displayName ? null
-    : campaignFallback?.businessName || values.name || companyName;
+  // Mismo orden que resolveLocalBrand: el nombre interno del local nunca se usa como nombre público.
+  const fallbackName = values.displayName.trim() ? null : (campaignFallback?.businessName || companyName);
   const contrast = contrastRatio(brand.primaryColor, brand.onPrimary);
 
   return (

@@ -19,7 +19,8 @@ export async function publicPoint(code: string) {
     if (point.campaign.status !== "PUBLISHED" || !point.campaign.publishedSnapshot) return null;
   } else {
     const valid = pointConfigurationSchema.safeParse({ name: point.name, location: point.location || "Sin ubicación",
-      objective: point.objective, medium: point.medium, isActive: point.isActive, destinationUrl: point.destinationUrl || "", smartLinks: point.smartLinks });
+      objective: point.objective, medium: point.medium, isActive: point.isActive, destinationUrl: point.destinationUrl || "", smartLinks: point.smartLinks,
+      presentationMode: point.presentationMode });
     if (!valid.success) return null;
   }
   return point;
@@ -38,6 +39,11 @@ export async function resolveLocalPoint(code: string, source: ContactSource, hea
   } catch { await recordTrackingIncident(point.campaign.companyId); }
   if (point.objective === "CLUB") {
     return redirect(getPublicUrl(`/club/${point.campaign.slug}?ref=${point.code}${visitId ? "&v=" + visitId : ""}`));
+  }
+  // LANDING: la visita ya quedó registrada arriba (una sola vez). La landing no registra otra;
+  // las salidas se registran solo cuando el visitante toca una acción (/p/[code]/go).
+  if (point.presentationMode === "LANDING") {
+    return redirect(getPublicUrl(`/l/${point.code}${visitId ? "?v=" + visitId : ""}`));
   }
   if (point.objective === "SMART_LANDING") {
     const links = smartLinksSchema.parse(point.smartLinks);
@@ -58,7 +64,9 @@ export async function resolveLocalPoint(code: string, source: ContactSource, hea
 }
 export async function resolvePointAction(code: string, query: URLSearchParams) {
   const point = await publicPoint(code);
-  if (!point || point.objective !== "SMART_LANDING") return unavailable();
+  if (!point) return unavailable();
+  if (query.get("action") === "primary") return resolvePrimaryAction(point, query);
+  if (point.objective !== "SMART_LANDING") return unavailable();
   if (query.get("version") !== String(point.configurationVersion)) {
     return new Response("Este punto cambió. Vuelve a abrir el enlace del punto para ver las acciones actuales.", { status: 409, headers: privateHeaders });
   }
@@ -75,4 +83,23 @@ export async function resolvePointAction(code: string, query: URLSearchParams) {
     }
   }
   return redirect(link.url);
+}
+
+// Acción principal de una landing de objetivo único (WhatsApp, reseñas, redes, menú, promoción).
+// Redirige solo a la URL guardada y validada del punto; nunca a una URL recibida en la petición.
+const SINGLE_ACTION_OBJECTIVES = new Set(["GOOGLE_REVIEW", "WHATSAPP", "SOCIAL", "PROMOTION", "MENU"]);
+async function resolvePrimaryAction(point: NonNullable<Awaited<ReturnType<typeof publicPoint>>>, query: URLSearchParams) {
+  if (!SINGLE_ACTION_OBJECTIVES.has(point.objective) || !point.destinationUrl) return unavailable();
+  if (query.get("version") !== String(point.configurationVersion)) {
+    return new Response("Este punto cambió. Vuelve a abrir el enlace del punto para ver las acciones actuales.", { status: 409, headers: privateHeaders });
+  }
+  const visitId = query.get("v");
+  if (visitId) {
+    const visit = await findLocalVisit(visitId, point.campaignId);
+    if (visit?.touchpointId === point.id && visit.objective === point.objective) {
+      try { await recordLocalAction(visit.id, point.campaignId, point.objective === "WHATSAPP" ? "WHATSAPP_REDIRECT" : "DESTINATION_REDIRECT"); }
+      catch { await recordTrackingIncident(point.campaign.companyId); }
+    }
+  }
+  return redirect(point.destinationUrl);
 }

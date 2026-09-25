@@ -1,0 +1,41 @@
+// Composición única de la experiencia pública de SmartNFC Local.
+// Jerarquía: identidad → acción principal → acciones secundarias → contacto/ubicación → atribución.
+// La usan /l/[code], la vista previa del editor de identidad y la vista previa del formulario de puntos:
+// no existe otra representación visual de la landing.
+import type { ResolvedLocalBrand } from "../../../lib/local/brand";
+import { visibleActions, type PublicAction } from "../../../lib/local/public-actions";
+import LocalBrandHeader from "./LocalBrandHeader";
+import LocalActionList from "./LocalActionList";
+import LocalPublicShell from "./LocalPublicShell";
+
+export default function LocalLandingView({ brand, actions, framed = false, emptyHint }: {
+  brand: ResolvedLocalBrand;
+  actions: PublicAction[];
+  framed?: boolean;
+  /** Solo vistas previas: texto cuando aún no hay acciones del objetivo. Nunca se usa en la landing pública. */
+  emptyHint?: string;
+}) {
+  const primary = visibleActions(actions, "primary");
+  const secondary = visibleActions(actions, "secondary");
+  const contact = visibleActions(actions, "contact");
+  return (
+    <LocalPublicShell brand={brand} framed={framed}>
+      <LocalBrandHeader brand={brand} />
+      <main className="space-y-3 px-6 pt-7">
+        <LocalActionList actions={primary} brand={brand} variant="primary" label="Acción principal" />
+        <LocalActionList actions={secondary} brand={brand} variant="secondary" label="Más acciones" />
+        {!primary.length && !secondary.length && emptyHint && (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-5 py-6 text-center text-[13px] leading-relaxed text-slate-500">
+            {emptyHint}
+          </div>
+        )}
+      </main>
+      {contact.length > 0 && (
+        <section aria-label="Contacto y ubicación" className="px-6 pt-8">
+          <h2 className="px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Contacto</h2>
+          <div className="mt-1.5"><LocalActionList actions={contact} brand={brand} variant="contact" label="Contacto del local" /></div>
+        </section>
+      )}
+    </LocalPublicShell>
+  );
+}

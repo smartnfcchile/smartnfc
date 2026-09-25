@@ -55,7 +55,7 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
       : await tx.localTouchpoint.create({ data: { ...data, campaignId: campaign.id, code: randomUUID().replaceAll("-", "") } });
     await tx.adminAuditLog.create({ data: { actorUserId: actor.id, companyId: company.id,
       action: existing ? "LOCAL_POINT_UPDATE" : "LOCAL_POINT_CREATE", entityType: "LOCAL_TOUCHPOINT", entityId: point.id,
-      metadata: JSON.stringify({ objective: point.objective, medium: point.medium, isActive: point.isActive, version: point.configurationVersion }) } });
+      metadata: JSON.stringify({ objective: point.objective, medium: point.medium, isActive: point.isActive, presentationMode: point.presentationMode, version: point.configurationVersion }) } });
     return point.id;
   });
 }

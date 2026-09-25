@@ -97,3 +97,24 @@ El Club conserva su editor, su flujo de registro con consentimiento y su modo DI
 - Estado inactivo: `/club/[slug]` y `/l/[code]` comparten `LocalInactiveState` ("Punto Inteligente temporalmente inactivo").
 - Navegación: el formulario de puntos enlaza al editor del Club de la campaña.
 - Tracking: sin cambios. `SUBSCRIPTION`, `WHATSAPP_REDIRECT` y `VCF_DOWNLOAD` del Club siguen siendo sus métricas propias (una suscripción sí es un resultado observable); la analítica por períodos las presenta junto a las demás sin duplicarlas.
+
+## Dashboard y analítica actual (Bloque F)
+
+`/dashboard/local` deja de limitarse a la última semana cerrada. Requiere, como antes, la capacidad `LOCAL_REPORTS` en el servidor (sin ella se informa que los datos se conservan). Ya no exige tener configurado el envío automático de reportes.
+
+- Períodos (`lib/local/analytics-period.ts`, hora de Chile): Hoy, Esta semana (por defecto), Última semana, Este mes y Personalizado (días inclusivos, sin días futuros, máximo 366). La comparación usa el **mismo tramo** del período anterior (p. ej. esta semana hasta ahora contra la semana pasada hasta el mismo momento), nunca un período parcial contra uno completo.
+- Métricas (`lib/local/analytics.ts`, siempre filtradas por empresa):
+
+| Métrica | Fuente | Significado |
+|---|---|---|
+| Accesos (NFC / QR / enlace) | `LocalVisit` | una visita, no una persona única |
+| Vistas de la página del local | `LANDING_VIEW` | la persona vio la página |
+| Clics en acciones | `LocalActionClick` | tocó un botón; no confirma mensaje, reseña, seguimiento ni compra |
+| Salidas directas | `WHATSAPP_REDIRECT`/`DESTINATION_REDIRECT` de puntos no Club | salida automática en DIRECT |
+| Nuevas suscripciones al Club | `LocalSubscriber.firstSubscribedAt` | resultado observable (registro con consentimiento) |
+| Club: confirmaciones por WhatsApp abiertas y contactos guardados | eventos del Club | se muestran aparte, no como salidas directas |
+
+- "Clics por cada 100 vistas de página" se muestra solo con vistas de página; no se llama "conversión".
+- Evolución diaria (días de Chile, agrupados en SQL parametrizado con límites convertidos a UTC), puntos más usados, acciones más tocadas por tipo, accesos por objetivo y por local. El gráfico tiene tooltip por barra (cursor y teclado) y vista de tabla.
+- Se advierte si hubo incidencias de medición en el período. Cero actividad registrada no se presenta como ausencia de visitantes.
+- Los informes automáticos semanales/mensuales conservan su formato histórico en "Reportes automáticos".

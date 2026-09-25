@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { safeDestination } from "./safe-url";
+import { pointActionsSchema } from "./public-actions";
 
 export const pointObjectives = ["GOOGLE_REVIEW", "WHATSAPP", "SOCIAL", "CLUB", "PROMOTION", "MENU", "SMART_LANDING"] as const;
 export const objectiveLabels: Record<typeof pointObjectives[number], string> = {
@@ -11,17 +13,8 @@ export const presentationModeLabels: Record<typeof pointPresentationModes[number
   DIRECT: "Abrir directamente", LANDING: "Mostrar página del local"
 };
 
-// Browser destinations only. No URL is fetched on the server.
-export function safeDestination(value: string): boolean {
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase();
-    return url.protocol === "https:" && !url.username && !url.password &&
-      (!url.port || url.port === "443") && host.includes(".") &&
-      !host.startsWith("[") && !/^[\d.]+$/.test(host) &&
-      !/(^|\.)(localhost|local|internal|test)$/.test(host) && !/[\u0000-\u0020\\]/.test(value);
-  } catch { return false; }
-}
+// Browser destinations only. No URL is fetched on the server (implementation in safe-url.ts, re-exported for existing imports).
+export { safeDestination };
 const destination = z.string().trim().max(2048).refine(safeDestination, "Usa una dirección HTTPS pública válida.");
 const linkSchema = z.object({ label: z.string().trim().min(1).max(60), url: destination }).strict();
 export const smartLinksSchema = z.array(linkSchema).max(6);
@@ -33,7 +26,9 @@ export const pointConfigurationSchema = z.object({
   isActive: z.boolean(),
   destinationUrl: z.string().trim().max(2048).optional().default(""),
   smartLinks: smartLinksSchema.default([]),
-  presentationMode: z.enum(pointPresentationModes).default("DIRECT")
+  presentationMode: z.enum(pointPresentationModes).default("DIRECT"),
+  // Action Builder: todas las acciones de SMART_LANDING, o las acciones adicionales de los demás objetivos.
+  actions: pointActionsSchema.default([])
 }).strict().superRefine((point, ctx) => {
   const issue = (message: string) => ctx.addIssue({ code: "custom", message });
   if (point.objective === "CLUB") {
@@ -41,7 +36,7 @@ export const pointConfigurationSchema = z.object({
     return;
   }
   if (point.objective === "SMART_LANDING") {
-    if (!point.smartLinks.length) issue("Agrega al menos una acción a la página.");
+    if (!point.smartLinks.length && !point.actions.some(a => a.enabled)) issue("Agrega al menos una acción activa a la página.");
     return;
   }
   if (!safeDestination(point.destinationUrl)) { issue("Usa una dirección HTTPS pública válida."); return; }
@@ -58,3 +53,4 @@ export const pointConfigurationSchema = z.object({
   }
 });
 export type PointConfiguration = z.infer<typeof pointConfigurationSchema>;
+export type PointConfigurationInput = z.input<typeof pointConfigurationSchema>;

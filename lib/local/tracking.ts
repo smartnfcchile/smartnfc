@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ContactSource, LocalEventType, LocalPointObjective, Prisma } from "@prisma/client";
+import { ContactSource, LocalEventType, LocalPointObjective, LocalPointPresentationMode, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { hashIp } from "../security";
 import { checkRateLimit } from "../rateLimit";
@@ -49,13 +49,34 @@ export async function findLocalVisit(id: unknown, campaignId: string) {
   } });
 }
 
-export async function recordLocalAction(visitId: string, campaignId: string, eventType: "VIEW" | "WHATSAPP_REDIRECT" | "VCF_DOWNLOAD" | "DESTINATION_REDIRECT") {
+export async function recordLocalAction(visitId: string, campaignId: string, eventType: "VIEW" | "WHATSAPP_REDIRECT" | "VCF_DOWNLOAD" | "DESTINATION_REDIRECT" | "LANDING_VIEW") {
   const visit = await findLocalVisit(visitId, campaignId);
   if (!visit) throw new Error("Visita no disponible.");
   await prisma.localEvent.upsert({
     where: { visitId_eventType: { visitId, eventType } },
     create: { campaignId, touchpointId: visit.touchpointId, visitId, eventType }, update: {}
   });
+}
+
+/**
+ * Clic en una acción pública, atribuido a una visita ya registrada del mismo punto (una por visita y acción).
+ * La visita llega validada por el llamador (findLocalVisit + touchpointId). Un clic NO confirma mensaje, reseña, seguimiento ni compra.
+ */
+export async function recordActionClick(input: {
+  visit: { id: string; companyId: string; campaignId: string; touchpointId: string | null; source: ContactSource };
+  point: { objective: LocalPointObjective; presentationMode: LocalPointPresentationMode };
+  action: { id: string; type: string; role: string };
+}) {
+  const { visit, point, action } = input;
+  try {
+    await prisma.localActionClick.create({ data: {
+      companyId: visit.companyId, campaignId: visit.campaignId, touchpointId: visit.touchpointId, visitId: visit.id,
+      actionId: action.id, actionType: action.type, actionRole: action.role, source: visit.source,
+      objective: point.objective, presentationMode: point.presentationMode,
+    } });
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
+  }
 }
 
 

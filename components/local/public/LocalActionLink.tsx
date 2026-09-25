@@ -8,13 +8,15 @@ export type LocalActionLinkProps = {
   label: string;
   detail?: string | null;
   href?: string;
+  /** Registro del clic (enlaces tel:) mediante el atributo HTML ping, sin JavaScript. */
+  ping?: string;
   external?: boolean;
   variant?: "primary" | "secondary" | "contact";
   primaryColor: string;
   onPrimary: string;
 };
 
-export default function LocalActionLink({ icon: Icon, label, detail, href, external, variant = "secondary", primaryColor, onPrimary }: LocalActionLinkProps) {
+export default function LocalActionLink({ icon: Icon, label, detail, href, ping, external, variant = "secondary", primaryColor, onPrimary }: LocalActionLinkProps) {
   const primary = variant === "primary", contact = variant === "contact";
   const body = (
     <>
@@ -40,7 +42,7 @@ export default function LocalActionLink({ icon: Icon, label, detail, href, exter
   const className = `flex w-full items-center gap-3.5 ${shape}${interactive}`;
   const style = primary ? { backgroundColor: primaryColor, color: onPrimary } : undefined;
   return href ? (
-    <a href={href} className={className} style={style} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{body}</a>
+    <a href={href} ping={ping} className={className} style={style} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{body}</a>
   ) : (
     <div className={className} style={style}>{body}</div>
   );

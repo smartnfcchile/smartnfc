@@ -2,10 +2,16 @@
 // Módulo puro: sin Prisma ni APIs de Node, para poder usarse en servidor, editor y
 // (más adelante) en las landings públicas. La resolución de identidad vive SOLO aquí.
 import { z } from "zod";
-import { safeDestination } from "./point-config";
+import { safeDestination } from "./safe-url";
 
 export const BRAND_DEFAULT_PRIMARY = "#2563eb";
 export const BRAND_DEFAULT_SECONDARY = "#0f172a";
+/** Iguales a los @default de LocalCampaign.primaryColor/secondaryColor en schema.prisma (lo verifica un test). */
+export const CAMPAIGN_DEFAULT_COLORS = { primaryColor: "#2563eb", secondaryColor: "#d4af37" } as const;
+/** Datos de marca con los que nace una campaña creada desde un Punto Inteligente: la vista previa usa exactamente esto. */
+export function newCampaignBrandSource(companyName: string) {
+  return { businessName: companyName, ...CAMPAIGN_DEFAULT_COLORS };
+}
 export const BRAND_LIMITS = { displayName: 80, shortDescription: 160, name: 120, address: 240, url: 2048 } as const;
 export const BRAND_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 export const BRAND_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -192,4 +198,18 @@ export function resolveLocalBrand(input: {
     mapsUrl: l.mapsUrl || null, initials: brandInitials(displayName),
     sources: { displayName: displayNameSrc, logoUrl: logoSrc, coverImageUrl: coverSrc, primaryColor: primarySrc, secondaryColor: secondarySrc, address: addressSrc },
   };
+}
+
+type CampaignBrandInput = {
+  businessName: string | null; logoUrl: string | null; heroImageUrl: string | null; primaryColor: string; secondaryColor: string;
+  address: string | null; localLocation?: BrandLocationSource | null;
+};
+/** Identidad pública de los puntos de una campaña: Local → Campaña → Empresa (resolveLocalBrand). */
+export function campaignPublicBrand(campaign: CampaignBrandInput, companyName: string): ResolvedLocalBrand {
+  return resolveLocalBrand({
+    location: campaign.localLocation,
+    campaign: { businessName: campaign.businessName, logoUrl: campaign.logoUrl, heroImageUrl: campaign.heroImageUrl,
+      primaryColor: campaign.primaryColor, secondaryColor: campaign.secondaryColor, address: campaign.address },
+    company: { name: companyName },
+  });
 }

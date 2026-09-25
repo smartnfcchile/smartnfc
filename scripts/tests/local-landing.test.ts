@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ACTION_DEFAULT_LABELS, PUBLIC_ACTION_TYPES, actionTypeFromUrl, buildContactActions, buildPointActions, visibleActions } from "../../lib/local/public-actions";
+import { ACTION_DEFAULT_LABELS, PUBLIC_ACTION_TYPES, actionTypeFromUrl, buildContactActions, resolveContactActions, resolvePointActions, toPublicActions, visibleActions,
+  type PointActionSource } from "../../lib/local/public-actions";
 import { pointConfigurationSchema } from "../../lib/local/point-config";
 import { resolveLocalBrand } from "../../lib/local/brand";
 import { ACTION_ICONS } from "../../components/local/public/action-icons";
@@ -16,44 +17,49 @@ const brand = resolveLocalBrand({
     phone: "+56912345678", websiteUrl: "https://www.ejemplo.cl", mapsUrl: "https://maps.app.goo.gl/demo", address: "Calle Demo 123" },
   company: { name: "Negocio Demo" },
 });
-const point = (objective: Parameters<typeof buildPointActions>[0]["objective"], destinationUrl: string | null, smartLinks: Array<{ label: string; url: string }> = []) =>
-  ({ code: "abc123def456", objective, destinationUrl, smartLinks, configurationVersion: 7 });
+const point = (objective: PointActionSource["objective"], destinationUrl: string | null, smartLinks: Array<{ label: string; url: string }> = []): PointActionSource =>
+  ({ objective, destinationUrl, smartLinks, actions: [] });
+const links = (p: PointActionSource, visitId?: string) => toPublicActions(resolvePointActions(p), { interactive: true, code: "abc123def456", version: 7, visitId });
 
 test("Acciones: el tipo visual se deduce del dominio y no acepta dominios impostores", () => {
   const cases: Array<[string, string]> = [
-    ["https://wa.me/56912345678", "whatsapp"], ["https://www.instagram.com/demo", "instagram"], ["https://facebook.com/demo", "facebook"],
-    ["https://www.tiktok.com/@demo", "tiktok"], ["https://youtu.be/x", "youtube"], ["https://www.linkedin.com/company/demo", "linkedin"],
-    ["https://x.com/demo", "x"], ["https://twitter.com/demo", "x"], ["https://www.threads.net/@demo", "threads"],
-    ["https://g.page/r/demo/review", "google_review"], ["https://www.ejemplo.cl/menu", "web"],
-    ["https://instagram.com.evil.example/demo", "web"], ["https://evilwa.me/x", "web"], ["no-es-url", "link"],
+    ["https://wa.me/56912345678", "WHATSAPP"], ["https://www.instagram.com/demo", "INSTAGRAM"], ["https://facebook.com/demo", "FACEBOOK"],
+    ["https://www.tiktok.com/@demo", "TIKTOK"], ["https://youtu.be/x", "YOUTUBE"], ["https://www.linkedin.com/company/demo", "LINKEDIN"],
+    ["https://x.com/demo", "X"], ["https://twitter.com/demo", "X"], ["https://www.threads.net/@demo", "THREADS"],
+    ["https://g.page/r/demo/review", "GOOGLE_REVIEW"], ["https://www.ejemplo.cl/menu", "WEB"],
+    ["https://instagram.com.evil.example/demo", "WEB"], ["https://evilwa.me/x", "WEB"], ["no-es-url", "LINK"],
   ];
   for (const [url, type] of cases) assert.equal(actionTypeFromUrl(url), type, url);
 });
 
 test("Acciones: cada objetivo tiene su acción protagonista y los enlaces pasan por /go con URL guardada en servidor", () => {
-  const expected = { WHATSAPP: "whatsapp", GOOGLE_REVIEW: "google_review", MENU: "menu", PROMOTION: "promotion" } as const;
+  const expected = { WHATSAPP: "WHATSAPP", GOOGLE_REVIEW: "GOOGLE_REVIEW", MENU: "MENU", PROMOTION: "PROMOTION" } as const;
   for (const [objective, type] of Object.entries(expected)) {
-    const [a] = buildPointActions(point(objective as "MENU", "https://destino.example/secreto"), { interactive: true, visitId: "v-1" });
+    const [a] = links(point(objective as "MENU", "https://destino.example/secreto"), "v-1");
     assert.equal(a.type, type); assert.equal(a.group, "primary"); assert.equal(a.label, ACTION_DEFAULT_LABELS[type]);
     assert.equal(a.href, "/p/abc123def456/go?action=primary&version=7&v=v-1");
     assert.ok(!a.href!.includes("destino.example"), "el href nunca expone ni acepta la URL de destino");
   }
-  assert.equal(buildPointActions(point("SOCIAL", "https://www.instagram.com/demo"), { interactive: true })[0].type, "instagram");
-  assert.equal(buildPointActions(point("SOCIAL", "https://www.instagram.com/demo"), { interactive: true })[0].label, "Síguenos en Instagram");
-  assert.equal(buildPointActions(point("WHATSAPP", "https://wa.me/1"), { interactive: false })[0].href, undefined, "vista previa sin enlaces");
-  assert.deepEqual(buildPointActions(point("CLUB", null), { interactive: true }), []);
-  const smart = buildPointActions(point("SMART_LANDING", null, [{ label: "Menú", url: "https://ejemplo.cl/menu" }, { label: "Instagram", url: "https://instagram.com/demo" }]), { interactive: true });
+  assert.equal(links(point("SOCIAL", "https://www.instagram.com/demo"))[0].type, "INSTAGRAM");
+  assert.equal(links(point("SOCIAL", "https://www.instagram.com/demo"))[0].label, "Síguenos en Instagram");
+  assert.equal(toPublicActions(resolvePointActions(point("WHATSAPP", "https://wa.me/1")), { interactive: false })[0].href, undefined, "vista previa sin enlaces");
+  assert.deepEqual(resolvePointActions(point("CLUB", null)), []);
+  const smart = links(point("SMART_LANDING", null, [{ label: "Menú", url: "https://ejemplo.cl/menu" }, { label: "Instagram", url: "https://instagram.com/demo" }]));
   assert.deepEqual(smart.map(a => [a.group, a.type, a.href]), [
-    ["primary", "web", "/p/abc123def456/go?index=0&version=7"], ["secondary", "instagram", "/p/abc123def456/go?index=1&version=7"]]);
+    ["primary", "WEB", "/p/abc123def456/go?action=link-0&version=7"], ["secondary", "INSTAGRAM", "/p/abc123def456/go?action=link-1&version=7"]]);
   for (const type of Object.values(expected)) assert.ok(!/reseña publicada|mensaje enviado|seguidor|compra|conversi/i.test(ACTION_DEFAULT_LABELS[type]));
 });
 
-test("Acciones: contacto solo con datos existentes y orden/activación respetados", () => {
+test("Acciones: contacto solo con datos existentes, tel: directo con ping y orden/activación respetados", () => {
   const contact = buildContactActions(brand, { interactive: true });
-  assert.deepEqual(contact.map(a => [a.type, a.href]), [["phone", "tel:+56912345678"], ["location", "https://maps.app.goo.gl/demo"], ["web", "https://www.ejemplo.cl"]]);
+  assert.deepEqual(contact.map(a => [a.type, a.href]), [["PHONE", "tel:+56912345678"], ["LOCATION", "https://maps.app.goo.gl/demo"], ["WEB", "https://www.ejemplo.cl"]]);
   assert.deepEqual(buildContactActions(resolveLocalBrand({ company: { name: "Negocio Demo" } }), { interactive: true }), []);
+  const tracked = toPublicActions(resolveContactActions(brand), { interactive: true, code: "abc123def456", version: 3, visitId: "v-9" });
+  assert.equal(tracked[0].href, "tel:+56912345678", "el teléfono se abre directo");
+  assert.equal(tracked[0].ping, "/p/abc123def456/go?action=contact-phone&version=3&v=v-9", "y su clic se registra con ping");
+  assert.equal(tracked[1].href, "/p/abc123def456/go?action=contact-location&version=3&v=v-9");
   const list = [{ ...contact[0], order: 5 }, { ...contact[1], order: 1 }, { ...contact[2], enabled: false }];
-  assert.deepEqual(visibleActions(list, "contact").map(a => a.type), ["location", "phone"]);
+  assert.deepEqual(visibleActions(list, "contact").map(a => a.type), ["LOCATION", "PHONE"]);
 });
 
 test("Íconos: el registro cubre todos los tipos de acción sin emojis", () => {
@@ -75,7 +81,7 @@ test("Modo de presentación: DIRECT por defecto, LANDING permitido salvo en CLUB
 
 test("Landing: jerarquía identidad → principal → secundarias → contacto, sin campos vacíos y con texto escapado", () => {
   const actions = [
-    ...buildPointActions(point("SMART_LANDING", null, [{ label: "Menú <script>alert(1)</script>", url: "https://ejemplo.cl" }, { label: "Instagram", url: "https://instagram.com/d" }]), { interactive: true }),
+    ...links(point("SMART_LANDING", null, [{ label: "Menú <script>alert(1)</script>", url: "https://ejemplo.cl" }, { label: "Instagram", url: "https://instagram.com/d" }])),
     ...buildContactActions(brand, { interactive: true }),
   ];
   const html = renderToStaticMarkup(createElement(LocalLandingView, { brand, actions }));
@@ -150,7 +156,7 @@ test("Landing Pública: DIRECT intacto, LANDING sin doble visita, Smart Landing 
     }
   });
 
-  await t.test("LANDING: una sola visita en la entrada; /l no crea visitas; la acción registra una salida", async () => {
+  await t.test("LANDING: una sola visita en la entrada; /l no crea visitas (solo LANDING_VIEW); la acción registra un clic", async () => {
     const p = await make("WHATSAPP", "LANDING");
     const res = await resolveLocalPoint(p.code, "QR", headers());
     assert.equal(res.status, 302);
@@ -164,7 +170,7 @@ test("Landing Pública: DIRECT intacto, LANDING sin doble visita, Smart Landing 
     assert.equal(landing.status, "ok"); assert.equal(landing.visitAttributed, true);
     await loadPointLanding(p.code, v);
     const html = renderToStaticMarkup(await LandingPage({ params: Promise.resolve({ code: p.code }), searchParams: Promise.resolve({ v }) }));
-    assert.deepEqual(await counts(p.id), { visits: 1, events: 1 }, "renderizar /l no duplica visitas ni escaneos");
+    assert.deepEqual(await counts(p.id), { visits: 1, events: 2 }, "renderizar /l no duplica visitas ni escaneos: QR_SCAN + un LANDING_VIEW");
     assert.ok(html.includes("Café Demo") && html.includes("Escríbenos por WhatsApp"));
     for (const internal of ["Punto Interno", "Mesa interna", "Campaña Interna", "Sucursal Centro Interna", "wa.me"]) assert.ok(!html.includes(internal), internal);
     assert.ok(html.includes(`/p/${p.code}/go?action=primary&amp;version=${p.configurationVersion}&amp;v=${v}`));
@@ -174,7 +180,11 @@ test("Landing Pública: DIRECT intacto, LANDING sin doble visita, Smart Landing 
     assert.equal(click.status, 302); assert.equal(click.headers.get("location"), destinations.WHATSAPP, "ignora URLs inyectadas");
     await go(`action=primary&version=${p.configurationVersion}&v=${v}`);
     const events = await prisma.localEvent.findMany({ where: { touchpointId: p.id }, select: { eventType: true } });
-    assert.deepEqual(events.map(e => e.eventType).sort(), ["QR_SCAN", "WHATSAPP_REDIRECT"], "una salida por visita, sin duplicar");
+    assert.deepEqual(events.map(e => e.eventType).sort(), ["LANDING_VIEW", "QR_SCAN"], "el clic en la landing no se mezcla con las salidas DIRECT");
+    const clicks = await prisma.localActionClick.findMany({ where: { touchpointId: p.id } });
+    assert.equal(clicks.length, 1, "un clic por visita y acción, sin duplicar");
+    assert.deepEqual([clicks[0].actionId, clicks[0].actionType, clicks[0].actionRole, clicks[0].source, clicks[0].presentationMode, clicks[0].visitId],
+      ["primary", "WHATSAPP", "primary", "QR", "LANDING", v]);
     assert.equal((await go(`action=primary&version=${p.configurationVersion + 1}&v=${v}`)).status, 409);
     assert.equal(await prisma.localVisit.count({ where: { touchpointId: p.id } }), 1);
   });
@@ -192,7 +202,8 @@ test("Landing Pública: DIRECT intacto, LANDING sin doble visita, Smart Landing 
     assert.deepEqual(await counts(p.id), { visits: 0, events: 0 });
     const click = await resolvePointAction(p.code, new URLSearchParams(`action=primary&version=${p.configurationVersion}&v=${foreignV}`));
     assert.equal(click.status, 302);
-    assert.equal(await prisma.localEvent.count({ where: { touchpointId: p.id } }), 0, "una visita de otro punto no registra salida aquí");
+    assert.equal(await prisma.localEvent.count({ where: { touchpointId: p.id } }), 0, "una visita de otro punto no registra eventos aquí");
+    assert.equal(await prisma.localActionClick.count({ where: { touchpointId: p.id } }), 0, "ni clics");
   });
 
   await t.test("NFC existente: el mismo token conduce a la landing al cambiar a LANDING, sin regrabar", async () => {
@@ -216,18 +227,20 @@ test("Landing Pública: DIRECT intacto, LANDING sin doble visita, Smart Landing 
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-security-policy") || "", /default-src 'none'/);
     const body = await res.text();
-    assert.ok(body.includes("Elige cómo quieres conectar con nosotros.") && body.includes(`/p/${legacy.code}/go?index=0&amp;version=${legacy.configurationVersion}`));
+    assert.ok(body.includes("Elige cómo quieres conectar con nosotros.") && body.includes(`/p/${legacy.code}/go?action=link-0&amp;version=${legacy.configurationVersion}`));
 
     const modern = await make("SMART_LANDING", "LANDING", { smartLinks: links });
     const r2 = await resolveLocalPoint(modern.code, "QR", headers());
     const v = new URL(r2.headers.get("location")!).searchParams.get("v");
     const landing = await loadPointLanding(modern.code, v);
     assert.deepEqual(landing.actions.filter((a: { group: string }) => a.group !== "contact").map((a: { label: string; href: string }) => [a.label, a.href]), [
-      ["Menú", `/p/${modern.code}/go?index=0&version=${modern.configurationVersion}&v=${v}`],
-      ["Instagram", `/p/${modern.code}/go?index=1&version=${modern.configurationVersion}&v=${v}`]]);
-    const click = await resolvePointAction(modern.code, new URLSearchParams(`index=1&version=${modern.configurationVersion}&v=${v}`));
+      ["Menú", `/p/${modern.code}/go?action=link-0&version=${modern.configurationVersion}&v=${v}`],
+      ["Instagram", `/p/${modern.code}/go?action=link-1&version=${modern.configurationVersion}&v=${v}`]]);
+    const click = await resolvePointAction(modern.code, new URLSearchParams(`action=link-1&version=${modern.configurationVersion}&v=${v}`));
     assert.equal(click.headers.get("location"), "https://www.instagram.com/demo");
-    assert.equal((await resolvePointAction(modern.code, new URLSearchParams(`action=primary&version=${modern.configurationVersion}`))).status, 403, "Smart Landing no tiene acción única");
+    assert.equal((await resolvePointAction(modern.code, new URLSearchParams(`action=primary&version=${modern.configurationVersion}`))).status, 404, "Smart Landing no tiene acción única");
+    // Enlaces index=N de páginas heredadas generadas antes de los ids siguen funcionando.
+    assert.equal((await resolvePointAction(modern.code, new URLSearchParams(`index=0&version=${modern.configurationVersion}`))).headers.get("location"), "https://ejemplo.cl/menu");
   });
 
   await t.test("CLUB: siempre DIRECT; LANDING se rechaza y se ignora aunque se fuerce en la base", async () => {

@@ -1,6 +1,6 @@
 # Landing Pública SmartNFC Local
 
-Motor reutilizable de experiencia pública para Puntos Inteligentes. No incluye Action Builder, ACTION_CLICK, dashboard de períodos, editores específicos, promoción avanzada, cambios al Club ni modo soporte.
+Motor reutilizable de experiencia pública para Puntos Inteligentes. Las acciones configurables y el tracking por acción se documentan en `docs/local-actions.md`. No incluye dashboard de períodos, editores específicos, promoción avanzada, cambios al Club ni modo soporte.
 
 ## Modo de presentación
 
@@ -18,13 +18,13 @@ Cambiar el modo es configuración: no cambia `code`, tokens NFC ni el QR.
 ## Rutas
 
 - Entradas estables: `/t/[token]` (NFC), `/q/[code]` (QR), `/p/[code]` (directo). Registran la visita **una sola vez** (`LocalVisit` + NFC_SCAN/QR_SCAN/VIEW).
-- `/l/[code]`: landing pública (Server Component, `noindex`, sin JavaScript). **No crea visitas ni eventos.** Solo valida `v` (visita del mismo punto, última hora) para adjuntarlo a los enlaces de acción. Sin `v` válido la página se muestra, pero no se inventa ni atribuye ninguna visita. Si el punto está en DIRECT (o es CLUB) redirige a `/p/<code>`; si no está disponible muestra el estado neutral.
-- `/p/[code]/go?action=primary&version&v`: acción principal. Redirige solo a la URL guardada y validada del punto (parámetros como `url=` se ignoran), registra WHATSAPP_REDIRECT o DESTINATION_REDIRECT una vez por visita y responde 409 si la versión cambió. `/go?index=N` del Smart Landing no cambia.
-- Teléfono, ubicación y web del Local se enlazan directo (`tel:` y HTTPS validados en el Bloque 1), sin registro de clics hasta el bloque de tracking.
+- `/l/[code]`: landing pública (Server Component, `noindex`; sin componentes de cliente propios, aunque Next carga su runtime). **No crea visitas.** Con `v` válido (visita del mismo punto, última hora) registra un `LANDING_VIEW` por visita y adjunta `v` a los enlaces de acción. Sin `v` válido la página se muestra, pero no se inventa ni atribuye ninguna visita. Si el punto está en DIRECT (o es CLUB) redirige a `/p/<code>`; si no está disponible muestra el estado neutral. El punto se lee una sola vez por request (`React.cache`) para metadata y página.
+- `/p/[code]/go?action=<id>&version&v`: salida por una acción (principal `primary`, enlaces heredados `link-N`, acciones guardadas o contacto `contact-*`). Redirige solo al destino guardado y validado (parámetros como `url=` se ignoran), registra un `LocalActionClick` por visita y acción y responde 409 si la versión cambió. Los clics de LANDING no se registran como WHATSAPP_REDIRECT/DESTINATION_REDIRECT (esas quedan para las salidas DIRECT). `/go?index=N` se mantiene para páginas heredadas ya abiertas.
+- Teléfono, ubicación y web del Local también registran su clic: ubicación y web pasan por `/go?action=contact-*`; el teléfono se abre directo (`tel:`) y registra el clic con el atributo `ping`.
 
 ## Acciones e íconos
 
-- `lib/local/public-actions.ts`: `PublicAction { key, type, label, detail, href, order, enabled, external, group }`, `PUBLIC_ACTION_TYPES`, textos por defecto, deducción de tipo por dominio, `buildPointActions` (acciones del objetivo) y `buildContactActions` (identidad del Local). No se persiste; el Action Builder entregará `PublicAction[]`.
+- `lib/local/public-actions.ts`: registro único de tipos (`ACTION_REGISTRY`), validación, resolución (`resolvePointActions`, `resolveContactActions`) y presentación (`toPublicActions` → `PublicAction { key, type, label, detail, href, ping, order, enabled, external, group }`). Ver `docs/local-actions.md`.
 - `components/local/public/action-icons.tsx`: registro único tipo → ícono. Lucide para acciones genéricas; `brand-icons.tsx` con SVG internos de Simple Icons (CC0) para marcas; LinkedIn con monograma propio.
 
 ## Vista única

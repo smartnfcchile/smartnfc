@@ -58,6 +58,7 @@ model Company {
   cards               Card[]
   physicalNfcCards    PhysicalNfcCard[]
   localVisits         LocalVisit[]
+  localActionClicks   LocalActionClick[]
   localReportSetting  LocalReportSetting?
   localReports        LocalReport[]
   localCampaigns      LocalCampaign[]
@@ -424,6 +425,7 @@ enum LocalEventType {
   WHATSAPP_REDIRECT
   VCF_DOWNLOAD
   DESTINATION_REDIRECT
+  LANDING_VIEW
 }
 
 model LocalCampaign {
@@ -464,6 +466,7 @@ model LocalCampaign {
   publishedAt       DateTime?
 
   visits           LocalVisit[]
+  actionClicks     LocalActionClick[]
   touchpoints      LocalTouchpoint[]
   subscribers      LocalSubscriber[]
   events           LocalEvent[]
@@ -513,11 +516,14 @@ model LocalTouchpoint {
   configurationVersion Int                        @default(1)
   // DIRECT: comportamiento histórico (redirect o página legada). LANDING: landing pública /l/[code].
   presentationMode     LocalPointPresentationMode @default(DIRECT)
+  // Action Builder: acciones de SMART_LANDING o acciones adicionales de la landing (lib/local/public-actions.ts).
+  actions              Json                       @default("[]")
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  localEvents LocalEvent[]
-  visits      LocalVisit[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  localEvents  LocalEvent[]
+  visits       LocalVisit[]
+  actionClicks LocalActionClick[]
 
   @@index([campaignId, isActive])
 }
@@ -769,6 +775,33 @@ model LeadInteraction {
 }
 
 // Reports use only the new visit ledger; historical scans remain untouched.
+// Clic en una acción de la experiencia pública (landing o página de acciones heredada).
+// Registra que la persona tocó el botón; NO que envió un mensaje, dejó una reseña, siguió una cuenta o compró.
+// Un clic por visita y acción (deduplicado). actionType es texto para admitir tipos nuevos sin migración.
+model LocalActionClick {
+  id               String                     @id @default(cuid())
+  companyId        String
+  company          Company                    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  campaignId       String
+  campaign         LocalCampaign              @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  touchpointId     String?
+  touchpoint       LocalTouchpoint?           @relation(fields: [touchpointId], references: [id], onDelete: SetNull)
+  visitId          String?
+  visit            LocalVisit?                @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  actionId         String
+  actionType       String
+  actionRole       String
+  source           ContactSource
+  objective        LocalPointObjective
+  presentationMode LocalPointPresentationMode
+  createdAt        DateTime                   @default(now())
+
+  @@unique([visitId, actionId])
+  @@index([companyId, createdAt])
+  @@index([campaignId, createdAt])
+  @@index([touchpointId, createdAt])
+}
+
 model LocalTrackingIncident {
   id        String   @id @default(cuid())
   companyId String
@@ -789,6 +822,7 @@ model LocalVisit {
   objective    LocalPointObjective @default(CLUB)
   createdAt    DateTime            @default(now())
   events       LocalEvent[]
+  actionClicks LocalActionClick[]
 
   @@index([companyId, createdAt])
 }

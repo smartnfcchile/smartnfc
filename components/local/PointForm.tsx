@@ -4,7 +4,8 @@ import { useActionState, useMemo, useState } from "react";
 import { savePointAction, type PointFormState } from "../../app/dashboard/local/puntos/actions";
 import { mediumLabels, objectiveLabels, pointObjectives, presentationModeLabels, type PointConfiguration } from "../../lib/local/point-config";
 import type { ResolvedLocalBrand } from "../../lib/local/brand";
-import { buildContactActions, buildPointActions } from "../../lib/local/public-actions";
+import { legacyLinkToAction, resolveContactActions, resolvePointActions, storedActionSchema, toPublicActions, type StoredAction } from "../../lib/local/public-actions";
+import ActionBuilder, { newActionDraft, type ActionDraft } from "./actions/ActionBuilder";
 import LocalLandingView from "./public/LocalLandingView";
 import MobileDeviceFrame from "./brand/MobileDeviceFrame";
 
@@ -21,17 +22,29 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
   const [locationId, setLocationId] = useState(locations[0]?.id || "");
   const [mode, setMode] = useState<Mode>(point?.presentationMode || "DIRECT");
   const [destinationUrl, setDestinationUrl] = useState(point?.destinationUrl || "");
-  const [links, setLinks] = useState(() => Array.from({ length: 6 }, (_, i) => ({ label: point?.smartLinks[i]?.label || "", url: point?.smartLinks[i]?.url || "" })));
+  // Acciones del Action Builder. Un Smart Landing sin acciones guardadas parte de sus enlaces heredados.
+  const [drafts, setDrafts] = useState<ActionDraft[]>(() => point?.actions.length
+    ? point.actions.map(a => ({ id: a.id, type: a.type, label: a.label, value: a.value, message: a.message, enabled: a.enabled }))
+    : point?.objective === "SMART_LANDING" ? point.smartLinks.map((link, index) => {
+      // Id determinista: el estado inicial se renderiza igual en servidor y cliente.
+      const a = legacyLinkToAction(link);
+      return newActionDraft(a.type, a.value, a.label, a.message, `lnk${index}${point.id.toLowerCase().replace(/[^a-z0-9]/g, "").slice(-12)}`);
+    }) : []);
   const [state, action, pending] = useActionState(savePointAction, {} as PointFormState);
 
   const effectiveMode: Mode = objective === "CLUB" ? "DIRECT" : mode;
   const brand = (campaignId === "__new" ? brandByLocation[locationId] : brandByCampaign[campaignId]) || companyBrand;
+  // Solo las acciones completas y válidas llegan a la vista previa (igual que en la página pública).
+  const validActions = useMemo(() => drafts.flatMap(d => { const r = storedActionSchema.safeParse(d); return r.success ? [r.data] : []; }) as StoredAction[], [drafts]);
+  const smart = objective === "SMART_LANDING";
+  const showBuilder = objective !== "CLUB" && (smart || effectiveMode === "LANDING");
+  // DIRECT de objetivo único: las acciones adicionales no se muestran; se conservan solo las completas.
+  const submittedActions = objective === "CLUB" ? [] : showBuilder ? drafts : drafts.filter(d => storedActionSchema.safeParse(d).success);
   // Vista previa: exactamente LocalLandingView con las acciones que tendría la landing pública (sin enlaces).
-  const previewActions = useMemo(() => brand ? [
-    ...buildPointActions({ code: "vista-previa", objective, destinationUrl, configurationVersion: 1,
-      smartLinks: links.filter(l => l.label.trim() && l.url.trim()) }, { interactive: false }),
-    ...buildContactActions(brand, { interactive: false }),
-  ] : [], [brand, objective, destinationUrl, links]);
+  const previewActions = useMemo(() => brand ? toPublicActions([
+    ...resolvePointActions({ objective, destinationUrl: smart ? null : destinationUrl, smartLinks: [], actions: validActions }),
+    ...resolveContactActions(brand),
+  ], { interactive: false }) : [], [brand, objective, smart, destinationUrl, validActions]);
 
   if (!point && state.success) return <div role="status" className="rounded-xl border border-green-300 bg-green-50 text-green-950 p-6 space-y-4">
     <p className="font-semibold">{state.success}</p>
@@ -64,14 +77,7 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
         </select>
       </label>
       {objective === "CLUB" ? <p className="rounded-lg bg-blue-50 text-blue-950 p-4">El punto abrirá el Club publicado de esta campaña, con registro y consentimiento.</p>
-        : objective === "SMART_LANDING" ? <fieldset className="space-y-3"><legend className="font-bold">Acciones de tu página · hasta 6</legend>
-          {links.map((link, index) => <div key={index} className="grid sm:grid-cols-2 gap-2">
-            <label>Nombre de la acción {index + 1}<input name={`label${index}`} className={field} value={link.label} maxLength={60}
-              onChange={e => setLinks(ls => ls.map((l, i) => i === index ? { ...l, label: e.target.value } : l))}/></label>
-            <label>Enlace de la acción {index + 1}<input name={`url${index}`} type="url" className={field} value={link.url} placeholder="https://…" maxLength={2048}
-              onChange={e => setLinks(ls => ls.map((l, i) => i === index ? { ...l, url: e.target.value } : l))}/></label>
-          </div>)}
-        </fieldset>
+        : smart ? null
         : <label className="block">Enlace de destino
           <input name="destinationUrl" type="url" className={field} value={destinationUrl} onChange={e => setDestinationUrl(e.target.value)} placeholder={objective === "WHATSAPP" ? "https://wa.me/56912345678" : "https://…"} required maxLength={2048}/>
           <span className="text-sm text-slate-500">{objective === "GOOGLE_REVIEW" ? "Copia el enlace para solicitar reseñas desde tu perfil de negocio en Google." : objective === "MENU" ? "Enlace público a tu menú, PDF o catálogo." : objective === "PROMOTION" ? "Enlace público a la oferta o promoción vigente." : "Podrás cambiar este enlace conservando el mismo NFC y QR."}</span>
@@ -87,6 +93,12 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
         </label>)}
       </fieldset>}
       {objective === "CLUB" && <input type="hidden" name="presentationMode" value="DIRECT"/>}
+      {showBuilder && <ActionBuilder actions={drafts} onChange={setDrafts}
+        title={smart ? "Acciones de tu página" : "Acciones adicionales (opcional)"}
+        hint={smart ? "La primera acción visible se destaca. Ordénalas según lo que más te importa." : "Se muestran debajo de la acción principal, en la página del local."}
+        emptyText={smart ? "Agrega al menos una acción, por ejemplo WhatsApp, Instagram o tu menú." : "Sin acciones adicionales. Puedes sumar redes, menú, ubicación u otras."} />}
+      {!showBuilder && objective !== "CLUB" && submittedActions.length > 0 && <p className="text-sm text-slate-500">Este punto tiene {submittedActions.length} {submittedActions.length === 1 ? "acción adicional" : "acciones adicionales"}: se muestran al elegir “{presentationModeLabels.LANDING}”.</p>}
+      <input type="hidden" name="actions" value={JSON.stringify(submittedActions)}/>
       <label className="flex gap-3 items-center"><input type="checkbox" name="isActive" defaultChecked={point?.isActive || false}/> Activar el punto</label>
       <p className="text-sm text-slate-500">Guardar actualiza el destino de este punto. Desactívalo si todavía estás preparando la experiencia.</p>
       {state.error && <p role="alert" className="text-red-700 dark:text-red-300">{state.error}</p>}
@@ -98,7 +110,7 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Vista previa</p>
       {effectiveMode === "LANDING" && brand ? <>
         <MobileDeviceFrame compact label="Vista previa de la página del local">
-          <LocalLandingView brand={brand} actions={previewActions} framed emptyHint="Completa el destino para ver la acción principal." />
+          <LocalLandingView brand={brand} actions={previewActions} framed emptyHint={smart ? "Agrega una acción para verla aquí." : "Completa el destino para ver la acción principal."} />
         </MobileDeviceFrame>
         <p className="text-center text-xs text-slate-500 dark:text-slate-400">La identidad se edita en <Link className="underline" href="/dashboard/local/locales">Mis locales</Link>.</p>
       </> : <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 text-sm text-slate-600 dark:text-slate-300">

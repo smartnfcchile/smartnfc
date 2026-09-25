@@ -118,3 +118,13 @@ El Club conserva su editor, su flujo de registro con consentimiento y su modo DI
 - Evolución diaria (días de Chile, agrupados en SQL parametrizado con límites convertidos a UTC), puntos más usados, acciones más tocadas por tipo, accesos por objetivo y por local. El gráfico tiene tooltip por barra (cursor y teclado) y vista de tabla.
 - Se advierte si hubo incidencias de medición en el período. Cero actividad registrada no se presenta como ausencia de visitantes.
 - Los informes automáticos semanales/mensuales conservan su formato histórico en "Reportes automáticos".
+
+## Soporte SuperAdmin (Bloque G, fase A: solo lectura)
+
+`/superadmin/locales/[companyId]` (enlace "Soporte" en el listado de Locales de SuperAdmin):
+
+- `requireSuperAdmin()` revalida la sesión contra la base; toda consulta se filtra por el `companyId` solicitado (`lib/local/support.ts`). Ids inválidos o inexistentes → 404.
+- Muestra licencia Local, operación y capacidades; locales con su identidad resuelta y nombre interno; puntos con objetivo, modo, estado, soporte, código, versión, acciones guardadas y destino (solo dominio); NFC física vinculada con estado y los últimos 4 caracteres del token (nunca el token completo; una tarjeta de otra empresa no se muestra aunque estuviera mal vinculada); analítica del período con la misma vista del dashboard (`LocalAnalyticsView`).
+- Sin suplantación, sin edición cross-tenant ni acciones administrativas sobre datos del cliente. No enlaza `/p`, `/q` ni `/t` del cliente para no registrar visitas en su analítica.
+- Auditoría: `AdminAuditLog` con `action = LOCAL_SUPPORT_VIEW` (dato de la plataforma, no del cliente), como máximo uno cada 10 minutos por SuperAdmin y empresa.
+- Los archivos `app/superadmin/actions.ts` y `app/superadmin/tarjetas/TarjetasClient.tsx` (cambios locales ajenos) no se modificaron.

@@ -90,7 +90,8 @@ export default function SuperadminSidebar() {
 
           <nav className="space-y-1">
             {menuItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              // La raíz (/superadmin) solo se marca en coincidencia exacta; las secciones también en sus subrutas.
+              const isActive = pathname === item.href || (item.href !== "/superadmin" && pathname.startsWith(`${item.href}/`));
               return (
                 <Link
                   key={item.href}

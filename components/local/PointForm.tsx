@@ -161,7 +161,8 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
         </select>
       </label>
 
-      {club && <p className="rounded-lg bg-blue-50 text-blue-950 p-4">El punto abrirá el Club publicado de esta campaña, con registro y consentimiento.</p>}
+      {club && <p className="rounded-lg bg-blue-50 text-blue-950 p-4">El punto abrirá el Club publicado de esta campaña, con registro y consentimiento. El Club usa su propia identidad y completa logo, portada y dirección con la identidad del local.
+        {campaignId !== "__new" && <> <Link className="font-semibold underline" href={`/dashboard/local/campanas/${campaignId}`}>Editar el Club de esta campaña</Link></>}</p>}
 
       {objective === "WHATSAPP" && <fieldset className="space-y-3">
         <legend className="font-bold">Tu WhatsApp</legend>

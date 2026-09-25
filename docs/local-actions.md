@@ -87,3 +87,13 @@ El formulario de puntos (`components/local/PointForm.tsx`) muestra un editor seg
 - El contenido de promoción solo se guarda en puntos de objetivo Promoción. Lectura tolerante por partes: una promoción inválida en la base se omite sin afectar el texto del botón ni el punto.
 - Métricas honestas: visita, vista de la página (`LANDING_VIEW`) y clic en el botón. No se registran ni se infieren canjes ni ventas.
 - Seguridad de subida (B-2): `/api/local/brand-upload` exige `content-length` y comprueba sesión, rol y Local operativo **antes** de leer el cuerpo.
+
+## Club integrado (Bloque E)
+
+El Club conserva su editor, su flujo de registro con consentimiento y su modo DIRECT; no se reconstruye. Se integra solo donde aporta:
+
+- Identidad: la identidad publicada del Club (snapshot) tiene prioridad; la Identidad del Local completa logo, portada y dirección que el Club no definió (imágenes HTTPS del Local; nunca `LocalLocation.name`).
+- Iconografía: la plantilla del Club usa Lucide y los SVG de marca del registro (sin emojis). El mensaje de error del formulario se anuncia con `role="alert"`.
+- Estado inactivo: `/club/[slug]` y `/l/[code]` comparten `LocalInactiveState` ("Punto Inteligente temporalmente inactivo").
+- Navegación: el formulario de puntos enlaza al editor del Club de la campaña.
+- Tracking: sin cambios. `SUBSCRIPTION`, `WHATSAPP_REDIRECT` y `VCF_DOWNLOAD` del Club siguen siendo sus métricas propias (una suscripción sí es un resultado observable); la analítica por períodos las presenta junto a las demás sin duplicarlas.

@@ -209,17 +209,22 @@ test("Action Builder: tracking por acción, deduplicación, aislamiento y compat
     assert.deepEqual(landing.actions.filter((x: { group: string }) => x.group !== "contact").map((x: { key: string }) => x.key), ["instagram1", "whatsapp01"]);
   });
 
-  await t.test("Página heredada DIRECT: enlaces por id, clic por acción y su salida histórica", async () => {
+  await t.test("Smart Landing histórico (DIRECT, solo smartLinks): Página del Local con acciones tipadas y clic honesto", async () => {
     const legacyId = await saveLocalPoint({ ...smartConfig, presentationMode: "DIRECT", actions: [], smartLinks: [{ label: "Menú", url: "https://ejemplo.cl/menu" }] }, undefined, undefined, a.campaign.id);
+    await prisma.localTouchpoint.update({ where: { id: legacyId }, data: { presentationMode: "DIRECT" } }); // valor histórico, sin migrar
     const legacy = await prisma.localTouchpoint.findUniqueOrThrow({ where: { id: legacyId } });
     assert.deepEqual(legacy.actions, [], "sin acciones guardadas sigue usando sus enlaces");
     const res = await resolveLocalPoint(legacy.code, "QR", headers());
-    const href = (await res.text()).match(/href="([^"]+)"/)![1].replaceAll("&amp;", "&");
-    const query = new URL(href).searchParams;
-    assert.equal(query.get("action"), "link-0");
+    const location = new URL(res.headers.get("location")!);
+    assert.equal(location.pathname, `/l/${legacy.code}`);
+    const landing = await loadPointLanding(legacy.code, location.searchParams.get("v"));
+    const [primary] = landing.actions;
+    assert.deepEqual([primary.key, primary.type, primary.group], ["link-0", "WEB", "primary"]);
+    const query = new URL("https://x.test" + primary.href).searchParams;
     assert.equal((await resolvePointAction(legacy.code, query)).headers.get("location"), "https://ejemplo.cl/menu");
-    assert.equal((await clicks(legacy.id)).length, 1);
-    assert.equal(await prisma.localEvent.count({ where: { visitId: query.get("v"), eventType: "DESTINATION_REDIRECT" } }), 1);
+    assert.deepEqual((await clicks(legacy.id)).map(c => [c.actionId, c.presentationMode]), [["link-0", "LANDING"]]);
+    assert.equal(await prisma.localEvent.count({ where: { visitId: query.get("v"), eventType: "DESTINATION_REDIRECT" } }), 0, "sin salida DIRECT heredada");
+    assert.equal(await prisma.localEvent.count({ where: { visitId: query.get("v"), eventType: "LANDING_VIEW" } }), 1);
   });
 
   await t.test("DIRECT de objetivo único: el escaneo es salida automática, no clic", async () => {

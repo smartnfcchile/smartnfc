@@ -7,7 +7,7 @@ import { requireSuperAdmin } from "../../../../lib/permissions";
 import { loadLocalSupport, recordSupportView } from "../../../../lib/local/support";
 import { localAnalytics } from "../../../../lib/local/analytics";
 import { resolveAnalyticsPeriod } from "../../../../lib/local/analytics-period";
-import { objectiveLabels, presentationModeLabels, mediumLabels } from "../../../../lib/local/point-config";
+import { objectiveLabels, mediumLabels } from "../../../../lib/local/point-config";
 import LocalAnalyticsView from "../../../../components/local/analytics/LocalAnalyticsView";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +106,7 @@ export default async function LocalSupportPage({ params, searchParams }: {
             ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Sin puntos.</td></tr>
             : support.points.map(p => <tr key={p.id} className="align-top text-slate-700 dark:text-slate-300">
               <td className="px-4 py-3"><span className="block font-bold">{p.name}</span><span className="block text-[11px] text-slate-500">{[p.localName, p.location].filter(Boolean).join(" · ")}</span><span className="block text-[11px] text-slate-400">Campaña: {p.campaign.name} ({campaignStatus[p.campaign.status] ?? p.campaign.status})</span></td>
-              <td className="px-4 py-3"><span className="block">{objectiveLabels[p.objective as keyof typeof objectiveLabels] ?? p.objective}</span><span className="block text-[11px] text-slate-500">{presentationModeLabels[p.presentationMode as "DIRECT" | "LANDING"]}</span>{p.destinationHost && <span className="block text-[11px] text-slate-400">Destino: {p.destinationHost}</span>}</td>
+              <td className="px-4 py-3"><span className="block">{objectiveLabels[p.objective as keyof typeof objectiveLabels] ?? p.objective}</span><span className="block text-[11px] text-slate-500">{p.presentation}</span>{p.destinationHost && <span className="block text-[11px] text-slate-400">Destino: {p.destinationHost}</span>}</td>
               <td className="px-4 py-3">{p.isActive && p.localActive ? "Activo" : p.isActive ? "Local inactivo" : "Pausado"}<span className="block text-[11px] text-slate-500">{mediumLabels[p.medium as keyof typeof mediumLabels] ?? p.medium}</span></td>
               <td className="px-4 py-3 font-mono text-[11px]">{p.code}</td>
               <td className="px-4 py-3">{p.nfc ? <><span className="block">{p.nfc.status}</span><span className="block font-mono text-[11px] text-slate-500">token {p.nfc.tokenHint}</span></> : <span className="text-slate-400">{p.medium === "QR" ? "No aplica (solo QR)" : "Sin vincular"}</span>}</td>

@@ -2,9 +2,8 @@ import type { ContactSource } from "@prisma/client";
 import { prisma } from "../prisma";
 import { hasCapability } from "../entitlements";
 import { getPublicUrl } from "../public-url";
-import { escapeHtml } from "./report-email";
 import { campaignPublicBrand } from "./brand";
-import { pointConfigurationSchema, smartLinksSchema } from "./point-config";
+import { effectivePresentationMode, pointConfigurationSchema, smartLinksSchema } from "./point-config";
 import { PUBLIC_ACTION_ID_PATTERN, readStoredActions, resolveContactActions, resolvePointActions, type ResolvedAction } from "./public-actions";
 import { promotionStatus, readObjectiveConfig, type Promotion, type PromotionStatus } from "./objective-config";
 import { findLocalVisit, recordActionClick, recordLocalAction, recordLocalArrival, recordTrackingIncident } from "./tracking";
@@ -67,23 +66,13 @@ export async function resolveLocalPoint(code: string, source: ContactSource, hea
   if (point.objective === "CLUB") {
     return redirect(getPublicUrl(`/club/${point.campaign.slug}?ref=${point.code}${visitId ? "&v=" + visitId : ""}`));
   }
-  // LANDING: la visita ya quedó registrada arriba (una sola vez). La landing no registra otra;
+  // Página del Local: la visita ya quedó registrada arriba (una sola vez). La página no registra otra;
   // los clics se registran solo cuando el visitante toca una acción (/p/[code]/go).
-  // Una promoción programada o terminada muestra su estado en la página del local aunque el punto sea DIRECT.
+  // - LANDING efectivo: SMART_LANDING siempre (aunque su valor histórico sea DIRECT) y los objetivos en LANDING.
+  // - Una promoción programada o terminada muestra su estado en la página del local aunque el punto sea DIRECT.
   const promo = pointPromotion(point);
-  if (point.presentationMode === "LANDING" || (promo && promo.status !== "active")) {
+  if (effectivePresentationMode(point.objective, point.presentationMode) === "LANDING" || (promo && promo.status !== "active")) {
     return redirect(getPublicUrl(`/l/${point.code}${visitId ? "?v=" + visitId : ""}`));
-  }
-  if (point.objective === "SMART_LANDING") {
-    // Página de acciones heredada (modo DIRECT). Mismo HTML histórico; los enlaces identifican la acción por id.
-    const go = (id: string) => getPublicUrl(`/p/${point.code}/go?action=${id}&version=${point.configurationVersion}${visitId ? "&v=" + visitId : ""}`);
-    const actions = publicPointActions(point, false).map(action => action.destination.startsWith("tel:")
-      ? `<a href="${escapeHtml(action.destination)}" ping="${escapeHtml(go(action.id))}">${escapeHtml(action.label)}</a>`
-      : `<a href="${escapeHtml(go(action.id))}">${escapeHtml(action.label)}</a>`).join("");
-    return new Response(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(point.campaign.company.name)}</title>
-      <style>body{margin:0;background:#f1f5f9;color:#0f172a;font-family:system-ui,sans-serif}main{max-width:460px;margin:8vh auto;padding:28px;background:white;border-radius:20px}h1{font-size:26px}a{display:block;margin:14px 0;padding:18px;border-radius:12px;background:#1d4ed8;color:white;text-decoration:none;font-weight:600}a:focus-visible{outline:3px solid #0f172a;outline-offset:3px}small{color:#475569}@media(max-width:520px){main{margin:24px 16px}}</style></head>
-      <body><main><small>${escapeHtml(point.campaign.company.name)}</small><h1>${escapeHtml(point.name)}</h1><p>Elige cómo quieres conectar con nosotros.</p>${actions}</main></body></html>`,
-      { headers: { ...privateHeaders, "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" } });
   }
   // DIRECT de objetivo único: salida automática al destino (no es un clic del visitante).
   if (visitId) {
@@ -98,7 +87,7 @@ export async function resolveLocalPoint(code: string, source: ContactSource, hea
  * - `action=<id>`: acción del punto o de contacto del Local. Redirige SOLO al destino guardado y validado
  *   (cualquier url= u otro parámetro se ignora), responde 409 si la configuración cambió y registra
  *   un clic por visita y acción. Con `ping` (enlaces tel:) solo registra y responde 204.
- * - `index=N`: enlaces de páginas heredadas generadas antes de los ids de acción (compatibilidad).
+ * - `index=N`: enlaces de páginas de acciones heredadas que aún estén abiertas en un teléfono (compatibilidad).
  */
 export async function resolvePointAction(code: string, query: URLSearchParams, opts: { ping?: boolean } = {}) {
   const point = await publicPoint(code);
@@ -139,9 +128,7 @@ async function resolveActionById(point: PublicPoint, actionId: string, query: UR
     // Solo se atribuye a una visita reciente del MISMO punto y del objetivo vigente.
     if (visit && visit.touchpointId === point.id && visit.objective === point.objective) {
       try {
-        await recordActionClick({ visit, point, action });
-        // Página de acciones heredada (DIRECT): conserva además su evento histórico de salida.
-        if (point.presentationMode === "DIRECT" && point.objective === "SMART_LANDING") await recordLocalAction(visit.id, point.campaignId, "DESTINATION_REDIRECT");
+        await recordActionClick({ visit, point: { objective: point.objective, presentationMode: effectivePresentationMode(point.objective, point.presentationMode) }, action });
       } catch { await recordTrackingIncident(point.campaign.companyId); }
     }
   }

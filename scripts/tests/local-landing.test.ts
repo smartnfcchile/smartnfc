@@ -6,7 +6,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ACTION_DEFAULT_LABELS, PUBLIC_ACTION_TYPES, actionTypeFromUrl, buildContactActions, resolveContactActions, resolvePointActions, toPublicActions, visibleActions,
   type PointActionSource } from "../../lib/local/public-actions";
-import { pointConfigurationSchema } from "../../lib/local/point-config";
+import { effectivePresentationLabel, effectivePresentationMode, pointConfigurationSchema } from "../../lib/local/point-config";
 import { resolveLocalBrand } from "../../lib/local/brand";
 import { ACTION_ICONS } from "../../components/local/public/action-icons";
 import LocalLandingView from "../../components/local/public/LocalLandingView";
@@ -77,6 +77,17 @@ test("Modo de presentación: DIRECT por defecto, LANDING permitido salvo en CLUB
   assert.equal(pointConfigurationSchema.safeParse({ ...base, objective: "CLUB", presentationMode: "LANDING" }).success, false);
   assert.equal(pointConfigurationSchema.safeParse({ ...base, objective: "CLUB", presentationMode: "DIRECT" }).success, true);
   assert.equal(pointConfigurationSchema.safeParse({ ...base, objective: "MENU", destinationUrl: "https://ejemplo.cl/menu", presentationMode: "POPUP" }).success, false);
+});
+
+test("Modo efectivo: Smart Landing siempre es Página del Local; Club siempre su página; el resto respeta el modo", () => {
+  assert.equal(effectivePresentationMode("SMART_LANDING", "DIRECT"), "LANDING");
+  assert.equal(effectivePresentationMode("SMART_LANDING", "LANDING"), "LANDING");
+  assert.equal(effectivePresentationMode("CLUB", "LANDING"), "DIRECT");
+  for (const objective of ["WHATSAPP", "GOOGLE_REVIEW", "SOCIAL", "MENU", "PROMOTION"] as const) {
+    assert.equal(effectivePresentationMode(objective, "DIRECT"), "DIRECT", objective);
+    assert.equal(effectivePresentationMode(objective, "LANDING"), "LANDING", objective);
+  }
+  assert.equal(effectivePresentationLabel("SMART_LANDING", "DIRECT"), "Página del local");
 });
 
 test("Landing: jerarquía identidad → principal → secundarias → contacto, sin campos vacíos y con texto escapado", () => {
@@ -220,27 +231,39 @@ test("Landing Pública: DIRECT intacto, LANDING sin doble visita, Smart Landing 
     assert.equal(scans, 2, "un NFC_SCAN por toque");
   });
 
-  await t.test("SMART_LANDING: DIRECT conserva el HTML legado; LANDING usa la nueva landing con los mismos enlaces", async () => {
+  await t.test("SMART_LANDING siempre es Página del Local, también con presentationMode histórico DIRECT", async () => {
     const links = [{ label: "Menú", url: "https://ejemplo.cl/menu" }, { label: "Instagram", url: "https://www.instagram.com/demo" }];
-    const legacy = await make("SMART_LANDING", "DIRECT", { smartLinks: links });
+    // Guardar normaliza el modo: un Smart Landing nunca queda en DIRECT.
+    const saved = await make("SMART_LANDING", "DIRECT", { smartLinks: links });
+    assert.equal(saved.presentationMode, "LANDING");
+    // Punto histórico: el valor DIRECT viene de la base (anterior a esta decisión); no se migra.
+    await prisma.localTouchpoint.update({ where: { id: saved.id }, data: { presentationMode: "DIRECT" } });
+    const legacy = await prisma.localTouchpoint.findUniqueOrThrow({ where: { id: saved.id } });
+    assert.equal(legacy.presentationMode, "DIRECT");
     const res = await resolveLocalPoint(legacy.code, "QR", headers());
-    assert.equal(res.status, 200);
-    assert.match(res.headers.get("content-security-policy") || "", /default-src 'none'/);
-    const body = await res.text();
-    assert.ok(body.includes("Elige cómo quieres conectar con nosotros.") && body.includes(`/p/${legacy.code}/go?action=link-0&amp;version=${legacy.configurationVersion}`));
-
-    const modern = await make("SMART_LANDING", "LANDING", { smartLinks: links });
-    const r2 = await resolveLocalPoint(modern.code, "QR", headers());
-    const v = new URL(r2.headers.get("location")!).searchParams.get("v");
-    const landing = await loadPointLanding(modern.code, v);
-    assert.deepEqual(landing.actions.filter((a: { group: string }) => a.group !== "contact").map((a: { label: string; href: string }) => [a.label, a.href]), [
-      ["Menú", `/p/${modern.code}/go?action=link-0&version=${modern.configurationVersion}&v=${v}`],
-      ["Instagram", `/p/${modern.code}/go?action=link-1&version=${modern.configurationVersion}&v=${v}`]]);
-    const click = await resolvePointAction(modern.code, new URLSearchParams(`action=link-1&version=${modern.configurationVersion}&v=${v}`));
+    assert.equal(res.status, 302);
+    const location = new URL(res.headers.get("location")!);
+    assert.equal(location.pathname, `/l/${legacy.code}`, "va a la Página del Local, nunca al HTML heredado");
+    const v = location.searchParams.get("v");
+    const landing = await loadPointLanding(legacy.code, v);
+    assert.equal(landing.status, "ok");
+    assert.deepEqual(landing.actions.filter((a: { group: string }) => a.group !== "contact").map((a: { label: string; type: string; group: string; href: string }) => [a.label, a.type, a.group, a.href]), [
+      ["Menú", "WEB", "primary", `/p/${legacy.code}/go?action=link-0&version=${legacy.configurationVersion}&v=${v}`],
+      ["Instagram", "INSTAGRAM", "secondary", `/p/${legacy.code}/go?action=link-1&version=${legacy.configurationVersion}&v=${v}`]], "smartLinks históricos como acciones tipadas");
+    const html = renderToStaticMarkup(await LandingPage({ params: Promise.resolve({ code: legacy.code }), searchParams: Promise.resolve({ v }) }));
+    assert.ok(html.includes("Café Demo"), "identidad del Local");
+    for (const legacyText of ["Elige cómo quieres conectar con nosotros.", "Punto Interno"]) assert.ok(!html.includes(legacyText), legacyText);
+    const click = await resolvePointAction(legacy.code, new URLSearchParams(`action=link-1&version=${legacy.configurationVersion}&v=${v}`));
     assert.equal(click.headers.get("location"), "https://www.instagram.com/demo");
-    assert.equal((await resolvePointAction(modern.code, new URLSearchParams(`action=primary&version=${modern.configurationVersion}`))).status, 404, "Smart Landing no tiene acción única");
-    // Enlaces index=N de páginas heredadas generadas antes de los ids siguen funcionando.
-    assert.equal((await resolvePointAction(modern.code, new URLSearchParams(`index=0&version=${modern.configurationVersion}`))).headers.get("location"), "https://ejemplo.cl/menu");
+    const events = (await prisma.localEvent.findMany({ where: { touchpointId: legacy.id }, select: { eventType: true } })).map(e => e.eventType).sort();
+    assert.deepEqual(events, ["LANDING_VIEW", "QR_SCAN"], "vista de página, sin salida DIRECT heredada");
+    const clicks = await prisma.localActionClick.findMany({ where: { touchpointId: legacy.id } });
+    assert.deepEqual(clicks.map(c => [c.actionId, c.actionType, c.presentationMode]), [["link-1", "INSTAGRAM", "LANDING"]]);
+    assert.equal((await resolvePointAction(legacy.code, new URLSearchParams(`action=primary&version=${legacy.configurationVersion}`))).status, 404, "Smart Landing no tiene acción única");
+    // Enlaces index=N de páginas heredadas que sigan abiertas en un teléfono siguen funcionando.
+    assert.equal((await resolvePointAction(legacy.code, new URLSearchParams(`index=0&version=${legacy.configurationVersion}`))).headers.get("location"), "https://ejemplo.cl/menu");
+    // /p directo también lleva a la Página del Local.
+    assert.equal(new URL((await resolveLocalPoint(legacy.code, "DIRECT", headers())).headers.get("location")!).pathname, `/l/${legacy.code}`);
   });
 
   await t.test("CLUB: siempre DIRECT; LANDING se rechaza y se ignora aunque se fuerce en la base", async () => {

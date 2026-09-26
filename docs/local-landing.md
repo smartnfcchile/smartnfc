@@ -10,7 +10,7 @@ Migración `20260925120000_local_point_presentation_mode`: crea el enum y la col
 | Objetivo | DIRECT | LANDING |
 |---|---|---|
 | GOOGLE_REVIEW, WHATSAPP, SOCIAL, PROMOTION, MENU | 302 inmediato al destino (sin cambios) | 302 a `/l/<code>?v=<visita>`; acción principal del objetivo |
-| SMART_LANDING | HTML legado sin cambios | Landing nueva con los mismos `smartLinks` y el mismo `/go?index` |
+| SMART_LANDING | Siempre Página del Local (`/l`), aunque el valor histórico guardado sea DIRECT: con varias acciones no existe un único destino directo. El editor no muestra el selector de modo y al guardar se normaliza a LANDING. | Página del Local con sus acciones (o sus `smartLinks` históricos como acciones tipadas) |
 | CLUB | Club publicado (sin cambios) | No permitido (validación) e ignorado si se forzara en la base |
 
 Cambiar el modo es configuración: no cambia `code`, tokens NFC ni el QR.
@@ -19,7 +19,7 @@ Cambiar el modo es configuración: no cambia `code`, tokens NFC ni el QR.
 
 - Entradas estables: `/t/[token]` (NFC), `/q/[code]` (QR), `/p/[code]` (directo). Registran la visita **una sola vez** (`LocalVisit` + NFC_SCAN/QR_SCAN/VIEW).
 - `/l/[code]`: landing pública (Server Component, `noindex`; sin componentes de cliente propios, aunque Next carga su runtime). **No crea visitas.** Con `v` válido (visita del mismo punto, última hora) registra un `LANDING_VIEW` por visita y adjunta `v` a los enlaces de acción. Sin `v` válido la página se muestra, pero no se inventa ni atribuye ninguna visita. Si el punto está en DIRECT (o es CLUB) redirige a `/p/<code>`; si no está disponible muestra el estado neutral. El punto se lee una sola vez por request (`React.cache`) para metadata y página.
-- `/p/[code]/go?action=<id>&version&v`: salida por una acción (principal `primary`, enlaces heredados `link-N`, acciones guardadas o contacto `contact-*`). Redirige solo al destino guardado y validado (parámetros como `url=` se ignoran), registra un `LocalActionClick` por visita y acción y responde 409 si la versión cambió. Los clics de LANDING no se registran como WHATSAPP_REDIRECT/DESTINATION_REDIRECT (esas quedan para las salidas DIRECT). `/go?index=N` se mantiene para páginas heredadas ya abiertas.
+- `/p/[code]/go?action=<id>&version&v`: salida por una acción (principal `primary`, enlaces heredados `link-N`, acciones guardadas o contacto `contact-*`). Redirige solo al destino guardado y validado (parámetros como `url=` se ignoran), registra un `LocalActionClick` por visita y acción y responde 409 si la versión cambió. Los clics de LANDING no se registran como WHATSAPP_REDIRECT/DESTINATION_REDIRECT (esas quedan para las salidas DIRECT). `/go?index=N` se mantiene para páginas de acciones heredadas que sigan abiertas en un teléfono. La página HTML heredada de Smart Landing se retiró: su única representación pública es `LocalLandingView`, la misma de las vistas previas.
 - Teléfono, ubicación y web del Local también registran su clic: ubicación y web pasan por `/go?action=contact-*`; el teléfono se abre directo (`tel:`) y registra el clic con el atributo `ping`.
 
 ## Acciones e íconos

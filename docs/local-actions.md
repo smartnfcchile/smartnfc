@@ -27,7 +27,7 @@ Bloques A (Action Builder) y B (tracking de acciones). Se apoya en la Identidad 
 
 - `?action=<id>&version=<n>&v=<visita>`: el servidor busca la acción en la configuración vigente (acciones del punto + contacto del Local) y redirige **solo** a su destino guardado; cualquier `url=` u otro parámetro se ignora. Versión distinta → 409. Id desconocido, oculto o con formato inválido → 404.
 - `POST` (atributo HTML `ping` de los enlaces `tel:`): registra el clic y responde 204; el teléfono se abre directamente.
-- `?index=N`: solo para páginas heredadas generadas antes de los ids (compatibilidad).
+- `?index=N`: solo para páginas de acciones heredadas que sigan abiertas (compatibilidad; conserva su evento histórico).
 
 ## Tracking honesto
 
@@ -37,7 +37,7 @@ Bloques A (Action Builder) y B (tracking de acciones). Se apoya en la Identidad 
 | DIRECT de objetivo único | `WHATSAPP_REDIRECT` / `DESTINATION_REDIRECT` | salida automática al destino (no es un clic) |
 | `/l` con `v` válido | `LANDING_VIEW` (una por visita) | la persona vio la página del local |
 | Toque en un botón | `LocalActionClick` (`actionId`, `actionType`, `actionRole`, canal, objetivo, modo) — uno por visita y acción | tocó ese botón |
-| Página de acciones heredada (Smart Landing DIRECT) | `LocalActionClick` + su `DESTINATION_REDIRECT` histórico | compatibilidad con reportes existentes |
+| Smart Landing (siempre Página del Local) | `LANDING_VIEW` + `LocalActionClick` | igual que LANDING; ya no existe la página heredada ni su salida `DESTINATION_REDIRECT` |
 
 - Un clic **no** confirma que se envió un mensaje, se publicó una reseña, se siguió una cuenta o hubo una compra.
 - Los clics de LANDING ya no se registran como `WHATSAPP_REDIRECT`/`DESTINATION_REDIRECT`: DIRECT y LANDING no se mezclan en la misma métrica. Tasa útil de LANDING: clics en acciones / vistas de landing.

@@ -79,7 +79,7 @@ Con un punto y una tarjeta de prueba de una empresa de prueba:
 - Incorporar vistas de página y clics de acciones al informe automático semanal/mensual (hoy están en el dashboard).
 - Decidir el origen público en previews (Camino B) si se quieren pruebas previas a producción.
 - Preexistente fuera de Local: el layout del dashboard no declara `<main>` y el enlace del logo no tiene nombre accesible; el menú de SuperAdmin usa emojis como íconos.
-- Preexistente: la página de acciones heredada (Smart Landing DIRECT) muestra `point.name` en su `<h1>` y su CSP propia bloquea el `ping` de enlaces `tel:`; `/api/local/events/view` acepta `WHATSAPP_REDIRECT` enviado por el navegador del Club.
+- Resuelto: la página HTML heredada de Smart Landing se retiró; todo Smart Landing se muestra como Página del Local. Preexistente: `/api/local/events/view` acepta `WHATSAPP_REDIRECT` enviado por el navegador del Club.
 
 **DEUDA ACEPTABLE:**
 - Un enlace `/l/...?v=` compartido atribuye los clics a la visita original durante 1 hora (sin duplicar eventos).

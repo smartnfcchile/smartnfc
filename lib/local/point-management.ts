@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { requireLocalAdmin } from "./access";
 import { canCreateLocalTouchpoint, canCreateLocalCampaign } from "../product-access";
-import { pointConfigurationSchema, safeDestination } from "./point-config";
+import { effectivePresentationMode, pointConfigurationSchema, safeDestination } from "./point-config";
 import { isAllowedBrandImageUrl, newCampaignBrandSource } from "./brand";
 import { actionLabel, storedActionDestination, type StoredAction } from "./public-actions";
 
@@ -67,6 +67,8 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
       throw new Error("Sube la imagen de la promoción desde este editor.");
     }
     const data = { ...config,
+      // SMART_LANDING siempre es Página del Local: se guarda con su modo efectivo.
+      presentationMode: effectivePresentationMode(config.objective, config.presentationMode),
       destinationUrl: ["CLUB", "SMART_LANDING"].includes(config.objective) ? null : config.destinationUrl,
       smartLinks: (config.objective !== "SMART_LANDING" ? [] : actions.length ? smartLinksMirror(actions) : config.smartLinks) as Prisma.InputJsonValue,
       actions: actions as Prisma.InputJsonValue,

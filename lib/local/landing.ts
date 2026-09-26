@@ -8,6 +8,7 @@ import { promotionView, type PromotionView } from "./objective-config";
 
 export type { PromotionView };
 import { toPublicActions, type PublicAction } from "./public-actions";
+import { effectivePresentationMode } from "./point-config";
 import { findLocalVisit, recordLocalAction, recordTrackingIncident, visitIdValid } from "./tracking";
 
 /** Compatibilidad: la función vive en brand.ts (módulo puro). */
@@ -25,8 +26,9 @@ export async function loadPointLanding(code: string, rawVisitId?: string | null)
   const point = await landingPoint(code);
   if (!point) return { status: "inactive" };
   const promo = pointPromotion(point);
-  // DIRECT redirige a /p, salvo una promoción no vigente: su estado se muestra aquí en cualquier modo.
-  if (point.objective === "CLUB" || (point.presentationMode !== "LANDING" && !(promo && promo.status !== "active"))) return { status: "direct" };
+  // DIRECT efectivo redirige a /p (SMART_LANDING nunca: siempre es Página del Local), salvo una promoción
+  // no vigente, cuyo estado se muestra aquí en cualquier modo.
+  if (point.objective === "CLUB" || (effectivePresentationMode(point.objective, point.presentationMode) !== "LANDING" && !(promo && promo.status !== "active"))) return { status: "direct" };
 
   let visitId: string | null = null;
   if (rawVisitId && visitIdValid(rawVisitId)) {

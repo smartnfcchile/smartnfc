@@ -250,27 +250,34 @@ test("Reportes Local: aislamiento, atribución, consentimiento y entregas", {ski
       assert.equal(point.campaign.status,"DRAFT");assert.equal(point.campaign.publishedSnapshot,null);
       assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,302);
     });
-    await t.test("Página Smart: escapa etiquetas, registra salida y rechaza acciones obsoletas",async()=>{
+    await t.test("Página Smart: Página del Local, escapa etiquetas, registra el clic y rechaza acciones obsoletas",async()=>{
       const {saveLocalPoint}=require("../../lib/local/point-management");
       const {resolveLocalPoint,resolvePointAction}=require("../../lib/local/point-resolver");
+      const {loadPointLanding}=require("../../lib/local/landing");
+      const {renderToStaticMarkup}=require("react-dom/server");
+      const {default:LandingPage}=require("../../app/l/[code]/page");
       const config={name:"Conecta con nosotros",location:"Entrada",medium:"NFC_QR",isActive:true,objective:"SMART_LANDING",destinationUrl:"",
         smartLinks:[{label:'Menú <script>alert(1)</script>',url:"https://example.org/menu"},{label:"Instagram",url:"https://www.instagram.com/example"}]};
       const id=await saveLocalPoint(config,undefined,undefined,a.campaign.id);
       const point=await prisma.localTouchpoint.findUniqueOrThrow({where:{id}});
       const response=await resolveLocalPoint(point.code,"QR",headers);
-      assert.equal(response.status,200);
-      const html=await response.text();assert.ok(!html.includes("<script>"));assert.match(html,/&lt;script&gt;/);
-      const href=html.match(/href="([^"]+)"/)![1].replaceAll("&amp;","&");
-      const query=new URL(href).searchParams;
+      assert.equal(response.status,302);
+      const entry=new URL(response.headers.get("location")!);assert.equal(entry.pathname,"/l/"+point.code);
+      const v=entry.searchParams.get("v");
+      const html=renderToStaticMarkup(await LandingPage({params:Promise.resolve({code:point.code}),searchParams:Promise.resolve({v})}));
+      assert.ok(!html.includes("<script>"));assert.match(html,/&lt;script&gt;/);
+      const landing=await loadPointLanding(point.code,v);
+      const query=new URL("https://x.test"+landing.actions[0].href).searchParams;
       assert.equal((await resolvePointAction(point.code,query)).headers.get("location"),"https://example.org/menu");
       await resolvePointAction(point.code,query);
-      assert.equal(await prisma.localEvent.count({where:{visitId:query.get("v"),eventType:"DESTINATION_REDIRECT"}}),1);
+      assert.equal(await prisma.localActionClick.count({where:{visitId:query.get("v")}}),1);
+      assert.equal(await prisma.localEvent.count({where:{visitId:query.get("v"),eventType:"DESTINATION_REDIRECT"}}),0);
       await saveLocalPoint({...config,smartLinks:[{label:"Oferta",url:"https://example.org/oferta"}]},id,1);
       assert.equal((await resolvePointAction(point.code,query)).status,409);
       assert.equal((await resolveLocalPoint(point.code,"QR",headers,b.company.id)).status,403);
       // Non-Club points have their own activation. A draft Club is never exposed.
       await prisma.localCampaign.update({where:{id:a.campaign.id},data:{status:"DRAFT"}});
-      assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,200);
+      assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,302);
       assert.equal((await resolveLocalPoint(a.tp.code,"QR",headers)).status,403);
       await prisma.localCampaign.update({where:{id:a.campaign.id},data:{status:"ARCHIVED"}});
       assert.equal((await resolveLocalPoint(point.code,"QR",headers)).status,403);

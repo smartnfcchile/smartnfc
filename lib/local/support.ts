@@ -6,6 +6,7 @@ import { prisma } from "../prisma";
 import { getCompanyEntitlements } from "../entitlements";
 import { resolveLocalBrand, type ResolvedLocalBrand } from "./brand";
 import { readStoredActions } from "./public-actions";
+import { effectivePresentationLabel } from "./point-config";
 
 const COMPANY_ID = /^[A-Za-z0-9_-]{1,64}$/;
 export const SUPPORT_VIEW_ACTION = "LOCAL_SUPPORT_VIEW";
@@ -15,7 +16,9 @@ export type SupportLocation = {
   id: string; internalName: string | null; isActive: boolean; origin: string; brand: ResolvedLocalBrand; hasIdentity: boolean; brandUpdatedAt: Date | null;
 };
 export type SupportPoint = {
-  id: string; code: string; name: string; location: string | null; objective: string; medium: string; presentationMode: string;
+  id: string; code: string; name: string; location: string | null; objective: string; medium: string;
+  /** Comportamiento público efectivo ("Página del local" para Smart Landing, sin importar el valor histórico). */
+  presentation: string;
   isActive: boolean; configurationVersion: number; actions: number; destinationHost: string | null; updatedAt: Date;
   campaign: { name: string; status: string }; localName: string | null; localActive: boolean;
   /** Tarjeta NFC física vinculada: estado y últimos caracteres del token (nunca el token completo). */
@@ -46,7 +49,7 @@ export async function loadLocalSupport(companyId: string) {
       brand: resolveLocalBrand({ location: l, company }), brandUpdatedAt: l.brandUpdatedAt,
       hasIdentity: !!(l.displayName || l.logoUrl || l.coverImageUrl || l.primaryColor) })),
     points: points.map((p): SupportPoint => ({ id: p.id, code: p.code, name: p.name, location: p.location, objective: p.objective, medium: p.medium,
-      presentationMode: p.objective === "CLUB" ? "DIRECT" : p.presentationMode, isActive: p.isActive, configurationVersion: p.configurationVersion,
+      presentation: effectivePresentationLabel(p.objective, p.presentationMode), isActive: p.isActive, configurationVersion: p.configurationVersion,
       actions: readStoredActions(p.actions).length, destinationHost: host(p.destinationUrl), updatedAt: p.updatedAt,
       campaign: { name: p.campaign.name, status: p.campaign.status },
       localName: p.campaign.localLocation ? (p.campaign.localLocation.displayName || p.campaign.localLocation.name) : null,

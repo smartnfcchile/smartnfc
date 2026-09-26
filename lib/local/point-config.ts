@@ -13,6 +13,24 @@ export const pointPresentationModes = ["DIRECT", "LANDING"] as const;
 export const presentationModeLabels: Record<typeof pointPresentationModes[number], string> = {
   DIRECT: "Abrir directamente", LANDING: "Mostrar página del local"
 };
+/**
+ * Comportamiento público efectivo de un punto (única regla para resolver, renderizar y mostrar):
+ * - CLUB: siempre su propia página publicada (DIRECT).
+ * - SMART_LANDING: siempre la Página del Local (LANDING). Con varias acciones no existe un único destino
+ *   directo; un valor histórico DIRECT guardado en la base no cambia esto.
+ * - Objetivos de destino único: el modo elegido.
+ */
+export function effectivePresentationMode(objective: typeof pointObjectives[number], mode: typeof pointPresentationModes[number]): typeof pointPresentationModes[number] {
+  if (objective === "CLUB") return "DIRECT";
+  if (objective === "SMART_LANDING") return "LANDING";
+  return mode;
+}
+/** Texto del comportamiento efectivo para listados y soporte. */
+export function effectivePresentationLabel(objective: typeof pointObjectives[number], mode: typeof pointPresentationModes[number]) {
+  if (objective === "SMART_LANDING") return "Página del local";
+  if (objective === "CLUB") return "Página del Club";
+  return presentationModeLabels[mode];
+}
 
 // Browser destinations only. No URL is fetched on the server (implementation in safe-url.ts, re-exported for existing imports).
 export { safeDestination };

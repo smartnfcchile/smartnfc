@@ -6,7 +6,7 @@
 // Un clic no confirma un mensaje, una reseña, un seguidor ni una compra.
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
-import { objectiveLabels, presentationModeLabels } from "./point-config";
+import { effectivePresentationLabel, objectiveLabels } from "./point-config";
 import { REPORT_TIMEZONE } from "./report-period";
 import type { AnalyticsRange } from "./analytics-period";
 
@@ -77,7 +77,7 @@ export async function localAnalytics(companyId: string, range: AnalyticsRange, c
     const n = id ? info.get(id) : undefined;
     const loc = n?.campaign.localLocation;
     return { id: id ?? "sin-punto", name: n?.name ?? "Sin punto asociado", location: loc?.displayName || loc?.name || "",
-      objective: n ? objectiveLabels[n.objective] : "—", mode: n ? presentationModeLabels[n.objective === "CLUB" ? "DIRECT" : n.presentationMode] : "—",
+      objective: n ? objectiveLabels[n.objective] : "—", mode: n ? effectivePresentationLabel(n.objective, n.presentationMode) : "—",
       visits: byPoint.find(p => p.touchpointId === id)?._count._all ?? 0, clicks: clicksOf(id) };
   }).sort((a, b) => b.visits - a.visits || b.clicks - a.clicks);
 

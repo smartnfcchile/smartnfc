@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { savePointAction, type PointFormState } from "../../app/dashboard/local/puntos/actions";
-import { mediumLabels, objectiveLabels, pointObjectives, presentationModeLabels, type PointConfiguration } from "../../lib/local/point-config";
+import { effectivePresentationMode, mediumLabels, objectiveLabels, pointObjectives, presentationModeLabels, type PointConfiguration } from "../../lib/local/point-config";
 import type { ResolvedLocalBrand } from "../../lib/local/brand";
 import {
   ACTION_REGISTRY, SOCIAL_ACTION_TYPES, legacyLinkToAction, normalizeActionValue, objectiveActionType, resolveContactActions, resolvePointActions,
@@ -65,7 +65,8 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
   const [state, action, pending] = useActionState(savePointAction, {} as PointFormState);
 
   const smart = objective === "SMART_LANDING", social = objective === "SOCIAL", club = objective === "CLUB";
-  const effectiveMode: Mode = club ? "DIRECT" : mode;
+  // Misma regla que el servidor: Club siempre su página; Smart Landing siempre Página del Local.
+  const effectiveMode: Mode = effectivePresentationMode(objective, mode);
   const brand = (campaignId === "__new" ? brandByLocation[locationId] : brandByCampaign[campaignId]) || companyBrand;
 
   // Lo que se envía: destino principal, acciones y configuración del objetivo, derivados de los editores.
@@ -193,20 +194,21 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
         firstLabel="Red principal" hint="La primera red visible es la principal. SmartNFC registra el toque en cada red; no puede saber si la persona te siguió."
         emptyText="Agrega al menos una red, por ejemplo Instagram."/>}
 
-      {!club && <fieldset className="space-y-2">
+      {smart && <p className="rounded-lg bg-blue-50 p-4 text-blue-950 dark:bg-blue-500/10 dark:text-blue-100">Al escanear el NFC o QR se muestra la <strong>Página del local</strong> con su identidad y estas acciones. Con varias acciones no hay un único destino directo.</p>}
+      {!club && !smart && <fieldset className="space-y-2">
         <legend className="font-bold">Al escanear el NFC o QR</legend>
         {(["DIRECT", "LANDING"] as const).map(value => <label key={value} className="flex gap-3 items-start rounded-lg border border-slate-200 dark:border-slate-700 p-3">
           <input type="radio" name="presentationMode" value={value} checked={mode === value} onChange={() => setMode(value)} className="mt-1"/>
           <span><span className="block font-semibold">{presentationModeLabels[value]}</span>
             <span className="block text-sm text-slate-500">{value === "DIRECT"
-              ? (smart ? "Muestra la página de acciones actual, sin la identidad del local." : social ? "Abre directamente la red principal." : "Abre el destino de inmediato, sin una página intermedia.")
+              ? (social ? "Abre directamente la red principal." : "Abre el destino de inmediato, sin una página intermedia.")
               : "Muestra la página con la identidad del local y sus acciones. Cambiarlo no requiere regrabar el NFC ni reimprimir el QR."}</span></span>
         </label>)}
         {social && mode === "DIRECT" && visibleNetworks > 1 && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
           En modo directo solo se abre la red principal. Para mostrar tus {visibleNetworks} redes, elige “{presentationModeLabels.LANDING}”.
           <button type="button" className="ml-2 font-semibold underline" onClick={() => setMode("LANDING")}>Usar la página del local</button></p>}
       </fieldset>}
-      {club && <input type="hidden" name="presentationMode" value="DIRECT"/>}
+      {(club || smart) && <input type="hidden" name="presentationMode" value={effectiveMode}/>}
 
       {showBuilder && <ActionBuilder actions={drafts} onChange={setDrafts}
         title={smart ? "Acciones de tu página" : "Acciones adicionales (opcional)"}
@@ -233,7 +235,6 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
         <p className="text-center text-xs text-slate-500 dark:text-slate-400">La identidad se edita en <Link className="underline" href="/dashboard/local/locales">Mis locales</Link>.</p>
       </> : <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 text-sm text-slate-600 dark:text-slate-300">
         {club ? "Al escanear se abre el Club publicado de la campaña."
-          : smart ? "Al escanear se muestra la página de acciones actual."
           : objective === "WHATSAPP" && waCheck.ok ? `Al escanear se abre WhatsApp para escribir a ${waCheck.value}${wa.message.trim() ? ", con tu mensaje sugerido" : ""}.`
           : destinationHost ? `Al escanear se abre directamente ${destinationHost}.` : "Al escanear se abrirá directamente el destino que configures."}
       </div>}

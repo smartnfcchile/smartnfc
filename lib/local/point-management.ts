@@ -5,7 +5,18 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { requireLocalAdmin } from "./access";
 import { canCreateLocalTouchpoint, canCreateLocalCampaign } from "../product-access";
-import { pointConfigurationSchema } from "./point-config";
+import { pointConfigurationSchema, safeDestination } from "./point-config";
+import { isAllowedBrandImageUrl, newCampaignBrandSource } from "./brand";
+import { actionLabel, storedActionDestination, type StoredAction } from "./public-actions";
+
+/**
+ * Espejo heredado de las acciones de SMART_LANDING en smartLinks (máx. 6, solo https). Mantiene funcionando
+ * cualquier lectura histórica de smartLinks y permite volver a una versión anterior del código sin romper el punto.
+ */
+function smartLinksMirror(actions: StoredAction[]) {
+  return actions.filter(a => a.enabled).map(a => ({ label: actionLabel(a), url: storedActionDestination(a) }))
+    .filter(link => safeDestination(link.url)).slice(0, 6);
+}
 
 export async function saveLocalPoint(input: unknown, pointId?: string, version?: number, campaignId?: string, campaignName?: string, locationId?: string) {
   const { actor, company } = await requireLocalAdmin();
@@ -27,8 +38,9 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
       const name = campaignName?.trim();
       if (!name || name.length < 2 || name.length > 80) throw new Error("Escribe un nombre de campaña de 2 a 80 caracteres.");
       const location = await selectLocation(company.id, locationId, tx);
+      // Mismos valores que usa la vista previa de "Crear una campaña nueva" (newCampaignBrandSource).
       const group = await tx.localCampaign.create({ data: { companyId: company.id, locationId: location.id, name,
-        slug: "local-" + randomUUID().replaceAll("-", "").slice(0, 20), businessName: company.name } });
+        slug: "local-" + randomUUID().replaceAll("-", "").slice(0, 20), ...newCampaignBrandSource(company.name) } });
       selectedCampaignId = group.id;
     }
     const campaign = await tx.localCampaign.findFirst({
@@ -46,16 +58,26 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
     if (config.medium === "QR" && existing?.physicalNfcCard) {
       throw new Error("Desvincula la tarjeta NFC antes de cambiar el soporte a solo QR.");
     }
+    const actions = config.objective === "CLUB" ? [] : config.actions;
+    // El contenido de promoción solo se guarda en promociones; su imagen debe venir de la carpeta del Local del punto.
+    const objectiveConfig = config.objective === "CLUB" ? { ctaLabel: "" }
+      : config.objective === "PROMOTION" ? config.objectiveConfig : { ctaLabel: config.objectiveConfig.ctaLabel };
+    const promoImage = objectiveConfig.promotion?.imageUrl;
+    if (promoImage && (!campaign.locationId || !isAllowedBrandImageUrl(promoImage, campaign.locationId, ["promo"]))) {
+      throw new Error("Sube la imagen de la promoción desde este editor.");
+    }
     const data = { ...config,
       destinationUrl: ["CLUB", "SMART_LANDING"].includes(config.objective) ? null : config.destinationUrl,
-      smartLinks: (config.objective === "SMART_LANDING" ? config.smartLinks : []) as Prisma.InputJsonValue
+      smartLinks: (config.objective !== "SMART_LANDING" ? [] : actions.length ? smartLinksMirror(actions) : config.smartLinks) as Prisma.InputJsonValue,
+      actions: actions as Prisma.InputJsonValue,
+      objectiveConfig: objectiveConfig as Prisma.InputJsonValue
     };
     const point = existing
       ? await tx.localTouchpoint.update({ where: { id: existing.id, configurationVersion: version }, data: { ...data, configurationVersion: { increment: 1 } } })
       : await tx.localTouchpoint.create({ data: { ...data, campaignId: campaign.id, code: randomUUID().replaceAll("-", "") } });
     await tx.adminAuditLog.create({ data: { actorUserId: actor.id, companyId: company.id,
       action: existing ? "LOCAL_POINT_UPDATE" : "LOCAL_POINT_CREATE", entityType: "LOCAL_TOUCHPOINT", entityId: point.id,
-      metadata: JSON.stringify({ objective: point.objective, medium: point.medium, isActive: point.isActive, version: point.configurationVersion }) } });
+      metadata: JSON.stringify({ objective: point.objective, medium: point.medium, isActive: point.isActive, presentationMode: point.presentationMode, actions: actions.length, version: point.configurationVersion }) } });
     return point.id;
   });
 }

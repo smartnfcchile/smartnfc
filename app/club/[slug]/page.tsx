@@ -4,6 +4,8 @@ import { signConsent } from "../../../lib/local/consent";
 import { notFound } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import ClubLandingClient from "./ClubLandingClient";
+import LocalInactiveState from "../../../components/local/public/LocalInactiveState";
+import { isPublicHttpsUrl, resolveLocalBrand } from "../../../lib/local/brand";
 import { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -93,19 +95,7 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
   // 3.1. Validar que la licencia Local de la empresa esté activa (Requisito Parte G y Parte 5)
   const isActive = campaign?.company.isActive && (!campaign.localLocation || campaign.localLocation.isActive) && await hasCapability(campaign.companyId, "LOCAL_CLUB");
 
-  if (!isActive) {
-    return (
-      <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-950/80 border border-slate-800 p-8 rounded-2xl text-center space-y-4 max-w-md shadow-2xl">
-          <div className="text-4xl">🏪</div>
-          <h2 className="text-xl font-black text-white">No Disponible</h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            Punto Inteligente temporalmente inactivo
-          </p>
-        </div>
-      </main>
-    );
-  }
+  if (!isActive) return <LocalInactiveState />;
 
   // 4. Validar la estructura del JSON publicado (Requisito E-7)
   const snapshot = campaign.publishedSnapshot as any;
@@ -113,15 +103,19 @@ export default async function ClubLandingPage({ params, searchParams }: Props) {
     notFound();
   }
 
-  // 5. Mapear datos seguros del snapshot para renderizado (Requisito E-5)
+  // 5. Mapear datos seguros del snapshot para renderizado (Requisito E-5).
+  // El Club conserva su identidad publicada como override; la Identidad del Local solo completa
+  // logo, portada y dirección que el Club no definió (nunca el nombre interno del local).
+  const local = campaign.localLocation ? resolveLocalBrand({ location: campaign.localLocation }) : null;
+  const localImage = (value: string | null | undefined) => (value && isPublicHttpsUrl(value) ? value : null);
   const templateData = {
-    logoUrl: snapshot.logoUrl,
-    heroImageUrl: snapshot.heroImageUrl,
+    logoUrl: snapshot.logoUrl || localImage(local?.logoUrl),
+    heroImageUrl: snapshot.heroImageUrl || localImage(local?.coverImageUrl),
     businessName: snapshot.businessName,
     clubName: snapshot.clubName,
     headline: snapshot.headline,
     subheadline: snapshot.subheadline,
-    address: snapshot.address,
+    address: snapshot.address || local?.address || null,
     primaryColor: snapshot.primaryColor,
     secondaryColor: snapshot.secondaryColor,
     benefitLabel: snapshot.benefitLabel,

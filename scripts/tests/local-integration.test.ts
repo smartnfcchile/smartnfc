@@ -282,6 +282,7 @@ test("Reportes Local: aislamiento, atribución, consentimiento y entregas", {ski
     await prisma.localTrackingIncident.deleteMany({where:{companyId:{in:ids}}});
     await prisma.localReport.deleteMany({where:{companyId:{in:ids}}});
     await prisma.localEvent.deleteMany({where:{campaign:{companyId:{in:ids}}}});
+    await prisma.localActionClick.deleteMany({where:{companyId:{in:ids}}});
     await prisma.localVisit.deleteMany({where:{companyId:{in:ids}}});
     await prisma.localConsentRecord.deleteMany({where:{campaign:{companyId:{in:ids}}}});
     await prisma.localSubscriber.deleteMany({where:{campaign:{companyId:{in:ids}}}});

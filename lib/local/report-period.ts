@@ -1,7 +1,7 @@
 export type Frequency = "WEEKLY" | "MONTHLY";
 export const REPORT_TIMEZONE = "America/Santiago";
-type Day = { year: number; month: number; day: number };
-function dayAt(date: Date): Day {
+export type Day = { year: number; month: number; day: number };
+export function dayAt(date: Date): Day {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: REPORT_TIMEZONE, year:"numeric", month:"2-digit", day:"2-digit"
   }).formatToParts(date);
@@ -20,7 +20,7 @@ export function startOfDay(day: Day): Date {
   }
   return new Date(hi);
 }
-function shift(day: Day, days: number, months=0): Day {
+export function shift(day: Day, days: number, months=0): Day {
   const d = new Date(Date.UTC(day.year,day.month-1+months,day.day+days));
   return { year:d.getUTCFullYear(),month:d.getUTCMonth()+1,day:d.getUTCDate() };
 }

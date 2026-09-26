@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { CircleAlert, Download, MapPin, PartyPopper } from "lucide-react";
+import { WhatsAppIcon } from "./public/brand-icons";
 
 export type UrbanTemplateData = {
   logoUrl?: string | null;
@@ -59,6 +61,7 @@ export default function UrbanLocalTemplate({
   onWhatsappClick,
   slug = ""
 }: UrbanLocalTemplateProps) {
+  const BusinessHeading = mode === "public" ? "h1" : "h2";
   const primaryColor = data.primaryColor || "#2563eb";
   const secondaryColor = data.secondaryColor || "#d4af37";
 
@@ -124,9 +127,10 @@ export default function UrbanLocalTemplate({
             </span>
           )}
 
-          <h2 className="text-xl font-black tracking-tight text-slate-900 leading-tight">
+          {/* En la página pública el nombre del negocio es el título principal; en la vista previa del editor, no. */}
+          <BusinessHeading className="text-xl font-black tracking-tight text-slate-900 leading-tight">
             {data.businessName || "Nombre del Negocio"}
-          </h2>
+          </BusinessHeading>
         </div>
 
         {/* Titulares */}
@@ -166,9 +170,9 @@ export default function UrbanLocalTemplate({
         {/* Flujo condicional: Éxito vs Formulario */}
         {isSuccess ? (
           <div className="bg-emerald-500/10 border border-emerald-500/30 p-5 rounded-2xl text-center space-y-4 animate-fadeIn">
-            <div className="text-3xl text-emerald-600">🎉</div>
+            <PartyPopper aria-hidden className="mx-auto h-8 w-8 text-emerald-600" />
             <div className="space-y-1">
-              <h4 className="text-sm font-black text-white">¡Ya eres parte del Club!</h4>
+              <h4 className="text-sm font-black text-slate-900">¡Ya eres parte del Club!</h4>
               <p className="text-[11px] text-slate-400 font-medium leading-normal">
                 Completa estos pasos para asegurarte de recibir nuestras ofertas.
               </p>
@@ -181,7 +185,7 @@ export default function UrbanLocalTemplate({
                   href={`/club/${slug || "slug"}/contacto.vcf?v=${encodeURIComponent(visitId)}`}
                   className="inline-flex w-full items-center justify-center py-2.5 px-4 bg-slate-900 border border-slate-800 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition hover:scale-[1.01] active:scale-95 text-center cursor-pointer"
                 >
-                  📥 Guardar contacto del local
+                  <Download aria-hidden className="mr-2 h-4 w-4" />Guardar contacto del local
                 </a>
               </div>
 
@@ -196,7 +200,7 @@ export default function UrbanLocalTemplate({
                     style={{ backgroundColor: "#25d366" }}
                     className="inline-flex w-full items-center justify-center py-2.5 px-4 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition hover:scale-[1.01] active:scale-95 text-center cursor-pointer"
                   >
-                    💬 Confirmar por WhatsApp
+                    <WhatsAppIcon aria-hidden className="mr-2 h-4 w-4" />Confirmar por WhatsApp
                   </a>
                 )}
                 <span className="text-[9px] text-slate-500 font-medium block text-center leading-normal pt-1">
@@ -216,17 +220,18 @@ export default function UrbanLocalTemplate({
               <p className="text-[10px] text-slate-500 font-medium">Déjanos tus datos y actívalo en menos de un minuto.</p>
             </div>
             {error && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-700 text-[10px] font-bold rounded-xl leading-normal">
-                ⚠️ {error}
+              <div role="alert" className="flex items-start gap-1.5 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-700 text-[10px] font-bold rounded-xl leading-normal">
+                <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />{error}
               </div>
             )}
 
             {/* Input de Nombre */}
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
+              <label htmlFor="club-form-name" className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
                 Tu Nombre
               </label>
               <input
+                id="club-form-name"
                 type="text"
                 required
                 disabled={mode === "preview" || isSubmitting}
@@ -240,10 +245,11 @@ export default function UrbanLocalTemplate({
 
             {/* Input de WhatsApp */}
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
+              <label htmlFor="club-form-whatsapp" className="text-[9px] font-bold text-slate-600 uppercase tracking-wider block">
                 Tu WhatsApp
               </label>
               <input
+                id="club-form-whatsapp"
                 type="tel"
                 required
                 disabled={mode === "preview" || isSubmitting}
@@ -310,8 +316,8 @@ export default function UrbanLocalTemplate({
       {/* Footer del Local */}
       <div className="mx-5 py-4 border-t border-slate-200 text-center space-y-1">
         {data.address && (
-          <p className="text-[9px] text-slate-600 font-medium">
-            📍 {data.address}
+          <p className="inline-flex items-center gap-1 text-[9px] text-slate-600 font-medium">
+            <MapPin aria-hidden className="h-3 w-3" />{data.address}
           </p>
         )}
         <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">

@@ -19,7 +19,13 @@ test("H-1: additive migration preserves historical rows and migration files, wit
   // that real, Git-anchored protection now lives in migration-history-protection.test.ts against
   // prisma/migrations/.history-manifest.json. This test keeps its own job: proving Block 2 applies
   // correctly, from empty, through every real historical migration file.
-  const historical=fs.readdirSync("prisma/migrations").filter(n=>n!==current);
+  // Real chronological order: only migrations older than Block 2 (plus migration_lock.toml) form the
+  // pre-Block 2 history; Block 2 and every later migration are applied together afterwards, as
+  // `prisma migrate deploy` would on a real database that predates Block 2.
+  const isMigration=(n:string)=>/^\d{14}_/.test(n);
+  const all=fs.readdirSync("prisma/migrations");
+  const historical=all.filter(n=>!isMigration(n)||n<current);
+  const blockTwoAndLater=all.filter(n=>isMigration(n)&&n>=current);
   for(const item of historical)fs.cpSync(`prisma/migrations/${item}`,path.join(dir,"migrations",item),{recursive:true});
   const deploy=()=>{
     const r=spawnSync(process.execPath,["node_modules/prisma/build/index.js","migrate","deploy","--schema",path.join(dir,"schema.prisma")],{env:{...process.env,DATABASE_URL:uri.toString()},encoding:"utf8"});
@@ -39,7 +45,7 @@ test("H-1: additive migration preserves historical rows and migration files, wit
     await db.$executeRawUnsafe(`INSERT INTO "LocalSubscriber" (id,"campaignId",name,whatsapp,"updatedAt") VALUES ('subscriber','campaign','Subscriber','+56911112222',NOW())`);
     await db.$executeRawUnsafe(`INSERT INTO "LocalConsentRecord" (id,"campaignId","subscriberId","consentVersion","consentText") VALUES ('consent','campaign','subscriber',1,'Historical consent')`);
     const before=await db.$queryRawUnsafe<Array<Record<string,unknown>>>(`SELECT * FROM "CompanyProductLicense"`);
-    fs.cpSync(`prisma/migrations/${current}`,path.join(dir,"migrations",current),{recursive:true});deploy();
+    for(const item of blockTwoAndLater)fs.cpSync(`prisma/migrations/${item}`,path.join(dir,"migrations",item),{recursive:true});deploy();
     // H-1: no CardProfileRight is granted automatically. Origin (INTERNAL/PILOT/PURCHASE) is always
     // an explicit, later, auditable Superadmin decision — see docs/BLOCK_2_ENTITLEMENTS.md.
     assert.equal(await db.cardProfileRight.count(),0);

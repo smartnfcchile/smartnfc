@@ -1,11 +1,10 @@
 // Presentación de la analítica actual de SmartNFC Local (Bloque F). La usan el dashboard del local y la
 // vista de soporte de SuperAdmin (solo lectura). Los datos llegan ya acotados a una empresa (lib/local/analytics.ts).
 import Link from "next/link";
-import { Link2 } from "lucide-react";
 import type { AnalyticsTotals, LocalAnalytics } from "../../../lib/local/analytics";
 import { ANALYTICS_PERIODS, ANALYTICS_PERIOD_LABELS, type AnalyticsPeriod } from "../../../lib/local/analytics-period";
 import { ACTION_REGISTRY, PUBLIC_ACTION_TYPES, type PublicActionType } from "../../../lib/local/public-actions";
-import { ACTION_ICONS } from "../public/action-icons";
+import { ActionGlyph } from "../public/action-icons";
 import DailyBars from "./DailyBars";
 
 const n = (v: number) => v.toLocaleString("es-CL");
@@ -62,7 +61,7 @@ export default function LocalAnalyticsView({ data, period, basePath }: { data: L
       </Tile>
       <Tile label="Salidas directas" hint="Puntos en “Abrir directamente” que llevaron al destino" value={t.directExits} metric="directExits" totals={t} previous={prev} compareLabel={cmp}/>
       <Tile label="Nuevas suscripciones al Club" hint="Personas que se registraron y aceptaron el consentimiento" value={t.newSubscribers} metric="newSubscribers" totals={t} previous={prev} compareLabel={cmp}>
-        {(t.clubWhatsapp > 0 || t.clubContacts > 0) && <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">Confirmaciones por WhatsApp abiertas {n(t.clubWhatsapp)} · Contactos guardados {n(t.clubContacts)}</p>}
+        {(t.clubWhatsapp > 0 || t.clubContacts > 0) && <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">Clics en confirmar por WhatsApp {n(t.clubWhatsapp)} · Clics en Guardar contacto {n(t.clubContacts)}</p>}
       </Tile>
     </section>
 
@@ -89,9 +88,8 @@ export default function LocalAnalyticsView({ data, period, basePath }: { data: L
       {data.actions.length > 0 && <section className="min-w-0 space-y-3">
         <h2 className="text-lg font-bold">Acciones más tocadas</h2>
         <ul className="space-y-2.5">{data.actions.map(a => {
-          const Icon = isActionType(a.type) ? ACTION_ICONS[a.type] : Link2;
           return <li key={a.type} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3 text-sm">
-            <span className="flex min-w-0 items-center gap-2"><Icon aria-hidden className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400"/><span className="truncate">{isActionType(a.type) ? ACTION_REGISTRY[a.type].name : a.type}</span></span>
+            <span className="flex min-w-0 items-center gap-2"><ActionGlyph type={isActionType(a.type) ? a.type : "LINK"} size="xs"/><span className="truncate">{a.type === "SAVE_CONTACT" ? "Clics en Guardar contacto" : isActionType(a.type) ? ACTION_REGISTRY[a.type].name : a.type}</span></span>
             <span className="h-2.5 rounded-r-[4px] bg-blue-600 dark:bg-blue-500" style={{ width: `${(a.clicks / maxAction) * 100}%` }} aria-hidden/>
             <span className="tabular-nums text-slate-700 dark:text-slate-200">{n(a.clicks)}</span>
           </li>;

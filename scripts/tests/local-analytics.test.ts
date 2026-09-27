@@ -93,7 +93,7 @@ test("Analítica: métricas separadas, días de Chile y aislamiento entre empres
     { day: "2026-09-24", visits: 1, clicks: 2 }, { day: "2026-09-25", visits: 1, clicks: 0 }], "agrupado por día de Chile");
   assert.deepEqual(r.actions.map((x: { type: string; clicks: number }) => [x.type, x.clicks]).sort(), [["INSTAGRAM", 1], ["MENU", 1]]);
   assert.deepEqual(r.points.map((p: { name: string; visits: number; clicks: number }) => [p.name, p.visits, p.clicks]),
-    [["Punto Demo landing", 2, 2], ["Punto Demo direct", 1, 0], ["Punto Demo club", 1, 0]]);
+    [["Punto Demo landing", 2, 2], ["Punto Demo club", 1, 0], ["Punto Demo direct", 1, 0]], "empates ordenados por nombre (determinista)");
   assert.deepEqual(r.locations.map((l: { name: string; visits: number }) => [l.name, l.visits]), [["Local Demo", 4]]);
   assert.ok(!JSON.stringify(r).includes(b.company.id) && !JSON.stringify(r).includes(b.landing.id), "sin datos de otra empresa");
   const rb = await localAnalytics(b.company.id, period, null);

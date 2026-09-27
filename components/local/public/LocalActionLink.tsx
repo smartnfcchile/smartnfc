@@ -1,10 +1,12 @@
 // Botón de acción de la experiencia pública del Local. Presentación pura, sin estado.
 // Sin `href` se dibuja como elemento no navegable (vistas previas).
 import { ChevronRight } from "lucide-react";
-import type { ActionIconComponent } from "./action-icons";
+import type { PublicActionType } from "../../../lib/local/public-actions";
+import { ActionGlyph } from "./action-icons";
 
 export type LocalActionLinkProps = {
-  icon: ActionIconComponent;
+  /** Tipo de acción: define ícono e identidad visual (registro único en action-icons.tsx). */
+  type: PublicActionType;
   label: string;
   detail?: string | null;
   href?: string;
@@ -16,14 +18,11 @@ export type LocalActionLinkProps = {
   onPrimary: string;
 };
 
-export default function LocalActionLink({ icon: Icon, label, detail, href, ping, external, variant = "secondary", primaryColor, onPrimary }: LocalActionLinkProps) {
+export default function LocalActionLink({ type, label, detail, href, ping, external, variant = "secondary", primaryColor, onPrimary }: LocalActionLinkProps) {
   const primary = variant === "primary", contact = variant === "contact";
   const body = (
     <>
-      <span className={`flex shrink-0 items-center justify-center ${contact ? "h-9 w-9 rounded-full" : "h-10 w-10 rounded-xl"}`}
-        style={primary ? { backgroundColor: "rgba(255,255,255,0.18)", color: onPrimary } : { backgroundColor: `${primaryColor}14`, color: primaryColor }}>
-        <Icon aria-hidden className={contact ? "h-[18px] w-[18px]" : "h-5 w-5"} />
-      </span>
+      <ActionGlyph type={type} size={contact ? "sm" : "md"} primaryColor={primaryColor} onPrimary={onPrimary} onFill={primary} />
       <span className="min-w-0 flex-1 text-left">
         <span className={`block font-semibold leading-tight ${contact ? "text-[14.5px]" : "text-[15.5px]"}`}>{label}</span>
         {detail && <span className={`mt-0.5 block truncate text-[12.5px] ${primary ? "opacity-85" : "text-slate-500"}`}>{detail}</span>}

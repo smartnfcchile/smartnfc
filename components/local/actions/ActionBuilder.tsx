@@ -5,17 +5,17 @@
 import { useId, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2, X as Close } from "lucide-react";
 import { ACTION_LIMITS, ACTION_REGISTRY, MAX_POINT_ACTIONS, newActionId, normalizeActionValue, type PublicActionType } from "../../../lib/local/public-actions";
-import { ACTION_ICONS } from "../public/action-icons";
+import { ActionGlyph } from "../public/action-icons";
 
 export type ActionDraft = { id: string; type: PublicActionType; label: string; value: string; message: string; enabled: boolean };
 
 const GROUPS: Array<{ title: string; types: PublicActionType[] }> = [
-  { title: "Mensajes y contacto", types: ["WHATSAPP", "PHONE", "LOCATION"] },
+  { title: "Mensajes y contacto", types: ["WHATSAPP", "PHONE", "EMAIL", "LOCATION"] },
   { title: "Redes sociales", types: ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X", "THREADS"] },
   { title: "Tu negocio", types: ["GOOGLE_REVIEW", "MENU", "PROMOTION", "WEB", "LINK"] },
 ];
 const valueLabel = (type: PublicActionType) =>
-  ACTION_REGISTRY[type].input === "whatsapp" ? "Número de WhatsApp" : ACTION_REGISTRY[type].input === "phone" ? "Teléfono" : "Enlace";
+  ACTION_REGISTRY[type].input === "whatsapp" ? "Número de WhatsApp" : ACTION_REGISTRY[type].input === "phone" ? "Teléfono" : ACTION_REGISTRY[type].input === "email" ? "Correo" : "Enlace";
 
 /** `id` fijo cuando la acción se crea durante el render (debe coincidir entre servidor y cliente); aleatorio al agregarla. */
 export function newActionDraft(type: PublicActionType, value = "", label = "", message = "", id = newActionId()): ActionDraft {
@@ -47,14 +47,13 @@ export default function ActionBuilder({ actions, onChange, title, hint, emptyTex
       <ol className="space-y-3">
         {actions.map((action, index) => {
           const def = ACTION_REGISTRY[action.type];
-          const Icon = ACTION_ICONS[action.type];
           const check = normalizeActionValue(action.type, action.value);
           const error = !check.ok && (touched[action.id] || action.value.trim()) ? check.error : null;
           const base = `${uid}-${action.id}`;
           return (
             <li key={action.id} className={`rounded-xl border p-4 ${action.enabled ? "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" : "border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950"}`}>
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"><Icon aria-hidden className="h-5 w-5" /></span>
+                <ActionGlyph type={action.type} size="xs" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{def.name}</span>
                   <span className="block text-xs text-slate-500 dark:text-slate-400">{index === 0 ? firstLabel : `Posición ${index + 1}`}</span>
@@ -67,7 +66,7 @@ export default function ActionBuilder({ actions, onChange, title, hint, emptyTex
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="block text-sm" htmlFor={`${base}-value`}>{valueLabel(action.type)}
                   <input id={`${base}-value`} className={`${field} mt-1`} value={action.value} placeholder={def.placeholder} maxLength={ACTION_LIMITS.value}
-                    inputMode={def.input === "url" ? "url" : "tel"} aria-invalid={!!error} aria-describedby={error ? `${base}-error` : undefined}
+                    inputMode={def.input === "url" ? "url" : def.input === "email" ? "email" : "tel"} aria-invalid={!!error} aria-describedby={error ? `${base}-error` : undefined}
                     onChange={e => update(action.id, { value: e.target.value })} onBlur={() => setTouched(t => ({ ...t, [action.id]: true }))} />
                 </label>
                 <label className="block text-sm" htmlFor={`${base}-label`}>Texto del botón
@@ -103,10 +102,10 @@ export default function ActionBuilder({ actions, onChange, title, hint, emptyTex
             <div key={group.title} className="mt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.title}</p>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {group.types.map(type => { const Icon = ACTION_ICONS[type]; return (
+                {group.types.map(type => { return (
                   <button key={type} type="button" onClick={() => add(type)}
                     className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:border-blue-400 hover:bg-blue-50 dark:border-slate-700 dark:hover:bg-slate-800">
-                    <Icon aria-hidden className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" /><span className="truncate">{ACTION_REGISTRY[type].name}</span>
+                    <ActionGlyph type={type} size="xs" /><span className="truncate">{ACTION_REGISTRY[type].name}</span>
                   </button>); })}
               </div>
             </div>

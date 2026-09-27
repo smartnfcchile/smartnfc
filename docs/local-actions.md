@@ -128,3 +128,39 @@ El Club conserva su editor, su flujo de registro con consentimiento y su modo DI
 - Sin suplantación, sin edición cross-tenant ni acciones administrativas sobre datos del cliente. No enlaza `/p`, `/q` ni `/t` del cliente para no registrar visitas en su analítica.
 - Auditoría: `AdminAuditLog` con `action = LOCAL_SUPPORT_VIEW` (dato de la plataforma, no del cliente), como máximo uno cada 10 minutos por SuperAdmin y empresa.
 - Los archivos `app/superadmin/actions.ts` y `app/superadmin/tarjetas/TarjetasClient.tsx` (cambios locales ajenos) no se modificaron.
+
+## Guardar contacto, identidad de marca y CONTACTO sin duplicados
+
+### Guardar contacto (vCard)
+- En CONTACTO de la Página del Local aparece primero "Guardar contacto · Agrégalo a tu teléfono" cuando hay algo útil que guardar además del nombre (teléfono, WhatsApp, correo, web, redes o dirección). Sin datos útiles no se muestra.
+- Enlace `/p/<code>/go?action=contact-save&version&v`: el servidor genera la vCard al vuelo (no se almacenan archivos), `text/vcard; charset=utf-8`, adjunto con nombre sanitizado (`cafe-nandu.vcf` + `filename*` UTF-8), `nosniff` y `no-store`.
+- Contenido (`localContactCard` + `generateBusinessVcf` en `lib/vcf.ts`): solo la identidad pública efectiva del Local (nombre comercial como FN/ORG, descripción, dirección, teléfono, web, mapa) y los medios de contacto de las acciones visibles del punto (WhatsApp con etiqueta, correo, redes). Nunca nombres internos ni datos de otra empresa. No se agregaron campos al modelo: `LocalLocation` no tiene correo; el correo solo existe si el punto tiene una acción Correo.
+- vCard 3.0 con CRLF, escape de `\ , ;`, saltos de línea neutralizados (no se puede inyectar otra tarjeta) y líneas plegadas a 75 octetos sin partir caracteres UTF-8 (tildes, ñ). Las utilidades existentes de tarjetas, leads y Club no cambian.
+- Tracking honesto: `LocalActionClick` con `actionType = SAVE_CONTACT` (un clic por visita). El navegador no confirma que el contacto quedó guardado: el dashboard muestra "Clics en Guardar contacto". Sin migración (`actionType` es texto).
+
+### Correo
+Tipo de acción `EMAIL` en el Action Builder (grupo "Mensajes y contacto"): correo validado y normalizado (sin espacios, saltos de línea ni parámetros), `mailto:` directo con `ping` para registrar el clic, igual que `tel:`.
+
+### Identidad visual de marcas y servicios
+Registro único `ACTION_VISUALS` + componente `ActionGlyph` (`components/local/public/action-icons.tsx`), usado por la Página del Local, todas las vistas previas, el Action Builder y el dashboard. La marca se aplica al ícono y su contenedor; la tarjeta conserva el diseño limpio.
+
+| Tipo | Identidad |
+|---|---|
+| WhatsApp | verde #25D366, glifo blanco |
+| Instagram | degradado característico, glifo blanco |
+| Facebook | azul #1877F2 |
+| YouTube | rojo #FF0000 |
+| LinkedIn | azul #0A66C2 |
+| X, Threads | negro |
+| TikTok | negro con acentos cian/rojo |
+| Reseñas de Google | "G" multicolor sobre blanco |
+| Web, menú, promoción, ubicación, teléfono, correo, enlace, Guardar contacto | color del Local (sin marca propia) |
+
+En la acción principal (botón relleno con el color del Local) el contenedor de marca lleva un aro claro. Íconos de marca: SVG internos (sin emojis ni dependencias nuevas). Los íconos son decorativos (`aria-hidden`); el texto del botón identifica la acción.
+
+### CONTACTO sin duplicados (solo presentación)
+`dedupeContactActions` / `landingActions` (`lib/local/public-actions.ts`): un elemento automático de CONTACTO se oculta si una acción visible del punto cumple la **misma función** (teléfono, ubicación, web, correo) y lleva al **mismo destino normalizado**:
+- teléfonos por su número normalizado (`+56 9 1234-5678` = `+56912345678`);
+- URLs sin `www.`, sin barra final, sin fragmento y sin parámetros de seguimiento (`utm_*`, `fbclid`, `gclid`, `igshid`, …); otros parámetros se conservan y distinguen destinos.
+- WhatsApp no reemplaza "Llamar" (otra función). "Guardar contacto" nunca se oculta.
+No cambia datos ni rutas: `/go` sigue resolviendo los elementos ocultos (enlaces ya abiertos).

@@ -3,7 +3,7 @@
 // (una por visita) y adjunta `v` a los enlaces de acción para atribuir los clics a esa misma visita.
 import { cache } from "react";
 import { campaignPublicBrand, type ResolvedLocalBrand } from "./brand";
-import { pointPromotion, publicPoint, publicPointActions } from "./point-resolver";
+import { pointPromotion, publicLandingActions, publicPoint } from "./point-resolver";
 import { promotionView, type PromotionView } from "./objective-config";
 
 export type { PromotionView };
@@ -42,6 +42,7 @@ export async function loadPointLanding(code: string, rawVisitId?: string | null)
   // Solo datos de presentación pública: identidad resuelta + acciones. Sin nombres internos
   // (point.name, point.location, campaign.name, location.name) ni destinos en el HTML (los enlaces pasan por /go).
   const brand = campaignPublicBrand(point.campaign, point.campaign.company.name);
-  const actions = toPublicActions(publicPointActions(point, true), { interactive: true, code: point.code, version: point.configurationVersion, visitId });
+  // Acciones del punto + CONTACTO sin duplicados; /go sigue resolviendo todas (la deduplicación es solo presentación).
+  const actions = toPublicActions(publicLandingActions(point), { interactive: true, code: point.code, version: point.configurationVersion, visitId });
   return { status: "ok", brand, actions, visitAttributed: !!visitId, promotion: promo ? promotionView(promo.promotion, promo.status) : null };
 }

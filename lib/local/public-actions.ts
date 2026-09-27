@@ -8,14 +8,18 @@ import { safeDestination } from "./safe-url";
 
 export const PUBLIC_ACTION_TYPES = [
   "WHATSAPP", "INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X", "THREADS",
-  "GOOGLE_REVIEW", "WEB", "MENU", "PROMOTION", "LOCATION", "PHONE", "LINK",
+  "GOOGLE_REVIEW", "WEB", "MENU", "PROMOTION", "LOCATION", "PHONE", "EMAIL", "LINK", "SAVE_CONTACT",
 ] as const;
 export type PublicActionType = (typeof PUBLIC_ACTION_TYPES)[number];
+/** Tipos de sistema: los genera SmartNFC (no se agregan ni se guardan desde el Action Builder). */
+export const SYSTEM_ACTION_TYPES = ["SAVE_CONTACT"] as const satisfies readonly PublicActionType[];
+/** Tipos que el Action Builder puede guardar en un punto. */
+export const STORABLE_ACTION_TYPES = PUBLIC_ACTION_TYPES.filter(t => !(SYSTEM_ACTION_TYPES as readonly string[]).includes(t)) as Exclude<PublicActionType, "SAVE_CONTACT">[];
 /** Redes sociales (objetivo SOCIAL y su editor). */
 export const SOCIAL_ACTION_TYPES = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X", "THREADS"] as const satisfies readonly PublicActionType[];
 export type ActionRole = "primary" | "secondary" | "contact";
 
-type ActionInput = "url" | "phone" | "whatsapp";
+type ActionInput = "url" | "phone" | "whatsapp" | "email" | "system";
 type ActionDefinition = {
   /** Nombre del tipo en el editor. */
   name: string;
@@ -43,7 +47,10 @@ export const ACTION_REGISTRY: Record<PublicActionType, ActionDefinition> = {
   PROMOTION: { name: "Promoción", defaultLabel: "Ver promoción", input: "url", placeholder: "https://…" },
   LOCATION: { name: "Ubicación", defaultLabel: "Cómo llegar", input: "url", placeholder: "https://maps.app.goo.gl/…" },
   PHONE: { name: "Llamar", defaultLabel: "Llamar", input: "phone", placeholder: "+56 9 1234 5678" },
+  EMAIL: { name: "Correo", defaultLabel: "Escríbenos un correo", input: "email", placeholder: "contacto@tu-local.cl" },
   LINK: { name: "Otro enlace", defaultLabel: "Abrir enlace", input: "url", placeholder: "https://…" },
+  // Sistema: vCard del Local generada por el servidor. Registra el clic; nunca afirma que el contacto quedó guardado.
+  SAVE_CONTACT: { name: "Guardar contacto", defaultLabel: "Guardar contacto", input: "system", placeholder: "" },
 };
 /** Compatibilidad: textos por defecto por tipo. */
 export const ACTION_DEFAULT_LABELS = Object.fromEntries(PUBLIC_ACTION_TYPES.map(t => [t, ACTION_REGISTRY[t].defaultLabel])) as Record<PublicActionType, string>;
@@ -53,7 +60,7 @@ export const ACTION_LIMITS = { label: 60, message: 300, value: 2048 } as const;
 /** Ids generados por el editor: minúsculas y dígitos. Los ids reservados del sistema ("primary", "link-N", "contact-*") no calzan con este patrón. */
 export const ACTION_ID_PATTERN = /^[a-z0-9]{8,24}$/;
 /** Ids que pueden llegar a /go: generados, acción principal, enlaces heredados de Smart Landing y contacto del Local. */
-export const PUBLIC_ACTION_ID_PATTERN = /^([a-z0-9]{8,24}|primary|link-[0-5]|contact-(phone|location|web))$/;
+export const PUBLIC_ACTION_ID_PATTERN = /^([a-z0-9]{8,24}|primary|link-[0-5]|contact-(save|phone|location|web))$/;
 
 function hostOf(url: string) {
   try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; }
@@ -102,11 +109,18 @@ export function whatsappUrl(phoneOrDigits: string, message?: string | null) {
   return `https://wa.me/${digits}${text ? "?text=" + encodeURIComponent(text) : ""}`;
 }
 
+/** Correo simple y seguro para mailto: (sin espacios, comillas, saltos de línea ni parámetros). */
+const EMAIL_PATTERN = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/;
 /** Valida y normaliza el valor de una acción según su tipo. */
 export function normalizeActionValue(type: PublicActionType, value: string): { ok: true; value: string } | { ok: false; error: string } {
   const def = ACTION_REGISTRY[type];
   const v = value.trim();
-  if (!v) return { ok: false, error: def.input === "url" ? "agrega el enlace." : "agrega el número." };
+  if (def.input === "system") return { ok: false, error: "esta acción la genera SmartNFC." };
+  if (!v) return { ok: false, error: def.input === "url" ? "agrega el enlace." : def.input === "email" ? "agrega el correo." : "agrega el número." };
+  if (def.input === "email") {
+    const email = v.toLowerCase();
+    return email.length <= 254 && EMAIL_PATTERN.test(email) ? { ok: true, value: email } : { ok: false, error: "usa un correo válido, por ejemplo contacto@tu-local.cl." };
+  }
   if (def.input === "whatsapp") {
     const digits = whatsappDigits(v);
     return digits ? { ok: true, value: "+" + digits } : { ok: false, error: "usa un número con código de país, por ejemplo +56 9 1234 5678." };
@@ -122,7 +136,7 @@ export function normalizeActionValue(type: PublicActionType, value: string): { o
 
 export const storedActionSchema = z.object({
   id: z.string().regex(ACTION_ID_PATTERN, "Acción inválida."),
-  type: z.enum(PUBLIC_ACTION_TYPES),
+  type: z.enum(STORABLE_ACTION_TYPES as [typeof STORABLE_ACTION_TYPES[number], ...typeof STORABLE_ACTION_TYPES[number][]]),
   label: z.string().trim().max(ACTION_LIMITS.label, `Texto del botón: máximo ${ACTION_LIMITS.label} caracteres.`).default(""),
   value: z.string().max(ACTION_LIMITS.value),
   message: z.string().trim().max(ACTION_LIMITS.message, `Mensaje: máximo ${ACTION_LIMITS.message} caracteres.`).default(""),
@@ -151,10 +165,11 @@ export function readStoredActions(value: unknown): StoredAction[] {
   return out;
 }
 
-/** Destino final de una acción guardada (https o tel:). */
+/** Destino final de una acción guardada (https, tel: o mailto:). */
 export function storedActionDestination(action: StoredAction): string {
   if (action.type === "WHATSAPP") return whatsappUrl(action.value, action.message);
   if (action.type === "PHONE") return phoneHref(action.value);
+  if (action.type === "EMAIL") return "mailto:" + action.value;
   return action.value;
 }
 export const actionLabel = (action: { type: PublicActionType; label?: string | null }) => action.label?.trim() || ACTION_REGISTRY[action.type].defaultLabel;
@@ -210,13 +225,102 @@ function prettyPhone(phone: string) {
   const m = /^\+56(9)(\d{4})(\d{4})$/.exec(phone);
   return m ? `+56 ${m[1]} ${m[2]} ${m[3]}` : phone;
 }
-/** Acciones de contacto de la identidad del Local (teléfono, ubicación, web). */
-export function resolveContactActions(brand: ResolvedLocalBrand): ResolvedAction[] {
+// ── Guardar contacto (vCard del Local) ──────────────────────────────────────────
+const CARD_URL_TYPES = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X", "THREADS"] as const;
+/**
+ * Datos públicos para la vCard del Local: SOLO la identidad efectiva (nombre comercial, descripción, dirección,
+ * teléfono, web, mapa) y los medios de contacto de las acciones visibles del punto (WhatsApp, correo, redes).
+ * Nunca nombres internos ni datos que el Local no publicó.
+ */
+export type LocalContactCard = {
+  name: string; note: string | null; address: string | null;
+  phones: Array<{ number: string; kind: "phone" | "whatsapp" }>;
+  emails: string[]; urls: Array<{ url: string; label: string }>;
+};
+export function localContactCard(brand: ResolvedLocalBrand, pointActions: ResolvedAction[] = []): LocalContactCard {
+  const phones: LocalContactCard["phones"] = [];
+  const addPhone = (number: string | null | undefined, kind: "phone" | "whatsapp") => {
+    const n = number ? normalizePhone(number) : null;
+    if (n && !phones.some(p => p.number === n)) phones.push({ number: n, kind });
+  };
+  addPhone(brand.phone, "phone");
+  const emails: string[] = [];
+  const urls: LocalContactCard["urls"] = [];
+  const addUrl = (url: string | null | undefined, label: string) => {
+    if (url && safeDestination(url) && !urls.some(u => normalizedDestination(u.url) === normalizedDestination(url))) urls.push({ url, label });
+  };
+  addUrl(brand.websiteUrl, "Sitio web");
+  for (const a of pointActions) {
+    if (a.type === "WHATSAPP") { const digits = whatsappDigits(a.destination); if (digits) addPhone("+" + digits, "whatsapp"); }
+    else if (a.type === "PHONE") addPhone(a.destination.replace(/^tel:/, ""), "phone");
+    else if (a.type === "EMAIL") { const email = a.destination.replace(/^mailto:/, ""); if (EMAIL_PATTERN.test(email) && !emails.includes(email)) emails.push(email); }
+    else if ((CARD_URL_TYPES as readonly string[]).includes(a.type)) addUrl(a.destination, ACTION_REGISTRY[a.type].name);
+    else if (a.type === "WEB") addUrl(a.destination, "Sitio web");
+  }
+  addUrl(brand.mapsUrl, "Ubicación");
+  return { name: brand.displayName, note: brand.shortDescription, address: brand.address, phones, emails, urls };
+}
+/** Hay algo útil que guardar además del nombre (teléfono, WhatsApp, correo, web, redes o dirección). */
+export const contactCardUseful = (card: LocalContactCard) => card.phones.length > 0 || card.emails.length > 0 || card.urls.length > 0 || !!card.address;
+
+/**
+ * Acciones de contacto de la identidad del Local: Guardar contacto (si hay datos útiles), teléfono, ubicación y web.
+ * `pointActions` aporta WhatsApp, correo y redes del punto a la vCard.
+ */
+export function resolveContactActions(brand: ResolvedLocalBrand, pointActions: ResolvedAction[] = []): ResolvedAction[] {
   const out: ResolvedAction[] = [];
+  if (contactCardUseful(localContactCard(brand, pointActions))) {
+    // Destino vacío: el servidor genera la vCard en /p/<code>/go?action=contact-save (no es una URL externa).
+    out.push({ id: "contact-save", type: "SAVE_CONTACT", label: ACTION_REGISTRY.SAVE_CONTACT.defaultLabel, detail: "Agrégalo a tu teléfono", destination: "", role: "contact" });
+  }
   if (brand.phone) out.push({ id: "contact-phone", type: "PHONE", label: ACTION_REGISTRY.PHONE.defaultLabel, detail: prettyPhone(brand.phone), destination: phoneHref(brand.phone), role: "contact" });
   if (brand.mapsUrl) out.push({ id: "contact-location", type: "LOCATION", label: ACTION_REGISTRY.LOCATION.defaultLabel, detail: "Ver en el mapa", destination: brand.mapsUrl, role: "contact" });
   if (brand.websiteUrl) out.push({ id: "contact-web", type: "WEB", label: "Sitio web", detail: hostOf(brand.websiteUrl) || brand.websiteUrl, destination: brand.websiteUrl, role: "contact" });
   return out;
+}
+
+// ── Deduplicación de presentación entre acciones del punto y CONTACTO ───────────────
+const TRACKING_PARAMS = /^(utm_[a-z]+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|_ga|si)$/i;
+/**
+ * Destino normalizado para comparar (solo presentación): tel:/mailto: por su valor; https sin "www.", sin barra
+ * final, sin fragmento, sin puerto por defecto y sin parámetros de seguimiento que no cambian el destino real.
+ * Los demás parámetros se conservan (ordenados): dos páginas con parámetros distintos NO se consideran iguales.
+ */
+export function normalizedDestination(destination: string): string {
+  const d = destination.trim();
+  if (/^tel:/i.test(d)) return "tel:" + (normalizePhone(d.slice(4)) ?? d.slice(4).replace(/[^\d+]/g, ""));
+  if (/^mailto:/i.test(d)) return "mailto:" + d.slice(7).toLowerCase();
+  try {
+    const u = new URL(d);
+    const params = [...u.searchParams.entries()].filter(([k]) => !TRACKING_PARAMS.test(k)).sort(([a], [b]) => a.localeCompare(b));
+    const query = params.length ? "?" + new URLSearchParams(params).toString() : "";
+    const path = u.pathname.replace(/\/+$/, "");
+    return `${u.protocol}//${u.hostname.toLowerCase().replace(/^www\./, "")}${path}${query}`;
+  } catch { return d; }
+}
+/** Qué función de CONTACTO cumple una acción del punto (misma función + mismo destino = duplicado). */
+const CONTACT_FUNCTION: Partial<Record<PublicActionType, "phone" | "location" | "web" | "email">> = {
+  PHONE: "phone", LOCATION: "location", WEB: "web", LINK: "web", MENU: "web", PROMOTION: "web", EMAIL: "email",
+};
+/**
+ * Oculta de CONTACTO lo que una acción visible del punto ya ofrece con la misma función y el mismo destino
+ * (p. ej. "Visita nuestro sitio web" y "Sitio web" a la misma página). Guardar contacto nunca se oculta:
+ * cumple otra función. Solo afecta la presentación; no cambia datos ni la resolución de /go.
+ */
+export function dedupeContactActions(pointActions: ResolvedAction[], contactActions: ResolvedAction[]): ResolvedAction[] {
+  const offered = new Set(pointActions.flatMap(a => {
+    const fn = CONTACT_FUNCTION[a.type];
+    return fn && a.destination ? [`${fn}|${normalizedDestination(a.destination)}`] : [];
+  }));
+  return contactActions.filter(c => {
+    if (c.type === "SAVE_CONTACT") return true;
+    const fn = CONTACT_FUNCTION[c.type];
+    return !(fn && offered.has(`${fn}|${normalizedDestination(c.destination)}`));
+  });
+}
+/** Acciones de la Página del Local en orden público: las del punto y el CONTACTO sin duplicados. */
+export function landingActions(pointActions: ResolvedAction[], brand: ResolvedLocalBrand): ResolvedAction[] {
+  return [...pointActions, ...dedupeContactActions(pointActions, resolveContactActions(brand, pointActions))];
 }
 
 // ── Presentación ────────────────────────────────────────────────────────────
@@ -243,12 +347,15 @@ export type PublicAction = {
 export function toPublicActions(actions: ResolvedAction[], opts: { interactive: boolean; code?: string; version?: number; visitId?: string | null }): PublicAction[] {
   const go = (id: string) => `/p/${encodeURIComponent(opts.code!)}/go?action=${encodeURIComponent(id)}&version=${opts.version ?? 0}${opts.visitId ? "&v=" + encodeURIComponent(opts.visitId) : ""}`;
   return actions.map((a, index) => {
-    const tel = a.destination.startsWith("tel:");
-    const href = !opts.interactive ? undefined : !opts.code || tel ? a.destination : go(a.id);
+    // tel: y mailto: abren la app del teléfono directamente; el clic se registra con `ping`.
+    const native = /^(tel|mailto):/.test(a.destination);
+    // Guardar contacto solo existe como descarga del servidor (/go); sin código de punto no enlaza.
+    const system = a.type === "SAVE_CONTACT";
+    const href = !opts.interactive ? undefined : system ? (opts.code ? go(a.id) : undefined) : !opts.code || native ? a.destination : go(a.id);
     return {
       key: a.id, type: a.type, label: a.label, detail: a.detail ?? null, href,
-      ping: opts.interactive && opts.code && tel ? go(a.id) : undefined,
-      order: (a.role === "contact" ? 100 : 0) + index, enabled: true, external: a.role === "contact" && !tel, group: a.role,
+      ping: opts.interactive && opts.code && native ? go(a.id) : undefined,
+      order: (a.role === "contact" ? 100 : 0) + index, enabled: true, external: a.role === "contact" && !native && !system, group: a.role,
     };
   });
 }

@@ -5,7 +5,7 @@ import { savePointAction, type PointFormState } from "../../app/dashboard/local/
 import { effectivePresentationMode, mediumLabels, objectiveLabels, pointObjectives, presentationModeLabels, type PointConfiguration } from "../../lib/local/point-config";
 import type { ResolvedLocalBrand } from "../../lib/local/brand";
 import {
-  ACTION_REGISTRY, SOCIAL_ACTION_TYPES, legacyLinkToAction, normalizeActionValue, objectiveActionType, resolveContactActions, resolvePointActions,
+  ACTION_REGISTRY, SOCIAL_ACTION_TYPES, legacyLinkToAction, normalizeActionValue, objectiveActionType, landingActions, resolvePointActions,
   storedActionDestination, storedActionSchema, toPublicActions, whatsappFromUrl, whatsappUrl, type StoredAction,
 } from "../../lib/local/public-actions";
 import { OBJECTIVE_CTA_MAX, PROMOTION_LIMITS, promotionStatus, promotionView, type Promotion } from "../../lib/local/objective-config";
@@ -87,11 +87,11 @@ export default function PointForm({ point, campaigns, locations = [], brandByCam
 
   // React Compiler memoiza estos cálculos; no se usa memoización manual.
   const validActions = validStored(drafts);
-  const previewActions = brand ? toPublicActions([
-    ...resolvePointActions({ objective, destinationUrl: smart ? null : destinationUrl || null, smartLinks: [], ctaLabel: primaryLabel,
-      actions: social ? socialValid.filter(a => a.id !== socialFirst?.id) : validActions }),
-    ...resolveContactActions(brand),
-  ], { interactive: false }).filter(a => !(promotion && promoStatus !== "active" && a.key === "primary")) : [];
+  // Misma composición que la Página del Local: acciones del punto + CONTACTO sin duplicados (landingActions).
+  const previewPointActions = resolvePointActions({ objective, destinationUrl: smart ? null : destinationUrl || null, smartLinks: [], ctaLabel: primaryLabel,
+    actions: social ? socialValid.filter(a => a.id !== socialFirst?.id) : validActions })
+    .filter(a => !(promotion && promoStatus !== "active" && a.id === "primary"));
+  const previewActions = brand ? toPublicActions(landingActions(previewPointActions, brand), { interactive: false }) : [];
   const previewPromotion = promotion ? promotionView(promo, promoStatus) : null;
   const visibleNetworks = socialValid.filter(a => a.enabled).length;
 

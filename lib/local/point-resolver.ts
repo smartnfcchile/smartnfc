@@ -4,7 +4,8 @@ import { hasCapability } from "../entitlements";
 import { getPublicUrl } from "../public-url";
 import { campaignPublicBrand } from "./brand";
 import { effectivePresentationMode, pointConfigurationSchema, smartLinksSchema } from "./point-config";
-import { PUBLIC_ACTION_ID_PATTERN, readStoredActions, resolveContactActions, resolvePointActions, type ResolvedAction } from "./public-actions";
+import { PUBLIC_ACTION_ID_PATTERN, landingActions, localContactCard, readStoredActions, resolveContactActions, resolvePointActions, type ResolvedAction } from "./public-actions";
+import { generateBusinessVcf, vcfFilename } from "../vcf";
 import { promotionStatus, readObjectiveConfig, type Promotion, type PromotionStatus } from "./objective-config";
 import { findLocalVisit, recordActionClick, recordLocalAction, recordLocalArrival, recordTrackingIncident } from "./tracking";
 
@@ -48,7 +49,24 @@ export function publicPointActions(point: PublicPoint, withContact: boolean): Re
     smartLinks: smartLinks.success ? smartLinks.data : [], actions: readStoredActions(point.actions), ctaLabel: readObjectiveConfig(point.objectiveConfig).ctaLabel })
     // Una promoción programada o terminada no ofrece su botón principal.
     .filter(a => !(promo && promo.status !== "active" && a.id === "primary"));
-  return withContact ? [...actions, ...resolveContactActions(campaignPublicBrand(point.campaign, point.campaign.company.name))] : actions;
+  return withContact ? [...actions, ...resolveContactActions(campaignPublicBrand(point.campaign, point.campaign.company.name), actions)] : actions;
+}
+/** Acciones que muestra la Página del Local: las del punto y CONTACTO sin duplicados (solo presentación). */
+export function publicLandingActions(point: PublicPoint): ResolvedAction[] {
+  return landingActions(publicPointActions(point, false), campaignPublicBrand(point.campaign, point.campaign.company.name));
+}
+
+/**
+ * vCard del Local para "Guardar contacto": solo la identidad pública efectiva (nombre comercial, descripción,
+ * dirección, teléfono, web, mapa) y los medios de contacto de las acciones visibles del punto. Generada al vuelo.
+ */
+function contactVcfResponse(point: PublicPoint) {
+  const card = localContactCard(campaignPublicBrand(point.campaign, point.campaign.company.name), publicPointActions(point, false));
+  const body = generateBusinessVcf({ name: card.name, note: card.note, address: card.address, emails: card.emails, urls: card.urls,
+    phones: card.phones.map(p => ({ number: p.number, label: p.kind === "whatsapp" ? "WhatsApp" : undefined })) });
+  const filename = vcfFilename(card.name);
+  return new Response(body, { status: 200, headers: { ...privateHeaders, "Content-Type": "text/vcard; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`, "X-Content-Type-Options": "nosniff" } });
 }
 
 function redirect(url: string) {
@@ -132,5 +150,7 @@ async function resolveActionById(point: PublicPoint, actionId: string, query: UR
       } catch { await recordTrackingIncident(point.campaign.companyId); }
     }
   }
-  return ping ? new Response(null, { status: 204, headers: privateHeaders }) : redirect(action.destination);
+  if (ping) return new Response(null, { status: 204, headers: privateHeaders });
+  // Guardar contacto: se registra el clic (arriba) y se entrega la vCard; nunca se confirma que el contacto quedó guardado.
+  return action.type === "SAVE_CONTACT" ? contactVcfResponse(point) : redirect(action.destination);
 }

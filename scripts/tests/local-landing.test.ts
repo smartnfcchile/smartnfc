@@ -50,15 +50,17 @@ test("Acciones: cada objetivo tiene su acción protagonista y los enlaces pasan 
   for (const type of Object.values(expected)) assert.ok(!/reseña publicada|mensaje enviado|seguidor|compra|conversi/i.test(ACTION_DEFAULT_LABELS[type]));
 });
 
-test("Acciones: contacto solo con datos existentes, tel: directo con ping y orden/activación respetados", () => {
+test("Acciones: contacto solo con datos existentes, Guardar contacto primero, tel: directo con ping y orden/activación respetados", () => {
   const contact = buildContactActions(brand, { interactive: true });
-  assert.deepEqual(contact.map(a => [a.type, a.href]), [["PHONE", "tel:+56912345678"], ["LOCATION", "https://maps.app.goo.gl/demo"], ["WEB", "https://www.ejemplo.cl"]]);
-  assert.deepEqual(buildContactActions(resolveLocalBrand({ company: { name: "Negocio Demo" } }), { interactive: true }), []);
+  assert.deepEqual(contact.map(a => [a.type, a.href]), [["SAVE_CONTACT", undefined], ["PHONE", "tel:+56912345678"], ["LOCATION", "https://maps.app.goo.gl/demo"], ["WEB", "https://www.ejemplo.cl"]],
+    "sin código de punto Guardar contacto no enlaza (vista previa)");
+  assert.deepEqual(buildContactActions(resolveLocalBrand({ company: { name: "Negocio Demo" } }), { interactive: true }), [], "sin datos útiles no hay contacto ni Guardar contacto");
   const tracked = toPublicActions(resolveContactActions(brand), { interactive: true, code: "abc123def456", version: 3, visitId: "v-9" });
-  assert.equal(tracked[0].href, "tel:+56912345678", "el teléfono se abre directo");
-  assert.equal(tracked[0].ping, "/p/abc123def456/go?action=contact-phone&version=3&v=v-9", "y su clic se registra con ping");
-  assert.equal(tracked[1].href, "/p/abc123def456/go?action=contact-location&version=3&v=v-9");
-  const list = [{ ...contact[0], order: 5 }, { ...contact[1], order: 1 }, { ...contact[2], enabled: false }];
+  assert.deepEqual([tracked[0].type, tracked[0].href, tracked[0].detail], ["SAVE_CONTACT", "/p/abc123def456/go?action=contact-save&version=3&v=v-9", "Agrégalo a tu teléfono"]);
+  assert.equal(tracked[1].href, "tel:+56912345678", "el teléfono se abre directo");
+  assert.equal(tracked[1].ping, "/p/abc123def456/go?action=contact-phone&version=3&v=v-9", "y su clic se registra con ping");
+  assert.equal(tracked[2].href, "/p/abc123def456/go?action=contact-location&version=3&v=v-9");
+  const list = [{ ...contact[1], order: 5 }, { ...contact[2], order: 1 }, { ...contact[3], enabled: false }];
   assert.deepEqual(visibleActions(list, "contact").map(a => a.type), ["LOCATION", "PHONE"]);
 });
 

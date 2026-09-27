@@ -79,7 +79,8 @@ export async function localAnalytics(companyId: string, range: AnalyticsRange, c
     return { id: id ?? "sin-punto", name: n?.name ?? "Sin punto asociado", location: loc?.displayName || loc?.name || "",
       objective: n ? objectiveLabels[n.objective] : "—", mode: n ? effectivePresentationLabel(n.objective, n.presentationMode) : "—",
       visits: byPoint.find(p => p.touchpointId === id)?._count._all ?? 0, clicks: clicksOf(id) };
-  }).sort((a, b) => b.visits - a.visits || b.clicks - a.clicks);
+  // Desempate estable por nombre: el orden no depende del orden en que la base devuelve los grupos.
+  }).sort((a, b) => b.visits - a.visits || b.clicks - a.clicks || a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id));
 
   const locationVisits = new Map<string, { id: string; name: string; visits: number }>();
   for (const p of byPoint) {
@@ -94,8 +95,8 @@ export async function localAnalytics(companyId: string, range: AnalyticsRange, c
     totals: current, previous, incidents,
     daily: [...new Set([...v.keys(), ...c.keys()])].sort().map(day => ({ day, visits: v.get(day) ?? 0, clicks: c.get(day) ?? 0 })),
     points,
-    actions: clicksByType.map(a => ({ type: a.actionType, clicks: a._count._all })).sort((a, b) => b.clicks - a.clicks),
-    objectives: byObjective.map(o => ({ objective: o.objective, label: objectiveLabels[o.objective], visits: o._count._all })).sort((a, b) => b.visits - a.visits),
-    locations: [...locationVisits.values()].sort((a, b) => b.visits - a.visits),
+    actions: clicksByType.map(a => ({ type: a.actionType, clicks: a._count._all })).sort((a, b) => b.clicks - a.clicks || a.type.localeCompare(b.type)),
+    objectives: byObjective.map(o => ({ objective: o.objective, label: objectiveLabels[o.objective], visits: o._count._all })).sort((a, b) => b.visits - a.visits || a.label.localeCompare(b.label, "es")),
+    locations: [...locationVisits.values()].sort((a, b) => b.visits - a.visits || a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id)),
   };
 }

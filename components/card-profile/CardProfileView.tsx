@@ -15,6 +15,7 @@ import {
   NormalizedPhotoStyle,
   NormalizedBannerStyle
 } from "../../lib/templates";
+import { toCssImageUrl } from "../../lib/card-images";
 
 export interface CardLinkData {
   id: string;
@@ -354,18 +355,21 @@ END:VCARD`;
     photoConfig.className += " border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]";
   }
 
-  const hasHeroClass = card.heroImageUrl ? "has-hero" : "";
+  // La URL del hero nunca se interpola en <style>: se entrega escapada como variable CSS.
+  const heroCssUrl = toCssImageUrl(card.heroImageUrl);
+  const hasHeroClass = heroCssUrl ? "has-hero" : "";
+  const heroStyle = heroCssUrl ? ({ "--nfc-hero-image": heroCssUrl } as React.CSSProperties) : undefined;
 
   return (
     <>
       <PublicCardAnalytics cardId={card.id} contactSource={contactSource} />
-      <main className={`nfc-landing-main ${hasHeroClass} ${mainClass}`}>
-      {card.heroImageUrl && (
+      <main className={`nfc-landing-main ${hasHeroClass} ${mainClass}`} style={heroStyle}>
+      {heroCssUrl && (
         <>
           <style dangerouslySetInnerHTML={{ __html: `
             @media (min-width: 640px) {
               .nfc-landing-main.has-hero {
-                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.48) 0%, rgba(3, 7, 18, 0.82) 55%, rgba(3, 7, 18, 0.96) 100%), url(${card.heroImageUrl}) !important;
+                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.48) 0%, rgba(3, 7, 18, 0.82) 55%, rgba(3, 7, 18, 0.96) 100%), var(--nfc-hero-image) !important;
                 background-size: cover !important;
                 background-position: center top !important;
                 background-repeat: no-repeat !important;
@@ -392,7 +396,7 @@ END:VCARD`;
                 display: block !important;
                 width: 100% !important;
                 height: 220px !important;
-                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.3) 0%, rgba(3, 7, 18, 0.6) 100%), url(${card.heroImageUrl}) !important;
+                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.3) 0%, rgba(3, 7, 18, 0.6) 100%), var(--nfc-hero-image) !important;
                 background-size: cover !important;
                 background-position: center top !important;
                 background-repeat: no-repeat !important;
@@ -412,7 +416,7 @@ END:VCARD`;
         </>
       )}
       {/* Elementos decorativos de fondo en línea */}
-      {normTemplate === "split-diagonal" && !card.heroImageUrl && (
+      {normTemplate === "split-diagonal" && !heroCssUrl && (
         <div 
           className="absolute top-0 left-0 w-full h-[35%] -skew-y-6 origin-top-left transform scale-y-110 opacity-80 pointer-events-none z-0" 
           style={{ backgroundColor: themeColor }}

@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import { getCurrentUserContext } from "../../../../lib/permissions";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
+import { getAuthorizedBlobHosts, resolveCardImageUpdate } from "../../../../lib/card-images";
 import {
   getEffectiveProfileEditPolicy,
   resolveProfileEditScope,
@@ -241,10 +242,12 @@ export async function updateCard(formData: FormData) {
     let heroImageUrl = currentCard.heroImageUrl;
 
     if (canEditCorporateIdentity) {
-      avatarUrl = formData.get("avatarUrl") as string;
-      logoUrl = formData.get("logoUrl") as string;
-      coverUrl = formData.get("coverUrl") as string;
-      heroImageUrl = formData.get("heroImageUrl") as string;
+      // Solo URLs del almacenamiento autorizado; los valores ya guardados se conservan.
+      const authorizedHosts = getAuthorizedBlobHosts();
+      avatarUrl = resolveCardImageUpdate("avatarUrl", formData.get("avatarUrl"), currentCard.avatarUrl, authorizedHosts);
+      logoUrl = resolveCardImageUpdate("logoUrl", formData.get("logoUrl"), currentCard.logoUrl, authorizedHosts);
+      coverUrl = resolveCardImageUpdate("coverUrl", formData.get("coverUrl"), currentCard.coverUrl, authorizedHosts);
+      heroImageUrl = resolveCardImageUpdate("heroImageUrl", formData.get("heroImageUrl"), currentCard.heroImageUrl, authorizedHosts);
 
       const coverFile = formData.get("coverFile") as File | null;
       if (coverFile && coverFile.size > 0) {

@@ -20,6 +20,8 @@ import {
   Trash2
 } from "lucide-react";
 import FileInput from "../../../../components/FileInput";
+import ProfileImageSpecHint from "../../../../components/ProfileImageSpecHint";
+import { PROFILE_IMAGE_ACCEPT, PROFILE_IMAGE_FORMATS_LABEL, PROFILE_IMAGE_MAX_SIZE_LABEL } from "../../../../lib/profile-image-specs";
 import CardProfileView from "../../../../components/card-profile/CardProfileView";
 import { CardProfileData } from "../../../../components/card-profile/CardProfileView";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
@@ -503,17 +505,18 @@ export default function CardEditorClient({
               <div className={activeTab === "images" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Imágenes de Perfil</h2>
-                    <p className="text-xs text-slate-400">Sube tus fotos corporativas y de fondo. Límite máximo 4MB.</p>
+                    <p className="text-xs text-slate-400">Sube tus fotos corporativas y de fondo. Formatos {PROFILE_IMAGE_FORMATS_LABEL}, máximo {PROFILE_IMAGE_MAX_SIZE_LABEL} por imagen.</p>
                   </div>
 
                   <div className="space-y-6">
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-semibold text-slate-300 block">Fotografía de Perfil (Avatar)</label>
+                      <ProfileImageSpecHint kind="avatar" />
                       <FileInput
                         name="avatarFile"
                         urlName="avatarUrl"
                         initialUrl={cardData.avatarUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="avatar"
                         onUrlChange={(url) => handleImageChange("avatar", url)}
                       />
@@ -521,11 +524,12 @@ export default function CardEditorClient({
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-semibold text-slate-300 block">Logo de Empresa</label>
+                      <ProfileImageSpecHint kind="logo" />
                       <FileInput
                         name="logoFile"
                         urlName="logoUrl"
                         initialUrl={cardData.logoUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="logo"
                         onUrlChange={(url) => handleImageChange("logo", url)}
                       />
@@ -533,11 +537,12 @@ export default function CardEditorClient({
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-semibold text-slate-300 block">Portada superior (Banner)</label>
+                      <ProfileImageSpecHint kind="cover" />
                       <FileInput
                         name="coverFile"
                         urlName="coverUrl"
                         initialUrl={cardData.coverUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="cover"
                         onUrlChange={(url) => handleImageChange("cover", url)}
                       />
@@ -545,14 +550,15 @@ export default function CardEditorClient({
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-bold text-slate-300 block">Imagen hero / Fondo de la landing</label>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mb-2">
-                        Imagen decorativa que aparecerá detrás de tu tarjeta. Recomendamos una imagen horizontal de al menos 1600 × 900 px.
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        Imagen decorativa que aparecerá detrás de tu tarjeta.
                       </p>
+                      <ProfileImageSpecHint kind="hero" />
                       <FileInput
                         name="heroImageFile"
                         urlName="heroImageUrl"
                         initialUrl={cardData.heroImageUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="hero"
                         onUrlChange={(url) => handleImageChange("hero", url)}
                       />

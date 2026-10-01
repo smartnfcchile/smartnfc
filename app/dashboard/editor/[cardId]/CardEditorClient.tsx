@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import FileInput from "../../../../components/FileInput";
 import ProfileImageSpecHint from "../../../../components/ProfileImageSpecHint";
+import { BannerCropPreview, HeroCropPreview } from "../../../../components/ImageCropPreview";
 import { PROFILE_IMAGE_ACCEPT, PROFILE_IMAGE_FORMATS_LABEL, PROFILE_IMAGE_MAX_SIZE_LABEL } from "../../../../lib/profile-image-specs";
 import CardProfileView from "../../../../components/card-profile/CardProfileView";
 import { CardProfileData } from "../../../../components/card-profile/CardProfileView";
@@ -546,6 +547,12 @@ export default function CardEditorClient({
                         type="cover"
                         onUrlChange={(url) => handleImageChange("cover", url)}
                       />
+                      <BannerCropPreview
+                        url={cardData.coverUrl}
+                        template={cardData.template}
+                        bannerStyle={cardData.bannerStyle}
+                        photoStyle={cardData.photoStyle}
+                      />
                     </div>
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
@@ -562,6 +569,7 @@ export default function CardEditorClient({
                         type="hero"
                         onUrlChange={(url) => handleImageChange("hero", url)}
                       />
+                      <HeroCropPreview url={cardData.heroImageUrl} />
                     </div>
                   </div>
                 </div>

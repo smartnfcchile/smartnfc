@@ -27,6 +27,13 @@ import CardProfileView from "../../../../components/card-profile/CardProfileView
 import { CardProfileData } from "../../../../components/card-profile/CardProfileView";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 
+const STORED_ACTION_LABELS: Record<string, string> = {
+  PHONE: "Llamada telefónica",
+  EMAIL: "Enviar correo",
+  SAVE_CONTACT: "Guardar contacto",
+  NONE: "Ninguna",
+};
+
 type CardLink = {
   id: string;
   title: string;
@@ -185,8 +192,8 @@ export default function CardEditorClient({
       shareContactIntro: formData.get("shareContactIntro") as string || "Déjame tus datos para mantenernos en contacto.",
       shareContactConfirm: formData.get("shareContactConfirm") as string || "¡Gracias! Tus datos fueron enviados correctamente.",
       shareContactConsent: formData.get("shareContactConsent") as string || "Acepto el tratamiento de mis datos personales para fines de contacto comercial.",
-      primaryActionType: formData.get("primaryActionType") as string || "WHATSAPP",
-      secondaryActionType: formData.get("secondaryActionType") as string || "SAVE_CONTACT",
+      primaryActionType: formData.get("primaryActionType") as string || prev.primaryActionType,
+      secondaryActionType: formData.get("secondaryActionType") as string || prev.secondaryActionType,
     }));
   };
 
@@ -687,6 +694,12 @@ export default function CardEditorClient({
                           >
                             <option value="WHATSAPP">Llamada/WhatsApp Directo</option>
                             <option value="CRM_FORM">Abrir Formulario de Captura</option>
+                            {/* Conserva una acción guardada que no está entre las opciones (evita sobrescribirla con WhatsApp) */}
+                            {!["WHATSAPP", "CRM_FORM"].includes(card.primaryActionType) && (
+                              <option value={card.primaryActionType}>
+                                {STORED_ACTION_LABELS[card.primaryActionType] ?? card.primaryActionType} (actual)
+                              </option>
+                            )}
                           </select>
                         </div>
                       </div>

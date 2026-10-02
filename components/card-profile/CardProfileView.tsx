@@ -15,6 +15,8 @@ import {
   NormalizedPhotoStyle,
   NormalizedBannerStyle
 } from "../../lib/templates";
+import { toCssImageUrl } from "../../lib/card-images";
+import { BANNER_CURVE_PATHS } from "../../lib/profile-image-crop";
 
 export interface CardLinkData {
   id: string;
@@ -354,18 +356,23 @@ END:VCARD`;
     photoConfig.className += " border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]";
   }
 
-  const hasHeroClass = card.heroImageUrl ? "has-hero" : "";
+  // La URL del hero nunca se interpola en <style>: se entrega escapada como variable CSS.
+  const heroCssUrl = toCssImageUrl(card.heroImageUrl);
+  const hasHeroClass = heroCssUrl ? "has-hero" : "";
+  const heroStyle = heroCssUrl ? ({ "--nfc-hero-image": heroCssUrl } as React.CSSProperties) : undefined;
+  // La landing pública responde al ancho de la ventana. La vista previa del editor responde al
+  // ancho de su propio contenedor (el teléfono simulado), para mostrar lo mismo que un móvil real.
+  const heroWideQuery = isPreview ? "@container nfc-landing (min-width: 640px)" : "@media (min-width: 640px)";
+  const heroNarrowQuery = isPreview ? "@container nfc-landing (max-width: 639px)" : "@media (max-width: 639px)";
 
-  return (
-    <>
-      <PublicCardAnalytics cardId={card.id} contactSource={contactSource} />
-      <main className={`nfc-landing-main ${hasHeroClass} ${mainClass}`}>
-      {card.heroImageUrl && (
+  const landing = (
+      <main className={`nfc-landing-main ${hasHeroClass} ${mainClass}`} style={heroStyle}>
+      {heroCssUrl && (
         <>
           <style dangerouslySetInnerHTML={{ __html: `
-            @media (min-width: 640px) {
+            ${heroWideQuery} {
               .nfc-landing-main.has-hero {
-                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.48) 0%, rgba(3, 7, 18, 0.82) 55%, rgba(3, 7, 18, 0.96) 100%), url(${card.heroImageUrl}) !important;
+                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.48) 0%, rgba(3, 7, 18, 0.82) 55%, rgba(3, 7, 18, 0.96) 100%), var(--nfc-hero-image) !important;
                 background-size: cover !important;
                 background-position: center top !important;
                 background-repeat: no-repeat !important;
@@ -379,7 +386,7 @@ END:VCARD`;
                 display: none !important;
               }
             }
-            @media (max-width: 639px) {
+            ${heroNarrowQuery} {
               .nfc-landing-main.has-hero {
                 background-image: none !important;
                 display: flex !important;
@@ -392,7 +399,7 @@ END:VCARD`;
                 display: block !important;
                 width: 100% !important;
                 height: 220px !important;
-                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.3) 0%, rgba(3, 7, 18, 0.6) 100%), url(${card.heroImageUrl}) !important;
+                background-image: linear-gradient(180deg, rgba(3, 7, 18, 0.3) 0%, rgba(3, 7, 18, 0.6) 100%), var(--nfc-hero-image) !important;
                 background-size: cover !important;
                 background-position: center top !important;
                 background-repeat: no-repeat !important;
@@ -412,7 +419,7 @@ END:VCARD`;
         </>
       )}
       {/* Elementos decorativos de fondo en línea */}
-      {normTemplate === "split-diagonal" && !card.heroImageUrl && (
+      {normTemplate === "split-diagonal" && !heroCssUrl && (
         <div 
           className="absolute top-0 left-0 w-full h-[35%] -skew-y-6 origin-top-left transform scale-y-110 opacity-80 pointer-events-none z-0" 
           style={{ backgroundColor: themeColor }}
@@ -464,13 +471,13 @@ END:VCARD`;
                 <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-10 pointer-events-none">
                   {normBannerStyle === "arc" && (
                     <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="relative block w-full h-10 fill-current" style={{ color: isLightTemplate ? "#ffffff" : "#0f172a" }}>
-                      <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V0C26.9,4.75,55.05,16.32,80,29.35,140.75,61,207.77,77.51,321.39,56.44Z" />
+                      <path d={BANNER_CURVE_PATHS.arc} />
                     </svg>
                   )}
 
                   {normBannerStyle === "wave" && (
                     <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="relative block w-full h-8 fill-current" style={{ color: isLightTemplate ? "#ffffff" : "#0f172a" }}>
-                      <path d="M985.66,92.83C906.67,72,823.78,31,743.84,14.19c-82.26-17.34-168.06-16.33-250.45.39-57.84,11.73-114,31.07-172,41.86C207.77,77.51,140.75,61,80,29.35,55.05,16.32,26.9,4.75,0,0V120H1200V95.83C1132.19,118.92,1055.71,111.31,985.66,92.83Z" />
+                      <path d={BANNER_CURVE_PATHS.wave} />
                     </svg>
                   )}
                 </div>
@@ -516,13 +523,13 @@ END:VCARD`;
               <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-10 pointer-events-none">
                 {normBannerStyle === "arc" && (
                   <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="relative block w-full h-10 fill-current" style={{ color: isLightTemplate ? "#ffffff" : "#0f172a" }}>
-                    <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V0C26.9,4.75,55.05,16.32,80,29.35,140.75,61,207.77,77.51,321.39,56.44Z" />
+                    <path d={BANNER_CURVE_PATHS.arc} />
                   </svg>
                 )}
 
                 {normBannerStyle === "wave" && (
                   <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="relative block w-full h-8 fill-current" style={{ color: isLightTemplate ? "#ffffff" : "#0f172a" }}>
-                    <path d="M985.66,92.83C906.67,72,823.78,31,743.84,14.19c-82.26-17.34-168.06-16.33-250.45.39-57.84,11.73-114,31.07-172,41.86C207.77,77.51,140.75,61,80,29.35,55.05,16.32,26.9,4.75,0,0V120H1200V95.83C1132.19,118.92,1055.71,111.31,985.66,92.83Z" />
+                    <path d={BANNER_CURVE_PATHS.wave} />
                   </svg>
                 )}
               </div>
@@ -896,6 +903,18 @@ END:VCARD`;
         </div>
       )}
     </main>
+  );
+
+  return (
+    <>
+      <PublicCardAnalytics cardId={card.id} contactSource={contactSource} />
+      {isPreview ? (
+        <div className="nfc-landing-container" style={{ containerType: "inline-size", containerName: "nfc-landing" }}>
+          {landing}
+        </div>
+      ) : (
+        landing
+      )}
     </>
   );
 }

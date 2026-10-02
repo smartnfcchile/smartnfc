@@ -3,6 +3,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { getCurrentUserContext } from "../../../../lib/permissions";
+import { PROFILE_IMAGE_MIME_TYPES } from "../../../../lib/profile-image-specs";
 
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
@@ -17,7 +18,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           throw new Error("Ruta de archivo inválida");
         }
         return {
-          allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
+          allowedContentTypes: [...PROFILE_IMAGE_MIME_TYPES],
           maximumSizeInBytes: 5_000_000,
           validUntil: Date.now() + 5 * 60 * 1000,
           addRandomSuffix: true,

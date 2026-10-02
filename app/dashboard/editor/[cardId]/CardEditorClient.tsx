@@ -20,9 +20,19 @@ import {
   Trash2
 } from "lucide-react";
 import FileInput from "../../../../components/FileInput";
+import ProfileImageSpecHint from "../../../../components/ProfileImageSpecHint";
+import { BannerCropPreview, HeroCropPreview } from "../../../../components/ImageCropPreview";
+import { PROFILE_IMAGE_ACCEPT, PROFILE_IMAGE_FORMATS_LABEL, PROFILE_IMAGE_MAX_SIZE_LABEL } from "../../../../lib/profile-image-specs";
 import CardProfileView from "../../../../components/card-profile/CardProfileView";
 import { CardProfileData } from "../../../../components/card-profile/CardProfileView";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
+
+const STORED_ACTION_LABELS: Record<string, string> = {
+  PHONE: "Llamada telefónica",
+  EMAIL: "Enviar correo",
+  SAVE_CONTACT: "Guardar contacto",
+  NONE: "Ninguna",
+};
 
 type CardLink = {
   id: string;
@@ -182,8 +192,8 @@ export default function CardEditorClient({
       shareContactIntro: formData.get("shareContactIntro") as string || "Déjame tus datos para mantenernos en contacto.",
       shareContactConfirm: formData.get("shareContactConfirm") as string || "¡Gracias! Tus datos fueron enviados correctamente.",
       shareContactConsent: formData.get("shareContactConsent") as string || "Acepto el tratamiento de mis datos personales para fines de contacto comercial.",
-      primaryActionType: formData.get("primaryActionType") as string || "WHATSAPP",
-      secondaryActionType: formData.get("secondaryActionType") as string || "SAVE_CONTACT",
+      primaryActionType: formData.get("primaryActionType") as string || prev.primaryActionType,
+      secondaryActionType: formData.get("secondaryActionType") as string || prev.secondaryActionType,
     }));
   };
 
@@ -503,17 +513,18 @@ export default function CardEditorClient({
               <div className={activeTab === "images" ? "space-y-6 animate-fadeIn" : "hidden"}>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">Imágenes de Perfil</h2>
-                    <p className="text-xs text-slate-400">Sube tus fotos corporativas y de fondo. Límite máximo 4MB.</p>
+                    <p className="text-xs text-slate-400">Sube tus fotos corporativas y de fondo. Formatos {PROFILE_IMAGE_FORMATS_LABEL}, máximo {PROFILE_IMAGE_MAX_SIZE_LABEL} por imagen.</p>
                   </div>
 
                   <div className="space-y-6">
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-semibold text-slate-300 block">Fotografía de Perfil (Avatar)</label>
+                      <ProfileImageSpecHint kind="avatar" />
                       <FileInput
                         name="avatarFile"
                         urlName="avatarUrl"
                         initialUrl={cardData.avatarUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="avatar"
                         onUrlChange={(url) => handleImageChange("avatar", url)}
                       />
@@ -521,11 +532,12 @@ export default function CardEditorClient({
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-semibold text-slate-300 block">Logo de Empresa</label>
+                      <ProfileImageSpecHint kind="logo" />
                       <FileInput
                         name="logoFile"
                         urlName="logoUrl"
                         initialUrl={cardData.logoUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="logo"
                         onUrlChange={(url) => handleImageChange("logo", url)}
                       />
@@ -533,29 +545,38 @@ export default function CardEditorClient({
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-semibold text-slate-300 block">Portada superior (Banner)</label>
+                      <ProfileImageSpecHint kind="cover" />
                       <FileInput
                         name="coverFile"
                         urlName="coverUrl"
                         initialUrl={cardData.coverUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="cover"
                         onUrlChange={(url) => handleImageChange("cover", url)}
+                      />
+                      <BannerCropPreview
+                        url={cardData.coverUrl}
+                        template={cardData.template}
+                        bannerStyle={cardData.bannerStyle}
+                        photoStyle={cardData.photoStyle}
                       />
                     </div>
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
                       <label className="text-xs font-bold text-slate-300 block">Imagen hero / Fondo de la landing</label>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mb-2">
-                        Imagen decorativa que aparecerá detrás de tu tarjeta. Recomendamos una imagen horizontal de al menos 1600 × 900 px.
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        Imagen decorativa que aparecerá detrás de tu tarjeta.
                       </p>
+                      <ProfileImageSpecHint kind="hero" />
                       <FileInput
                         name="heroImageFile"
                         urlName="heroImageUrl"
                         initialUrl={cardData.heroImageUrl}
-                        accept="image/*"
+                        accept={PROFILE_IMAGE_ACCEPT}
                         type="hero"
                         onUrlChange={(url) => handleImageChange("hero", url)}
                       />
+                      <HeroCropPreview url={cardData.heroImageUrl} />
                     </div>
                   </div>
                 </div>
@@ -673,6 +694,12 @@ export default function CardEditorClient({
                           >
                             <option value="WHATSAPP">Llamada/WhatsApp Directo</option>
                             <option value="CRM_FORM">Abrir Formulario de Captura</option>
+                            {/* Conserva una acción guardada que no está entre las opciones (evita sobrescribirla con WhatsApp) */}
+                            {!["WHATSAPP", "CRM_FORM"].includes(card.primaryActionType) && (
+                              <option value={card.primaryActionType}>
+                                {STORED_ACTION_LABELS[card.primaryActionType] ?? card.primaryActionType} (actual)
+                              </option>
+                            )}
                           </select>
                         </div>
                       </div>

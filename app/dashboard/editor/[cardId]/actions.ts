@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import { getCurrentUserContext } from "../../../../lib/permissions";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
+import { getAuthorizedBlobHosts, resolveCardImageUpdate } from "../../../../lib/card-images";
 import {
   getEffectiveProfileEditPolicy,
   resolveProfileEditScope,
@@ -138,10 +139,15 @@ export async function updateCard(formData: FormData) {
     const shareContactIntro = formData.get("shareContactIntro") as string || "Déjame tus datos para mantenernos en contacto.";
     const shareContactConfirm = formData.get("shareContactConfirm") as string || "¡Gracias! Tus datos fueron enviados correctamente.";
     const shareContactConsent = formData.get("shareContactConsent") as string || "Acepto el tratamiento de mis datos personales para fines de contacto comercial.";
-    const requestedPrimaryAction = formData.get("primaryActionType") as string || "WHATSAPP";
+    // Si el formulario no envía una acción (p. ej. la pestaña CRM no la muestra), se conserva la guardada.
+    const requestedPrimaryAction = formData.get("primaryActionType") as string || currentCard.primaryActionType;
     const primaryActionType = !canConfigureCapture && (requestedPrimaryAction === "CRM_FORM" || currentCard.primaryActionType === "CRM_FORM") ? currentCard.primaryActionType : requestedPrimaryAction;
-    const requestedSecondaryAction = formData.get("secondaryActionType") as string || "SAVE_CONTACT";
+    const requestedSecondaryAction = formData.get("secondaryActionType") as string || currentCard.secondaryActionType;
     const secondaryActionType = !canConfigureCapture && (requestedSecondaryAction === "CRM_FORM" || currentCard.secondaryActionType === "CRM_FORM") ? currentCard.secondaryActionType : requestedSecondaryAction;
+    // Los requisitos de cada acción se validan solo cuando se elige en este guardado:
+    // una acción ya guardada y sin cambios no impide guardar el resto del perfil.
+    const primaryActionChanged = primaryActionType !== currentCard.primaryActionType;
+    const secondaryActionChanged = secondaryActionType !== currentCard.secondaryActionType;
 
     const shareContactFieldsInput = formData.get("shareContactFields") as string;
     let shareContactFields = null;
@@ -157,9 +163,12 @@ export async function updateCard(formData: FormData) {
     const ActionTypeSchema = z.enum(["WHATSAPP", "PHONE", "EMAIL", "SAVE_CONTACT", "CRM_FORM", "NONE"]);
 
     try {
+      const ctaPrimary = !canConfigureCapture && primaryActionType === "CRM_FORM" ? "NONE" : primaryActionType;
+      const ctaSecondary = !canConfigureCapture && secondaryActionType === "CRM_FORM" ? "NONE" : secondaryActionType;
       const ctaData = {
-        primaryActionType: !canConfigureCapture && primaryActionType === "CRM_FORM" ? "NONE" : primaryActionType,
-        secondaryActionType: !canConfigureCapture && secondaryActionType === "CRM_FORM" ? "NONE" : secondaryActionType,
+        primaryActionType: ctaPrimary,
+        secondaryActionType: ctaSecondary,
+        changedActions: [primaryActionChanged && ctaPrimary, secondaryActionChanged && ctaSecondary].filter((a): a is string => !!a),
         shareContactEnabled,
         whatsapp: whatsapp || null,
         showWhatsapp,
@@ -172,6 +181,7 @@ export async function updateCard(formData: FormData) {
       z.object({
         primaryActionType: ActionTypeSchema,
         secondaryActionType: ActionTypeSchema,
+        changedActions: z.array(z.string()),
         shareContactEnabled: z.boolean(),
         whatsapp: z.string().optional().nullable(),
         showWhatsapp: z.boolean(),
@@ -180,7 +190,7 @@ export async function updateCard(formData: FormData) {
         email: z.string().optional().nullable(),
         showEmail: z.boolean(),
       }).refine(data => {
-        if (data.primaryActionType === data.secondaryActionType && data.primaryActionType !== "NONE") {
+        if (data.changedActions.length > 0 && data.primaryActionType === data.secondaryActionType && data.primaryActionType !== "NONE") {
           return false;
         }
         return true;
@@ -188,7 +198,7 @@ export async function updateCard(formData: FormData) {
         message: "La acción primaria y secundaria no pueden ser la misma, excepto si es 'Ninguna (NONE)'",
         path: ["secondaryActionType"]
       }).refine(data => {
-        if ((data.primaryActionType === "CRM_FORM" || data.secondaryActionType === "CRM_FORM") && !data.shareContactEnabled) {
+        if (data.changedActions.includes("CRM_FORM") && !data.shareContactEnabled) {
           return false;
         }
         return true;
@@ -196,7 +206,7 @@ export async function updateCard(formData: FormData) {
         message: "No se puede seleccionar 'Formulario de Captura (CRM_FORM)' si la captura de prospectos está desactivada.",
         path: ["primaryActionType"]
       }).refine(data => {
-        if ((data.primaryActionType === "WHATSAPP" || data.secondaryActionType === "WHATSAPP") && (!data.whatsapp || !data.showWhatsapp)) {
+        if (data.changedActions.includes("WHATSAPP") && (!data.whatsapp || !data.showWhatsapp)) {
           return false;
         }
         return true;
@@ -204,7 +214,7 @@ export async function updateCard(formData: FormData) {
         message: "Se requiere un número de WhatsApp visible para usar la acción de WhatsApp.",
         path: ["whatsapp"]
       }).refine(data => {
-        if ((data.primaryActionType === "PHONE" || data.secondaryActionType === "PHONE") && (!data.phone || !data.showPhone)) {
+        if (data.changedActions.includes("PHONE") && (!data.phone || !data.showPhone)) {
           return false;
         }
         return true;
@@ -212,7 +222,7 @@ export async function updateCard(formData: FormData) {
         message: "Se requiere un número de teléfono visible para usar la acción de llamada.",
         path: ["phone"]
       }).refine(data => {
-        if ((data.primaryActionType === "EMAIL" || data.secondaryActionType === "EMAIL") && (!data.email || !data.showEmail)) {
+        if (data.changedActions.includes("EMAIL") && (!data.email || !data.showEmail)) {
           return false;
         }
         return true;
@@ -241,10 +251,12 @@ export async function updateCard(formData: FormData) {
     let heroImageUrl = currentCard.heroImageUrl;
 
     if (canEditCorporateIdentity) {
-      avatarUrl = formData.get("avatarUrl") as string;
-      logoUrl = formData.get("logoUrl") as string;
-      coverUrl = formData.get("coverUrl") as string;
-      heroImageUrl = formData.get("heroImageUrl") as string;
+      // Solo URLs del almacenamiento autorizado; los valores ya guardados se conservan.
+      const authorizedHosts = getAuthorizedBlobHosts();
+      avatarUrl = resolveCardImageUpdate("avatarUrl", formData.get("avatarUrl"), currentCard.avatarUrl, authorizedHosts);
+      logoUrl = resolveCardImageUpdate("logoUrl", formData.get("logoUrl"), currentCard.logoUrl, authorizedHosts);
+      coverUrl = resolveCardImageUpdate("coverUrl", formData.get("coverUrl"), currentCard.coverUrl, authorizedHosts);
+      heroImageUrl = resolveCardImageUpdate("heroImageUrl", formData.get("heroImageUrl"), currentCard.heroImageUrl, authorizedHosts);
 
       const coverFile = formData.get("coverFile") as File | null;
       if (coverFile && coverFile.size > 0) {

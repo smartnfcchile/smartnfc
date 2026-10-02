@@ -2,6 +2,42 @@
 
 import React, { useState } from "react";
 import { upload } from "@vercel/blob/client";
+import {
+  getProfileImageWarnings,
+  isAcceptedProfileImageType,
+  PROFILE_IMAGE_ACCEPT,
+  PROFILE_IMAGE_FORMATS_LABEL,
+  PROFILE_IMAGE_MAX_BYTES,
+  PROFILE_IMAGE_MAX_SIZE_LABEL,
+  type ImageSize,
+} from "../lib/profile-image-specs";
+
+/** Lee ancho y alto reales en el navegador; null si no se puede decodificar. */
+async function readImageSize(file: File): Promise<ImageSize | null> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const size = { width: bitmap.width, height: bitmap.height };
+      bitmap.close();
+      return size;
+    } catch {
+      // Se intenta con <img> a continuación
+    }
+  }
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
+    img.src = objectUrl;
+  });
+}
 
 type FileInputProps = {
   name: string;
@@ -16,32 +52,48 @@ type FileInputProps = {
 export default function FileInput({
   urlName,
   initialUrl,
-  accept,
+  accept = PROFILE_IMAGE_ACCEPT,
   type,
   onUrlChange,
 }: FileInputProps) {
   const [url, setUrl] = useState<string>(initialUrl || "");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [dimensions, setDimensions] = useState<ImageSize | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setError("");
+    setDimensions(null);
+    setWarnings([]);
 
-    // Validación client-side de límite de tamaño (4MB)
-    if (file.size > 4 * 1024 * 1024) {
-      alert(
-        `¡Imagen demasiado grande! El archivo "${file.name}" pesa ${(file.size / (1024 * 1024)).toFixed(
-          2
-        )} MB. El límite máximo de subida es de 4 MB para garantizar un rendimiento óptimo. Por favor, comprime la imagen o usa otra más liviana.`
-      );
-      e.target.value = ""; // Resetea el input
+    // Mismos formatos que acepta /api/blob/upload (HEIC, SVG o GIF serían rechazados)
+    if (!isAcceptedProfileImageType(file.type)) {
+      setError(`Formato no admitido. Usa una imagen ${PROFILE_IMAGE_FORMATS_LABEL}.`);
+      e.target.value = "";
       return;
+    }
+
+    // Validación client-side de límite de tamaño
+    if (file.size > PROFILE_IMAGE_MAX_BYTES) {
+      setError(
+        `La imagen pesa ${(file.size / (1024 * 1024)).toFixed(2)} MB. El máximo es ${PROFILE_IMAGE_MAX_SIZE_LABEL}: comprímela o usa una más liviana.`
+      );
+      e.target.value = "";
+      return;
+    }
+
+    // Dimensiones y proporción: solo advertencias informativas, nunca bloquean la carga
+    const size = await readImageSize(file);
+    if (size) {
+      setDimensions(size);
+      setWarnings(getProfileImageWarnings(type, size));
     }
 
     try {
       setUploading(true);
-      setError("");
 
       // Subida directa al Vercel Blob Store (Bypasseando el servidor Next.js para evitar el error 413)
       const newBlob = await upload(file.name, file, {
@@ -57,6 +109,8 @@ export default function FileInput({
       console.error("Error al subir archivo a Vercel Blob:", err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(`Error al subir imagen: ${errorMessage}`);
+      setDimensions(null);
+      setWarnings([]);
       alert(`Hubo un error al subir la imagen: ${errorMessage}\n\nAsegúrate de tener Vercel Blob configurado.`);
       e.target.value = ""; // Resetea el input
     } finally {
@@ -165,6 +219,8 @@ export default function FileInput({
               type="button"
               onClick={() => {
                 setUrl("");
+                setDimensions(null);
+                setWarnings([]);
                 if (onUrlChange) onUrlChange("");
               }}
               className="text-xs text-red-500 hover:text-red-400 font-bold px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/25 transition cursor-pointer hover:bg-red-500/20"
@@ -176,6 +232,24 @@ export default function FileInput({
         {/* Input oculto que registra la URL subida y se envía en el Formulario */}
         <input type="hidden" name={urlName} value={url} />
         {error && <p className="text-[10px] text-red-500 font-medium">{error}</p>}
+        {dimensions && !error && (
+          <div className="space-y-1 text-[10px] leading-relaxed" aria-live="polite">
+            {warnings.length === 0 ? (
+              <p className="text-emerald-400 font-medium">
+                {dimensions.width} × {dimensions.height} px: dimensiones adecuadas.
+              </p>
+            ) : (
+              <>
+                {warnings.map((warning) => (
+                  <p key={warning} className="text-amber-300">
+                    ⚠ {warning}
+                  </p>
+                ))}
+                <p className="text-slate-500">Es solo una recomendación: la imagen se puede usar igual o reemplazarla por otra.</p>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

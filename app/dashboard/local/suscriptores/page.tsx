@@ -1,5 +1,5 @@
 import { hasCapability } from "@/lib/entitlements";
-import { requireCompanyAdmin } from "@/lib/permissions";
+import { requireLocalAdminPage } from "@/lib/local/access";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
 import Link from "next/link";
@@ -15,7 +15,7 @@ function maskWhatsApp(phone: string) {
 }
 
 export default async function SubscribersPage() {
-  const user = await requireCompanyAdmin();
+  const user = await requireLocalAdminPage();
 
 
   // Verificar licencia de Smart NFC Local

@@ -1,13 +1,13 @@
 import { hasCapability } from "@/lib/entitlements";
 import { prisma } from "../../../../../lib/prisma";
-import { requireCompanyAdmin } from "@/lib/permissions";
+import { requireLocalAdminPage } from "@/lib/local/access";
 import { redirect } from "next/navigation";
 import { canCreateLocalCampaign } from "../../../../../lib/product-access";
 import Link from "next/link";
 import NuevaCampanaForm from "./NuevaCampanaForm";
 
 export default async function NuevaCampanaPage() {
-  const user = await requireCompanyAdmin();
+  const user = await requireLocalAdminPage();
 
 
   // 1. Verificar licencia activa de Smart NFC Local

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function LocalLandingPage() {
-  const whatsappUrl = `https://wa.me/56912345678?text=${encodeURIComponent("Hola, me gustaría cotizar Smart NFC Local para mi negocio presencial.")}`;
+  const whatsappUrl = `https://wa.me/56944891518?text=${encodeURIComponent("Hola, me gustaría cotizar Smart NFC Local para mi negocio presencial.")}`;
 
   const plans = [
     {
@@ -54,7 +54,6 @@ export default function LocalLandingPage() {
         "Campañas e hitos ilimitados",
         "Multi-sucursal con reportes independientes",
         "Touchpoints QR/NFC ilimitados",
-        "Integración con sistemas POS / Boletas",
         "Soporte corporativo dedicado",
       ],
       isPopular: false,

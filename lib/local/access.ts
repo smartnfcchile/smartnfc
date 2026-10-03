@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { hasCapability } from "../entitlements";
 import { prisma } from "../prisma";
-import { requireCompanyAdmin } from "../permissions";
+import { getCurrentUserContext, requireCompanyAdmin } from "../permissions";
 import { requireProductAccess } from "../product-access";
 
 export async function requireLocalAdmin(companyId?: string, allowUnavailableRead = false) {
@@ -26,9 +26,20 @@ export async function getPublicLocalCampaign(slug: string) {
   return campaign;
 }
 
+const ADMIN_ROLES = new Set(["SUPERADMIN", "COMPANY_OWNER", "COMPANY_ADMIN"]);
+
+// SmartNFC Local es exclusivo de administradores. En navegación de páginas un colaborador
+// vuelve al inicio con un aviso, en lugar de ver una pantalla de error. Las acciones y APIs
+// siguen usando requireCompanyAdmin/requireLocalAdmin, que rechazan en servidor.
+export async function requireLocalAdminPage() {
+  const user = await getCurrentUserContext();
+  if (!ADMIN_ROLES.has(user.role)) redirect("/dashboard?acceso=local");
+  return requireCompanyAdmin();
+}
+
 // Page navigation handles commercial denial without exposing an exception screen.
 export async function requireLocalPage(capability: import("../entitlements/catalog").Capability = "LOCAL_ACCESS") {
-  const actor = await requireCompanyAdmin();
+  const actor = await requireLocalAdminPage();
   if (!(await hasCapability(actor.companyId, capability))) redirect("/dashboard/local");
   return requireLocalAdmin();
 }

@@ -5,18 +5,26 @@ import { prisma } from "../../lib/prisma";
 import Link from "next/link";
 import { getCurrentCompanyEntitlements } from "../../lib/entitlements";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ profile?: string; acceso?: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
   const user = session.user as any;
+  const { profile, acceso } = await searchParams;
   const e = await getCurrentCompanyEntitlements();
-  if (!e.capabilities.includes("PROFILE") && e.localOperational) redirect("/dashboard/local");
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
+  // Local es exclusivo de administradores: un colaborador nunca es enviado a /dashboard/local.
+  if (isAdmin && !e.capabilities.includes("PROFILE") && e.localOperational) redirect("/dashboard/local");
   const canCRM = e.capabilities.includes("CRM");
   const canTeam = e.capabilities.includes("TEAM_MANAGEMENT");
   const canAnalytics = e.capabilities.includes("ANALYTICS");
-
-  const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
+  const hasProfileProduct = e.capabilities.includes("PROFILE");
+  // Mismas condiciones que el menú lateral (components/Sidebar.tsx): sin Teams activo, las páginas abren en modo restringido.
+  const canTeamPages = isAdmin && (canTeam || hasProfileProduct);
+  // La política se gestiona por la empresa (no Superadmin), igual que /dashboard/configuracion/perfiles.
+  const canEditPolicy = (user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN") && e.capabilities.includes("PROFILE_EDIT_POLICY");
+  const canPhysicalDesigns = user.role === "SUPERADMIN" || hasProfileProduct;
+  const canLocal = isAdmin && e.localOperational;
   const cards = await prisma.card.findMany({
     where: isAdmin ? { companyId: user.companyId } : { userId: user.id },
     select: { id: true, name: true, slug: true, isActive: true },
@@ -27,7 +35,7 @@ export default async function DashboardPage() {
     orderBy: { createdAt: "asc" },
   });
   const profileComplete = Boolean(myCard?.profileName && myCard?.role && (myCard?.phone || myCard?.email));
-  const usersCount = isAdmin && canTeam ? await prisma.user.count({ where: { companyId: user.companyId } }) : 1;
+  const usersCount = canTeamPages ? await prisma.user.count({ where: { companyId: user.companyId } }) : 1;
   const leadsCount = canCRM ? await prisma.lead.count({ where: isAdmin ? { card: { companyId: user.companyId } } : { card: { userId: user.id } } }) : null;
 
   return <div className="space-y-8">
@@ -35,11 +43,15 @@ export default async function DashboardPage() {
       <div className="relative z-10 space-y-2"><span className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-widest">{isAdmin ? "Panel de Administración" : "Panel de Colaborador"}</span><h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">¡Hola, {user.name || "Usuario"}! 👋</h1><p className="text-slate-500 dark:text-slate-400 max-w-2xl text-xs sm:text-sm">{isAdmin ? "Gestiona integrantes, tarjetas, prospectos y analítica de tu empresa. Tu rol administrativo es independiente de tu propia tarjeta SmartNFC." : "Configura tu tarjeta digital, revisa sus interacciones y gestiona tus prospectos."}</p></div>
     </div>
 
+    {acceso === "local" && <div role="status" className="rounded-2xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">SmartNFC Local está disponible solo para administradores de la empresa. Si necesitas acceso, solicítalo a un administrador.</div>}
+
+    {profile === "missing" && !myCard && <div role="status" className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-slate-700 dark:text-slate-200">Todavía no tienes una tarjeta digital asignada. {isAdmin ? "Puedes crearla desde Tarjetas Virtuales o Gestionar Integrantes." : "Solicítala a un administrador de tu empresa."}</div>}
+
     {myCard && !profileComplete && <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-5 sm:flex sm:items-center sm:justify-between sm:gap-5"><div><p className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Tu tarjeta está creada</p><h2 className="mt-1 text-lg font-black text-slate-900 dark:text-white">Completa tu perfil digital</h2><p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Agrega tu cargo y al menos un dato de contacto para dejar tu tarjeta lista para compartir.</p></div><Link href="/dashboard/mi-tarjeta" className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-xs font-black text-white sm:mt-0">Configurar mi tarjeta</Link></div>}
 
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {myCard ? <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm"><span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Mi Tarjeta SmartNFC</span><p className="mt-2 text-lg font-black text-slate-900 dark:text-white">{profileComplete ? "Perfil configurado ✓" : "Perfil pendiente"}</p><div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/mi-tarjeta" className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white">{profileComplete ? "Editar mi tarjeta" : "Configurar perfil"}</Link><Link href={`/c/${myCard.slug}`} target="_blank" className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200">Ver tarjeta</Link></div></div> : <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm"><span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Tarjetas Virtuales</span><div className="mt-2"><span className="text-3xl font-black text-slate-900 dark:text-white">{cards.length}</span><span className="ml-2 text-xs text-slate-500">registradas</span></div></div>}
-      {isAdmin && canTeam && <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm"><span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Integrantes</span><div className="mt-2"><span className="text-3xl font-black text-slate-900 dark:text-white">{usersCount}</span><span className="ml-2 text-xs text-slate-500">usuarios</span></div></div>}
+      {canTeamPages && <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm"><span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Integrantes</span><div className="mt-2"><span className="text-3xl font-black text-slate-900 dark:text-white">{usersCount}</span><span className="ml-2 text-xs text-slate-500">usuarios</span></div></div>}
       {canCRM && <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm"><span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Prospectos (CRM)</span><div className="mt-2"><span className="text-3xl font-black text-slate-900 dark:text-white">{leadsCount}</span><span className="ml-2 text-xs text-slate-500">leads capturados</span></div></div>}
     </div>
 
@@ -47,9 +59,12 @@ export default async function DashboardPage() {
       {myCard && <Link href="/dashboard/mi-tarjeta" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">🎴</div><div><h3 className="font-bold text-slate-900 dark:text-white">Mi Tarjeta</h3><p className="text-slate-500 text-xs">Edita tu información profesional, contacto, redes y presentación pública.</p></div></Link>}
       {canAnalytics && <Link href="/dashboard/metrics" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">📊</div><div><h3 className="font-bold text-slate-900 dark:text-white">Métricas y Analíticas</h3><p className="text-slate-500 text-xs">{isAdmin ? "Revisa el rendimiento consolidado de las tarjetas de la empresa." : "Visualiza las estadísticas de tu tarjeta."}</p></div></Link>}
       {canCRM && <Link href="/dashboard/leads" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">💰</div><div><h3 className="font-bold text-slate-900 dark:text-white">Prospectos (CRM)</h3><p className="text-slate-500 text-xs">Gestiona los contactos capturados desde las tarjetas SmartNFC.</p></div></Link>}
-      {isAdmin && canTeam && <Link href="/dashboard/users" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">👥</div><div><h3 className="font-bold text-slate-900 dark:text-white">Gestionar Integrantes</h3><p className="text-slate-500 text-xs">Invita colaboradores y solicita automáticamente su tarjeta SmartNFC.</p></div></Link>}
-      {isAdmin && canTeam && <Link href="/dashboard/cards" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">🗂️</div><div><h3 className="font-bold text-slate-900 dark:text-white">Tarjetas de la empresa</h3><p className="text-slate-500 text-xs">Consulta las tarjetas asociadas a los integrantes de tu organización.</p></div></Link>}
-      {!isAdmin && myCard && <Link href={`/dashboard/qr/${myCard.id}`} className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">📷</div><div><h3 className="font-bold text-slate-900 dark:text-white">Mi Código QR</h3><p className="text-slate-500 text-xs">Visualiza y descarga tu QR corporativo.</p></div></Link>}
+      {canTeamPages && <Link href="/dashboard/users" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">👥</div><div><h3 className="font-bold text-slate-900 dark:text-white">Gestionar Integrantes</h3><p className="text-slate-500 text-xs">Invita colaboradores y solicita automáticamente su tarjeta SmartNFC.</p></div></Link>}
+      {canTeamPages && <Link href="/dashboard/cards" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">🗂️</div><div><h3 className="font-bold text-slate-900 dark:text-white">Tarjetas de la empresa</h3><p className="text-slate-500 text-xs">Consulta las tarjetas asociadas a los integrantes de tu organización.</p></div></Link>}
+      {canEditPolicy && <Link href="/dashboard/configuracion/perfiles" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">🛡️</div><div><h3 className="font-bold text-slate-900 dark:text-white">Política de edición</h3><p className="text-slate-500 text-xs">Define quién puede modificar las tarjetas digitales de tu empresa.</p></div></Link>}
+      {canPhysicalDesigns && <Link href="/dashboard/physical-designs" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">✦</div><div><h3 className="font-bold text-slate-900 dark:text-white">Diseños físicos</h3><p className="text-slate-500 text-xs">{isAdmin ? "Diseña e imprime las tarjetas físicas de tu empresa." : "Diseña la versión impresa de tu tarjeta."}</p></div></Link>}
+      {canLocal && <Link href="/dashboard/local" className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">🏪</div><div><h3 className="font-bold text-slate-900 dark:text-white">SmartNFC Local</h3><p className="text-slate-500 text-xs">Revisa tus locales, Puntos Inteligentes y métricas del período.</p></div></Link>}
+      {myCard && <Link href={`/dashboard/qr/${myCard.id}`} className="group bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl flex gap-5"><div className="text-2xl">📷</div><div><h3 className="font-bold text-slate-900 dark:text-white">Mi Código QR</h3><p className="text-slate-500 text-xs">Visualiza y descarga el QR de tu tarjeta digital.</p></div></Link>}
     </div></div>
   </div>;
 }

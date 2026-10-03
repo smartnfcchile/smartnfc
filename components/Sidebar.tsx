@@ -26,18 +26,24 @@ export default function Sidebar({ user, activeProducts = ["EMPRESAS"], capabilit
   const hasEmpresas = isSuper || activeProducts.includes("EMPRESAS");
 
   const can = (capability: string) => capabilities.includes(capability);
-  const menuItems = [
+  // SmartNFC Local es una herramienta de administración: solo administradores (las páginas también lo validan en servidor).
+  const hasLocal = isAdmin && (isSuper || activeProducts.includes("LOCAL"));
+  const menuItems: Array<{ title: string; href: string; icon: React.ReactNode; show: boolean; soon?: boolean }> = [
     { title: "Inicio", href: "/dashboard", icon: "🏠", show: true },
     { title: "Mi Tarjeta", href: "/dashboard/mi-tarjeta", icon: "👤", show: hasEmpresas },
     { title: "Métricas y Analíticas", href: "/dashboard/metrics", icon: "📊", show: can("ANALYTICS") },
+    { title: "Prospectos (CRM)", href: "/dashboard/leads", icon: "💰", show: can("CRM") },
     { title: "Gestionar Integrantes", href: "/dashboard/users", icon: "👥", show: isAdmin && (can("TEAM_MANAGEMENT") || can("PROFILE")) },
     { title: "Tarjetas Virtuales", href: "/dashboard/cards", icon: "🎴", show: isAdmin && (can("TEAM_MANAGEMENT") || can("PROFILE")) },
-    { title: "Diseños físicos", href: "/dashboard/physical-designs", icon: "✦", show: isAdmin && hasEmpresas },
-    { title: "Smart NFC Local", href: "/dashboard/local", icon: <Store className="h-4.5 w-4.5" />, show: isSuper || activeProducts.includes("LOCAL") },
-    { title: "Mis locales", href: "/dashboard/local/locales", icon: "🏪", show: isAdmin && can("LOCAL_ACCESS") },
-    { title: "Puntos Inteligentes", href: "/dashboard/local/puntos", icon: "📍", show: isAdmin && can("LOCAL_TOUCHPOINTS") },
-    { title: "Reportes Local", href: "/dashboard/local/reportes", icon: "📈", show: isAdmin && can("LOCAL_REPORTS") },
-    { title: "Prospectos (CRM)", href: "/dashboard/leads", icon: "💰", show: can("CRM") },
+    { title: "Política de edición", href: "/dashboard/configuracion/perfiles", icon: "🛡️", show: (user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN") && can("PROFILE_EDIT_POLICY") },
+    // Administradores: diseños de la empresa. Colaboradores: solo los de su propia tarjeta (filtrado en servidor).
+    { title: "Diseños físicos", href: "/dashboard/physical-designs", icon: "✦", show: hasEmpresas },
+    { title: "Smart NFC Local", href: "/dashboard/local", icon: <Store className="h-4.5 w-4.5" />, show: hasLocal },
+    { title: "Mis locales", href: "/dashboard/local/locales", icon: "🏪", show: hasLocal && can("LOCAL_ACCESS") },
+    { title: "Puntos Inteligentes", href: "/dashboard/local/puntos", icon: "📍", show: hasLocal && can("LOCAL_TOUCHPOINTS") },
+    { title: "Campañas y Club", href: "/dashboard/local/campanas", icon: "🎟️", show: hasLocal && can("LOCAL_CLUB") },
+    { title: "Suscriptores", href: "/dashboard/local/suscriptores", icon: "📇", show: hasLocal && can("LOCAL_SUBSCRIBERS") },
+    { title: "Reportes automáticos", href: "/dashboard/local/reportes", icon: "📈", show: hasLocal && can("LOCAL_REPORTS"), soon: true },
     { title: "Superadministración", href: "/superadmin", icon: "🛠️", show: isSuper },
     { title: "Configuración", href: "/dashboard/configuracion", icon: "⚙️", show: true },
   ];
@@ -68,6 +74,14 @@ export default function Sidebar({ user, activeProducts = ["EMPRESAS"], capabilit
 
           <nav className="space-y-1">
             {menuItems.filter((item) => item.show).map((item) => {
+              if (item.soon) {
+                return (
+                  <div key={item.href} aria-disabled="true" title="Disponible próximamente" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold tracking-wide text-slate-400 dark:text-slate-600 cursor-default select-none">
+                    <span className="text-lg opacity-60">{item.icon}</span><span>{item.title}</span>
+                    <span className="ml-auto rounded-full bg-slate-100 dark:bg-slate-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Pronto</span>
+                  </div>
+                );
+              }
               const isActive = pathname === item.href || (item.href === "/dashboard/mi-tarjeta" && pathname.startsWith("/dashboard/editor/"));
               return (
                 <Link key={item.href} href={item.href} onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold tracking-wide transition-all ${isActive ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-650 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900/50"}`}>

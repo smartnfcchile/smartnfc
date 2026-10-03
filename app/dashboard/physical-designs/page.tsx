@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { prisma } from "../../../lib/prisma";
 import { ensurePhysicalTemplates } from "../../../lib/physical-card/catalog";
-import { isCompanyAdmin, requirePhysicalDesignUser } from "../../../lib/physical-card/auth";
+import { isCompanyAdmin, requirePhysicalDesignPage } from "../../../lib/physical-card/auth";
 import PhysicalDesignsClient from "./PhysicalDesignsClient";
 
 export default async function PhysicalDesignsPage({ searchParams }: { searchParams: Promise<{ cardId?: string }> }) {
-  const user = await requirePhysicalDesignUser();
+  const user = await requirePhysicalDesignPage();
   await ensurePhysicalTemplates();
   const { cardId } = await searchParams;
   const ownScope = isCompanyAdmin(user.role) ? {} : { userId: user.id };

@@ -3,6 +3,7 @@ import { prisma } from "../../../../lib/prisma";
 import { requireLocalPage } from "../../../../lib/local/access";
 import { effectivePresentationLabel, effectivePresentationMode, mediumLabels, objectiveLabels } from "../../../../lib/local/point-config";
 import { promotionStatus, readObjectiveConfig } from "../../../../lib/local/objective-config";
+import type { LocalPointObjective, LocalPointPresentationMode } from "@prisma/client";
 
 const promotionLabels = { scheduled: "programada", active: "vigente", ended: "terminada" } as const;
 export const dynamic = "force-dynamic";
@@ -20,15 +21,29 @@ export default async function PointsPage({ searchParams }: { searchParams: Promi
     <div className="grid md:grid-cols-2 gap-4">{points.slice(0, 25).map(point => <article key={point.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
       <h2 className="font-bold text-xl">{point.name}</h2><p>{point.location || "Ubicación por completar"} · {point.campaign.name}</p>
       <p>{objectiveLabels[point.objective]}{point.objective === "PROMOTION" && ` (${promotionLabels[promotionStatus(readObjectiveConfig(point.objectiveConfig).promotion)]})`} · {mediumLabels[point.medium]} · {effectivePresentationLabel(point.objective, point.presentationMode)} · {point.isActive ? "Activo" : "Pausado"}</p>
-      {point.medium !== "QR" && <p className="text-sm">{point.physicalNfcCard ? "Tarjeta NFC vinculada" : "Tarjeta NFC pendiente de vincular"}</p>}
+      {point.medium !== "QR" && <p className="text-sm">{point.physicalNfcCard ? "Tarjeta NFC vinculada" : "Tarjeta NFC pendiente: SmartNFC realiza la vinculación antes de la entrega"}</p>}
       <div className="flex flex-wrap gap-4 text-blue-600 dark:text-blue-400">
         <Link className="underline" href={`/dashboard/local/puntos/${point.id}`}>Editar punto</Link>
-        <a className="underline" href={`/p/${point.code}`} target="_blank" rel="noopener noreferrer">{effectivePresentationMode(point.objective, point.presentationMode) === "LANDING" ? "Abrir página" : "Abrir destino"}</a>
+        <PreviewLink point={point}/>
         {point.medium !== "NFC" && <a className="underline" href={`/api/local/points/${point.id}/qr`}>Descargar QR</a>}
-        {point.medium !== "QR" && <Link className="underline" href={`/dashboard/local/campanas/${point.campaignId}`}>Vincular NFC</Link>}
       </div>
     </article>)}</div>
     <nav className="flex gap-4">{page > 1 && <Link href={`?page=${Math.floor(page) - 1}`}>Anterior</Link>}{points.length > 25 && <Link href={`?page=${Math.floor(page) + 1}`}>Siguiente</Link>}</nav>
-    <p className="text-sm text-slate-500">Abrir el destino desde aquí registra un acceso directo. Las reseñas publicadas, seguidores y mensajes enviados dependen de cada plataforma; un acceso no los confirma.</p>
+    <p className="text-sm text-slate-500">La vista previa y la prueba de destino no registran visitas: tus métricas solo cuentan los accesos reales por NFC, QR o enlace. Las reseñas publicadas, seguidores y mensajes enviados dependen de cada plataforma; un acceso no los confirma.</p>
   </div>;
+}
+
+type PreviewPoint = { code: string; objective: LocalPointObjective; presentationMode: LocalPointPresentationMode; destinationUrl: string | null; campaignId: string; objectiveConfig: unknown };
+
+// Vista previa para el administrador sin registrar eventos analíticos (decisión D7):
+// - Club: el editor de la campaña tiene su propia vista previa móvil.
+// - Página del local (o promoción fuera de vigencia): /l/<código> sin visita (?v) no registra visitas, vistas ni clics.
+// - Abrir directamente: se abre el destino configurado tal cual, sin pasar por /p (que sí registra un acceso).
+function PreviewLink({ point }: { point: PreviewPoint }) {
+  if (point.objective === "CLUB") return <Link className="underline" href={`/dashboard/local/campanas/${point.campaignId}`}>Ver Club y su vista previa</Link>;
+  const promo = point.objective === "PROMOTION" ? readObjectiveConfig(point.objectiveConfig).promotion : null;
+  const showsLanding = effectivePresentationMode(point.objective, point.presentationMode) === "LANDING" || (promo && promotionStatus(promo) !== "active");
+  if (showsLanding) return <a className="underline" href={`/l/${point.code}`} target="_blank" rel="noopener noreferrer">Vista previa de la página</a>;
+  if (!point.destinationUrl) return <span className="text-slate-500">Destino sin configurar</span>;
+  return <a className="underline" href={point.destinationUrl} target="_blank" rel="noopener noreferrer">Probar destino</a>;
 }

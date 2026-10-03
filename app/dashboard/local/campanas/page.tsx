@@ -1,12 +1,12 @@
 import { hasCapability } from "@/lib/entitlements";
-import { requireCompanyAdmin } from "@/lib/permissions";
+import { requireLocalAdminPage } from "@/lib/local/access";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../../lib/prisma";
 import CampanasClient from "./CampanasClient";
 
 
 export default async function LocalCampaignsPage() {
-  const user = await requireCompanyAdmin();
+  const user = await requireLocalAdminPage();
 
 
   const hasLocal = await hasCapability(user.companyId, "LOCAL_CLUB");

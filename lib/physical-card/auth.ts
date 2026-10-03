@@ -1,6 +1,8 @@
 import "server-only";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth";
+import { redirect } from "next/navigation";
+import { hasCapability } from "../entitlements";
 import { prisma } from "../prisma";
 
 export async function requirePhysicalDesignUser() {
@@ -13,6 +15,15 @@ export async function requirePhysicalDesignUser() {
     select: { id: true, companyId: true, role: true },
   });
   if (!user) throw new Error("No autorizado.");
+  // Diseños físicos forma parte del producto de perfiles (Empresas): misma regla que el menú y el inicio.
+  if (user.role !== "SUPERADMIN" && !(await hasCapability(user.companyId, "PROFILE"))) throw new Error("No autorizado.");
+  return user;
+}
+
+// Navegación de páginas: sin acceso se vuelve al inicio en lugar de mostrar una pantalla de error.
+export async function requirePhysicalDesignPage() {
+  const user = await requirePhysicalDesignUser().catch(() => null);
+  if (!user) redirect("/dashboard");
   return user;
 }
 

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "../../../../lib/prisma";
 import { requireLocalPage } from "../../../../lib/local/access";
-import { effectivePresentationLabel, effectivePresentationMode, mediumLabels, objectiveLabels } from "../../../../lib/local/point-config";
+import { effectivePresentationLabel, mediumLabels, objectiveLabels } from "../../../../lib/local/point-config";
+import { pointPreviewTarget } from "../../../../lib/local/point-preview";
 import { promotionStatus, readObjectiveConfig } from "../../../../lib/local/objective-config";
 import type { LocalPointObjective, LocalPointPresentationMode } from "@prisma/client";
 
@@ -35,15 +36,12 @@ export default async function PointsPage({ searchParams }: { searchParams: Promi
 
 type PreviewPoint = { code: string; objective: LocalPointObjective; presentationMode: LocalPointPresentationMode; destinationUrl: string | null; campaignId: string; objectiveConfig: unknown };
 
-// Vista previa para el administrador sin registrar eventos analíticos (decisión D7):
-// - Club: el editor de la campaña tiene su propia vista previa móvil.
-// - Página del local (o promoción fuera de vigencia): /l/<código> sin visita (?v) no registra visitas, vistas ni clics.
-// - Abrir directamente: se abre el destino configurado tal cual, sin pasar por /p (que sí registra un acceso).
+// Vista previa para el administrador sin registrar eventos analíticos (decisión D7, lib/local/point-preview.ts).
+// Club: el editor de la campaña tiene su propia vista previa móvil.
 function PreviewLink({ point }: { point: PreviewPoint }) {
-  if (point.objective === "CLUB") return <Link className="underline" href={`/dashboard/local/campanas/${point.campaignId}`}>Ver Club y su vista previa</Link>;
-  const promo = point.objective === "PROMOTION" ? readObjectiveConfig(point.objectiveConfig).promotion : null;
-  const showsLanding = effectivePresentationMode(point.objective, point.presentationMode) === "LANDING" || (promo && promotionStatus(promo) !== "active");
-  if (showsLanding) return <a className="underline" href={`/l/${point.code}`} target="_blank" rel="noopener noreferrer">Vista previa de la página</a>;
-  if (!point.destinationUrl) return <span className="text-slate-500">Destino sin configurar</span>;
-  return <a className="underline" href={point.destinationUrl} target="_blank" rel="noopener noreferrer">Probar destino</a>;
+  const target = pointPreviewTarget(point);
+  if (target.kind === "CLUB") return <Link className="underline" href={`/dashboard/local/campanas/${point.campaignId}`}>Ver Club y su vista previa</Link>;
+  if (target.kind === "LANDING") return <a className="underline" href={target.href} target="_blank" rel="noopener noreferrer">Vista previa de la página</a>;
+  if (target.kind === "UNCONFIGURED") return <span className="text-slate-500">Destino sin configurar</span>;
+  return <a className="underline" href={target.href} target="_blank" rel="noopener noreferrer">Probar destino</a>;
 }

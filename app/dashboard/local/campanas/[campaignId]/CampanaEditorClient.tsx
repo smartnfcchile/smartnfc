@@ -6,9 +6,7 @@ import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import {
   updateLocalCampaignAction,
-  publishLocalCampaignAction,
-  associateNfcCardAction,
-  disassociateNfcCardAction
+  publishLocalCampaignAction
 } from "../../actions";
 import MobilePreview from "../../../../../components/local/MobilePreview";
 import { PUBLIC_APP_ORIGIN } from "../../../../../lib/public-url";

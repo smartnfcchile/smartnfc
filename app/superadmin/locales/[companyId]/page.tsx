@@ -1,5 +1,6 @@
-// Soporte SuperAdmin a un cliente SmartNFC Local — SOLO LECTURA (Bloque G, fase A).
-// Sin suplantación, sin edición cross-tenant y sin acciones administrativas sobre datos del cliente.
+// Soporte SuperAdmin a un cliente SmartNFC Local — datos del cliente en SOLO LECTURA (Bloque G, fase A).
+// Sin suplantación ni edición cross-tenant de datos del cliente. Única operación: vincular/desvincular NFC
+// físicos (inventario SmartNFC) a sus puntos, vía nfc-actions.ts (solo SuperAdmin, auditado).
 // No enlaza a /p, /q ni /t del cliente: abrirlos registraría visitas en su analítica.
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +10,9 @@ import { localAnalytics } from "../../../../lib/local/analytics";
 import { resolveAnalyticsPeriod } from "../../../../lib/local/analytics-period";
 import { objectiveLabels, mediumLabels } from "../../../../lib/local/point-config";
 import LocalAnalyticsView from "../../../../components/local/analytics/LocalAnalyticsView";
+import { nfcStatusLabels } from "../../../../lib/local/nfc-link";
+import PointNfcControls from "./PointNfcControls";
+import type { NfcStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +48,7 @@ export default async function LocalSupportPage({ params, searchParams }: {
       </div>
     </div>
     <p role="note" className="rounded-xl border border-amber-500/30 bg-amber-50 p-3 text-xs font-semibold text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-      Vista de solo lectura. No permite editar ni actuar como el cliente. Este acceso queda registrado en la auditoría.
+      Vista de solo lectura de los datos del cliente. No permite editarlos ni actuar como el cliente. La única operación disponible es vincular o desvincular NFC físicos de SmartNFC a sus puntos. Este acceso y cada cambio de NFC quedan registrados en la auditoría.
     </p>
 
     <section aria-labelledby="lic" className={`${card} grid gap-4 md:grid-cols-3`}>
@@ -109,7 +113,8 @@ export default async function LocalSupportPage({ params, searchParams }: {
               <td className="px-4 py-3"><span className="block">{objectiveLabels[p.objective as keyof typeof objectiveLabels] ?? p.objective}</span><span className="block text-[11px] text-slate-500">{p.presentation}</span>{p.destinationHost && <span className="block text-[11px] text-slate-400">Destino: {p.destinationHost}</span>}</td>
               <td className="px-4 py-3">{p.isActive && p.localActive ? "Activo" : p.isActive ? "Local inactivo" : "Pausado"}<span className="block text-[11px] text-slate-500">{mediumLabels[p.medium as keyof typeof mediumLabels] ?? p.medium}</span></td>
               <td className="px-4 py-3 font-mono text-[11px]">{p.code}</td>
-              <td className="px-4 py-3">{p.nfc ? <><span className="block">{p.nfc.status}</span><span className="block font-mono text-[11px] text-slate-500">token {p.nfc.tokenHint}</span></> : <span className="text-slate-400">{p.medium === "QR" ? "No aplica (solo QR)" : "Sin vincular"}</span>}</td>
+              <td className="px-4 py-3"><PointNfcControls companyId={company.id} point={{ id: p.id, name: p.name, medium: p.medium }}
+                nfc={p.nfc ? { id: p.nfc.id, tokenHint: p.nfc.tokenHint, statusLabel: nfcStatusLabels[p.nfc.status as NfcStatus] ?? p.nfc.status } : null}/></td>
               <td className="px-4 py-3 text-[11px] text-slate-500"><span className="block">Versión {p.configurationVersion}</span><span className="block">{p.actions} acciones guardadas</span><span className="block">Actualizado {date(p.updatedAt)}</span></td>
             </tr>)}</tbody>
         </table>

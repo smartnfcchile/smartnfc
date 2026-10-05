@@ -21,8 +21,8 @@ export type SupportPoint = {
   presentation: string;
   isActive: boolean; configurationVersion: number; actions: number; destinationHost: string | null; updatedAt: Date;
   campaign: { name: string; status: string }; localName: string | null; localActive: boolean;
-  /** Tarjeta NFC física vinculada: estado y últimos caracteres del token (nunca el token completo). */
-  nfc: { status: string; tokenHint: string; activatedAt: Date | null } | null;
+  /** Tarjeta NFC física vinculada: id interno, estado y últimos caracteres del token (nunca el token completo). */
+  nfc: { id: string; status: string; tokenHint: string; activatedAt: Date | null } | null;
 };
 
 const host = (url: string | null) => { if (!url) return null; try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return null; } };
@@ -39,7 +39,7 @@ export async function loadLocalSupport(companyId: string) {
       select: { id: true, code: true, name: true, location: true, objective: true, medium: true, presentationMode: true, isActive: true,
         configurationVersion: true, destinationUrl: true, actions: true, updatedAt: true,
         campaign: { select: { name: true, status: true, localLocation: { select: { name: true, displayName: true, isActive: true } } } },
-        physicalNfcCard: { select: { status: true, token: true, activatedAt: true, companyId: true } } } }),
+        physicalNfcCard: { select: { id: true, status: true, token: true, activatedAt: true, companyId: true } } } }),
     prisma.localCampaign.groupBy({ by: ["status"], where: { companyId: company.id }, _count: { _all: true } }),
   ]);
   return {
@@ -56,7 +56,7 @@ export async function loadLocalSupport(companyId: string) {
       localActive: p.campaign.localLocation?.isActive ?? true,
       // Defensa adicional: una tarjeta de otra empresa nunca se muestra aunque estuviera mal vinculada.
       nfc: p.physicalNfcCard && p.physicalNfcCard.companyId === company.id
-        ? { status: p.physicalNfcCard.status, tokenHint: "…" + p.physicalNfcCard.token.slice(-4), activatedAt: p.physicalNfcCard.activatedAt } : null })),
+        ? { id: p.physicalNfcCard.id, status: p.physicalNfcCard.status, tokenHint: "…" + p.physicalNfcCard.token.slice(-4), activatedAt: p.physicalNfcCard.activatedAt } : null })),
   };
 }
 export type LocalSupport = NonNullable<Awaited<ReturnType<typeof loadLocalSupport>>>;

@@ -110,6 +110,6 @@ export default function LocalAnalyticsView({ data, period, basePath }: { data: L
       </section>}
     </div>
 
-    <p className="text-xs text-slate-500 dark:text-slate-400">Un acceso es una visita, no una persona única. Las salidas directas y los clics en la página del local se miden por separado porque no significan lo mismo. Los informes automáticos semanales o mensuales siguen disponibles en Reportes automáticos.</p>
+    <p className="text-xs text-slate-500 dark:text-slate-400">Un acceso es una visita, no una persona única. Las salidas directas y los clics en la página del local se miden por separado porque no significan lo mismo. Los reportes automáticos por correo estarán disponibles próximamente.</p>
   </div>;
 }

@@ -1,14 +1,13 @@
-import { requireCompanyAdmin } from "../../../lib/permissions";
 import { hasCapability } from "../../../lib/entitlements";
 import Link from "next/link";
-import { requireLocalAdmin } from "../../../lib/local/access";
+import { requireLocalAdmin, requireLocalAdminPage } from "../../../lib/local/access";
 import { localAnalytics } from "../../../lib/local/analytics";
 import { resolveAnalyticsPeriod } from "../../../lib/local/analytics-period";
 import LocalAnalyticsView from "../../../components/local/analytics/LocalAnalyticsView";
 export const dynamic="force-dynamic";
 
 export default async function LocalDashboardPage({ searchParams }: { searchParams: Promise<{ period?: string; from?: string; to?: string }> }) {
-  const actor = await requireCompanyAdmin();
+  const actor = await requireLocalAdminPage();
   if (!(await hasCapability(actor.companyId, "LOCAL_ACCESS"))) return <div className="space-y-3"><h1 className="text-2xl font-black">SmartNFC Local</h1><p>Local no disponible. Los datos se conservan.</p><Link className="text-blue-600 underline" href="/dashboard">Volver al inicio</Link></div>;
   const {company}=await requireLocalAdmin();
   const canReports = await hasCapability(company.id, "LOCAL_REPORTS");
@@ -17,9 +16,9 @@ export default async function LocalDashboardPage({ searchParams }: { searchParam
   const nav = <nav aria-label="Secciones de SmartNFC Local" className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
     <Link className="text-blue-600 underline dark:text-blue-400" href="/dashboard/local/locales">Mis locales</Link>
     <Link className="text-blue-600 underline dark:text-blue-400" href="/dashboard/local/puntos">Puntos Inteligentes</Link>
-    <Link className="text-blue-600 underline dark:text-blue-400" href="/dashboard/local/campanas">Campañas</Link>
+    <Link className="text-blue-600 underline dark:text-blue-400" href="/dashboard/local/campanas">Campañas y Club</Link>
     <Link className="text-blue-600 underline dark:text-blue-400" href="/dashboard/local/suscriptores">Suscriptores</Link>
-    <Link className="text-blue-600 underline dark:text-blue-400" href="/dashboard/local/reportes">Reportes automáticos</Link>
+    <span className="text-slate-500 dark:text-slate-400" title="Los reportes automáticos por correo estarán disponibles próximamente.">Reportes automáticos · <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold dark:bg-slate-800">Próximamente</span></span>
   </nav>;
   if (!data) return <div className="space-y-6">
     <header className="space-y-3"><h1 className="text-2xl font-black">SmartNFC Local</h1>{nav}</header>

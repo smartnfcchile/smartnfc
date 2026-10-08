@@ -1,3 +1,4 @@
+import { selectDisposableDatabase } from "./helpers/test-database";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -16,6 +17,9 @@ function runSweep(extraArgs: string[] = []) {
 }
 
 test("H-4: backfill-local-location-orphans.ts reconciles LocalCampaign.locationId IS NULL, idempotently, without touching anything else", { skip: !allowed }, async (t) => {
+  // The fixtures below and the sweep subprocess must share the same disposable database. Before
+  // this line existed, the fixtures fell back to .env (production) — incident H4, 2026-09-22.
+  selectDisposableDatabase(url, { requireNameIncludes: "block2_disposable" });
   const { prisma: db } = require("../../lib/prisma") as { prisma: PrismaClient };
   const suffix = randomUUID().slice(0, 8);
 

@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { periodStart, nextPeriod, previousPeriod, reportDueAt, periodLabel } from "../../lib/local/report-period";

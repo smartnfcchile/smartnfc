@@ -1,3 +1,4 @@
+import { checkDisposableDatabaseUrl, selectDisposableDatabase } from "./helpers/test-database";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -8,6 +9,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 // Sesión y caché simuladas ANTES de cargar cualquier módulo que importe next-auth (nfc-link → entitlements →
 // permissions). Un import estático capturaría la implementación real y toda llamada fallaría como "No autorizado".
 let session: { user: { id: string; companyId: string; role: string } } | null = null;
+// Prisma fixes its URL right after the client is built, and the module-level requires below build it.
+// The database must therefore be chosen first; otherwise the client stays on whatever DATABASE_URL held
+// at that moment (before the guard existed, that was .env, i.e. production).
+if (checkDisposableDatabaseUrl(process.env.LOCAL_TEST_DATABASE_URL).ok) selectDisposableDatabase(process.env.LOCAL_TEST_DATABASE_URL);
 require("next-auth");
 require.cache[require.resolve("next-auth")]!.exports = { getServerSession: async () => session };
 require("next/cache"); require.cache[require.resolve("next/cache")]!.exports = { revalidatePath: () => {} };

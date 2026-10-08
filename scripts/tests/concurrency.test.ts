@@ -1,3 +1,4 @@
+const { selectDisposableDatabase } = require("./helpers/test-database");
 const path = require("path");
 // 1. Mock de next-auth antes de realizar cualquier importación
 const mockSession = {
@@ -52,7 +53,7 @@ async function runConcurrencyTest() {
 
   // Reemplazar la instancia global de prisma en el contexto del script para que las Server Actions utilicen la base temporal
   // Nota: Dado que Next.js Server Actions importan lib/prisma, podemos inyectar la base temporal cambiando la variable de entorno
-  process.env.DATABASE_URL = TEMP_DB_URL;
+  selectDisposableDatabase(TEMP_DB_URL);
 
   try {
     // 1. Limpiar base

@@ -1,3 +1,4 @@
+const { selectDisposableDatabase } = require("./helpers/test-database");
 const path = require("path");
 
 // 1. Mock de next-auth
@@ -57,7 +58,7 @@ async function runLifecycleTest() {
     }
   });
 
-  process.env.DATABASE_URL = TEMP_DB_URL;
+  selectDisposableDatabase(TEMP_DB_URL);
 
   try {
     // 1. Limpieza de datos en base temporal

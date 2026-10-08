@@ -70,6 +70,9 @@ jobs:
       - name: Guard — refuse to run Block 2 suites without a valid disposable database
         run: npm run ci:assert-block2-db
 
+      - name: Guard — every suite isolates its database (incident H4)
+        run: npm run test:db-isolation
+
       - name: Entitlements — unit tests (no DB)
         run: npm run test:entitlements
 

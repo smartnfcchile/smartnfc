@@ -1,3 +1,4 @@
+import { selectDisposableDatabase } from "./helpers/test-database";
 import { PrismaClient } from "@prisma/client";
 import { execSync } from "child_process";
 import fs from "fs";
@@ -9,6 +10,9 @@ async function runBackfillTest() {
   console.log("=========================================================================");
   console.log("TEST: BACKFILL Y COMPROBACIÓN HISTÓRICA DE MIGRACIÓN (PRISMA DEPLOY)");
   console.log("=========================================================================");
+
+  // Rechaza cualquier destino que no sea PostgreSQL local antes del DROP SCHEMA.
+  selectDisposableDatabase(TEMP_DB_URL);
 
   // 1. Limpiar base de datos temporal usando PrismaClient
   const prismaTemp = new PrismaClient({

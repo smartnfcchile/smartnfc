@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CompanyProductLicense, CompanyCapabilityOverride, CompanyLimitOverride } from "@prisma/client";

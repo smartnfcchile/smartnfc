@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 import assert from "node:assert/strict";
 import { PHYSICAL_CARD_TEMPLATES, makeTemplateSide } from "../../lib/physical-card/templates";
 import { contrastRatio, validatePrint } from "../../lib/physical-card/validation";

@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 import { sanitizeVcfText, cleanVcfPhone, generateSingleVcfString, generateMultiVcfString } from "../../lib/vcf";
 
 function assertEqual(actual: string, expected: string, msg: string) {

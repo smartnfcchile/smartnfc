@@ -9,7 +9,7 @@
 //   La autorización sigue resolviéndose solo con capabilities y límites.
 // - `availability` y `restrictions` describen qué se puede promover hoy (D2, D5, D6, D9, D10, D15, D16).
 //   Este módulo no activa nada: las landing deben respetar estos indicadores.
-import { DIGITAL_CATALOG, PHYSICAL_CATALOG, type Capability } from "../entitlements/catalog";
+import { BASE, DIGITAL_CATALOG, PHYSICAL_CATALOG, type Capability } from "../entitlements/catalog";
 
 export const TAX_NOTE = "IVA incluido" as const;
 
@@ -243,3 +243,101 @@ export function formatCLP(amount: number): string {
   if (!Number.isInteger(amount) || amount < 0) throw new RangeError("Monto CLP inválido.");
   return `$${clp.format(amount)}`;
 }
+
+// ================= Complementos F1 (decisiones 3 a 6, 16-10-2026) =================
+
+// ---------- Decisión 3: soportes Mini con packs ----------
+export type SupportLine = { id: "PACK_5_MINI" | "PACK_3_MINI" | "LOCAL_MINI" | "LOCAL_STANDARD" | "LOCAL_XL"; quantity: number; unitClp: number; totalClp: number };
+export type SupportOrder = { lines: SupportLine[]; totalClp: number; units: { mini: number; standard: number; xl: number } };
+
+const MINI_OPTIONS = [
+  { id: "PACK_5_MINI", units: 5, clp: PACK_5_MINI_CLP },
+  { id: "PACK_3_MINI", units: 3, clp: PACK_3_MINI_CLP },
+  { id: "LOCAL_MINI", units: 1, clp: PHYSICAL_CATALOG.LOCAL_MINI.priceClp },
+] as const;
+
+const count = (n: number, label: string) => {
+  if (!Number.isInteger(n) || n < 0) throw new RangeError(`Cantidad de ${label} inválida: debe ser un entero mayor o igual a 0.`);
+  return n;
+};
+
+/**
+ * Combinación de menor costo para la cantidad EXACTA de soportes Mini (sin unidades extra ni packs fraccionados),
+ * usando Pack 5, Pack 3 y unidades individuales. Standard y XL no tienen packs.
+ * Son productos físicos: no incluyen meses de licencia ni equivalen a las licencias LOCAL_PACK_3/5.
+ */
+export function supportOrderPrice(quantities: { mini?: number; standard?: number; xl?: number }): SupportOrder {
+  const mini = count(quantities.mini ?? 0, "soportes Mini");
+  const standard = count(quantities.standard ?? 0, "soportes Standard");
+  const xl = count(quantities.xl ?? 0, "soportes XL");
+  // best[n] = { costo mínimo, combinación } para n unidades Mini exactas.
+  const best: { clp: number; pick: number[] }[] = [{ clp: 0, pick: [0, 0, 0] }];
+  for (let n = 1; n <= mini; n++) {
+    let choice: { clp: number; pick: number[] } | null = null;
+    MINI_OPTIONS.forEach((o, i) => {
+      if (o.units > n) return;
+      const prev = best[n - o.units];
+      const clp = prev.clp + o.clp;
+      // Empate: se prefiere la combinación con menos ítems (más packs).
+      const items = prev.pick.reduce((a, b) => a + b, 0) + 1;
+      if (!choice || clp < choice.clp || (clp === choice.clp && items < choice.pick.reduce((a, b) => a + b, 0))) {
+        const pick = [...prev.pick]; pick[i]++;
+        choice = { clp, pick };
+      }
+    });
+    best.push(choice!);
+  }
+  const lines: SupportLine[] = [];
+  best[mini].pick.forEach((q, i) => { if (q) lines.push({ id: MINI_OPTIONS[i].id, quantity: q, unitClp: MINI_OPTIONS[i].clp, totalClp: q * MINI_OPTIONS[i].clp }); });
+  if (standard) lines.push({ id: "LOCAL_STANDARD", quantity: standard, unitClp: P.LOCAL_STANDARD.priceClp, totalClp: standard * P.LOCAL_STANDARD.priceClp });
+  if (xl) lines.push({ id: "LOCAL_XL", quantity: xl, unitClp: P.LOCAL_XL.priceClp, totalClp: xl * P.LOCAL_XL.priceClp });
+  return { lines, totalClp: lines.reduce((a, l) => a + l.totalClp, 0), units: { mini, standard, xl } };
+}
+
+// ---------- Decisión 4: valor neto referencial (solo Empresas) ----------
+export const IVA_RATE = 0.19;
+export const NET_REFERENCE_LABEL = "Valor neto referencial (+ IVA)" as const;
+/** Neto desde un total con IVA incluido, redondeado al peso. Complementa (nunca reemplaza) el total con IVA. */
+export function netFromGrossClp(grossClp: number): number {
+  if (!Number.isInteger(grossClp) || grossClp < 0) throw new RangeError("Monto CLP inválido.");
+  return Math.round(grossClp / (1 + IVA_RATE));
+}
+const EMPRESAS_NET_OFFERS = ["EMPRESAS_TEAM_5", "EMPRESAS_TEAM_10", "EMPRESAS_TEAM_25", "CARD", "CARD_REPLACEMENT", "CARD_ADDITIONAL"] as const;
+/** Valor neto referencial para mostrar en Empresas junto al total con IVA. null fuera de Empresas o en cotizaciones. */
+export function empresasNetReference(id: PublicOfferId, billing: Billing): { grossClp: number; netClp: number; label: typeof NET_REFERENCE_LABEL } | null {
+  if (!(EMPRESAS_NET_OFFERS as readonly string[]).includes(id)) return null;
+  const gross = priceOf(id, billing);
+  return gross === null ? null : { grossClp: gross, netClp: netFromGrossClp(gross), label: NET_REFERENCE_LABEL };
+}
+
+// ---------- Decisión 5: comparación mensual / anual ----------
+export type BillingComparison = { monthlyClp: number; annualClp: number; twelveMonthsClp: number; differenceClp: number };
+/**
+ * Solo compara cuando ambas modalidades existen y la oferta está comercialmente habilitada (`available`).
+ * Las restricciones (D6, D16) prevalecen sobre los precios del catálogo: restricted o suspended → null.
+ * No implica renovación automática (D5).
+ */
+export function compareBilling(offer: Pick<PublicOffer, "prices" | "availability">): BillingComparison | null {
+  if (offer.availability !== "available") return null;
+  const monthly = offer.prices.find(p => p.billing === "monthly")?.amountClp;
+  const annual = offer.prices.find(p => p.billing === "annual")?.amountClp;
+  if (monthly == null || annual == null) return null;
+  return { monthlyClp: monthly, annualClp: annual, twelveMonthsClp: monthly * 12, differenceClp: monthly * 12 - annual };
+}
+export function billingComparisonFor(id: PublicOfferId): BillingComparison | null {
+  return compareBilling(getPublicOffer(id));
+}
+
+// ---------- Decisión 6: prestaciones verificadas para Personas ----------
+/**
+ * Texto público de las capabilities BASE (perfil básico) y de la tarjeta física. Sin permanencia (D2),
+ * sin activación inmediata y sin funciones Pro (D6). Cada texto está respaldado por una capability BASE o por la tarjeta.
+ */
+export const PERSONAS_VERIFIED_FEATURES = [
+  { source: "PROFILE", label: "Perfil digital con tus datos profesionales" },
+  { source: "PROFILE_EDIT", label: "Puedes editar tu perfil cuando lo necesites" },
+  { source: "CONTACT_AND_SOCIAL", label: "Botones de contacto y redes sociales" },
+  { source: "CUSTOM_LINKS", label: "Enlaces personalizados" },
+  { source: "CONTACT_SHARING", label: "Compartir tu perfil y guardar tu contacto en el teléfono" },
+  { source: "CARD", label: "Tarjeta física que abre tu perfil por NFC o código QR" },
+] as const satisfies readonly { source: (typeof BASE)[number] | "CARD"; label: string }[];

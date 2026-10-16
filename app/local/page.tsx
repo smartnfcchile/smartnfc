@@ -1,12 +1,13 @@
 // SmartNFC Locales (F2): capa pública indexable + experiencia conversacional.
 // Todos los precios y condiciones salen de lib/commercial/public-offers.ts (F1). Sin Club (D9), sin captura de
-// datos (D6) y sin contratación inmediata (D16). El resultado económico y la solicitud final son F3.
+// datos (D6) y sin contratación inmediata (D16). El resultado económico y la solicitud final (F3) viven en LocalesFlow.
 import type { Metadata } from "next";
 import Link from "next/link";
 import SmartNFCLogo from "../../components/brand/SmartNFCLogo";
 import LocalesFlow from "../../components/locales/LocalesFlow";
 import { PACK_3_MINI_CLP, PACK_5_MINI_CLP, TAX_NOTE, formatCLP, getPublicOffer, priceOf } from "../../lib/commercial/public-offers";
 import { MAX_POINT_ACTIONS } from "../../lib/local/public-actions";
+import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
 import styles from "./local.module.css";
 
 const title = "SmartNFC Locales | Puntos NFC y QR para tu negocio";
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: "/local", type: "website", locale: "es_CL", siteName: "SmartNFC" },
 };
 
-const WHATSAPP = `https://wa.me/56944891518?text=${encodeURIComponent("Hola, quiero información sobre SmartNFC para mi local.")}`;
+const WHATSAPP = `https://wa.me/${SALES_WHATSAPP_DIGITS}?text=${encodeURIComponent("Hola, quiero información sobre SmartNFC para mi local.")}`;
 
 const FEATURES = [
   { t: "Tu marca en cada punto", d: "Una página con el logo, la portada y los colores de tu local." },
@@ -108,7 +109,7 @@ export default function LocalPage() {
               <p className={styles.cardKicker}>Licencia mensual</p>
               <h3 id="price-local-pro">{localPro.name}</h3>
               <p className={styles.price}>{formatCLP(monthly)}<span>/mes</span></p>
-              {annual !== null && <p className={styles.altPrice}>Pago anual: {formatCLP(annual)}. Se gestiona directamente con SmartNFC.</p>}
+              {annual !== null && <p className={styles.altPrice}>Valor anual informado: {formatCLP(annual)}. Referencia comercial; esta página no ofrece contratación.</p>}
               <ul>
                 <li>{localPro.limits?.locations} local y hasta {localPro.limits?.pointsPerLocation} puntos activos</li>
                 <li>El cobro comienza desde la entrega operativa</li>

@@ -1,6 +1,7 @@
 "use client";
 
-// Experiencia conversacional de SmartNFC Locales (F2) sobre el motor de preguntas (F0).
+// Experiencia conversacional de SmartNFC Locales (F2) sobre el motor de preguntas (F0), con el resultado
+// económico y la solicitud de F3.
 import { useMemo } from "react";
 import FlowShell from "../flow/FlowShell";
 import { LOCALES_FLOW } from "../../content/flows/locales";
@@ -8,6 +9,8 @@ import { buildProposal } from "../../lib/locales/proposal";
 import type { Answers } from "../../lib/flow/types";
 import type { LocalesQuoteSlot, LocalesRequestSlot } from "./contracts";
 import LocalesPreview from "./LocalesPreview";
+import LocalesQuote from "./LocalesQuote";
+import LocalesRequest from "./LocalesRequest";
 import LocalesResult from "./LocalesResult";
 
 function Preview({ answers }: { answers: Answers }) {
@@ -17,9 +20,9 @@ function Preview({ answers }: { answers: Answers }) {
 
 export default function LocalesFlow({ exitHref, renderQuote, renderRequest }: {
   exitHref: string;
-  /** F3: resultado económico (no implementado en F2). */
+  /** Resultado económico (F3). Por defecto, LocalesQuote. */
   renderQuote?: LocalesQuoteSlot;
-  /** F3: solicitud comercial final (no implementada en F2). */
+  /** Solicitud comercial final (F3). Por defecto, LocalesRequest. */
   renderRequest?: LocalesRequestSlot;
 }) {
   return (
@@ -34,9 +37,10 @@ export default function LocalesFlow({ exitHref, renderQuote, renderRequest }: {
         // La clave reinicia los tamaños elegidos si cambian los puntos.
         const key = proposal.points.map(p => `${p.location}:${p.quantity}`).join("|");
         return (
-          <LocalesResult key={key} proposal={proposal} pricesHref={exitHref}
+          <LocalesResult key={key} proposal={proposal}
             onChangeAnswers={flow.goBack} onRestart={flow.restart}
-            renderQuote={renderQuote} renderRequest={renderRequest} />
+            renderQuote={renderQuote ?? (input => <LocalesQuote {...input} />)}
+            renderRequest={renderRequest ?? (input => <LocalesRequest {...input} />)} />
         );
       }}
     />

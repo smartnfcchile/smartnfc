@@ -25,23 +25,29 @@ export function exampleBrand(proposal: LocalesProposal): ResolvedLocalBrand {
   };
 }
 
-/** Acciones de ejemplo: la primera es la principal; ubicación y teléfono van en contacto. Sin href (no navegables). */
-export function exampleActions(proposal: LocalesProposal): PublicAction[] {
-  let primaryTaken = false;
-  return proposal.actions.map((action, order) => {
-    const contact = CONTACT_TYPES.has(action.type);
-    const group = contact ? "contact" : !primaryTaken ? "primary" : "secondary";
-    if (group === "primary") primaryTaken = true;
-    return { key: `${action.type}-${order}`, type: action.type, label: action.label, order, enabled: true, external: false, group };
+/**
+ * Acciones de ejemplo, sin href (no navegables); ubicación y teléfono van en contacto.
+ * `primaryIndex`: acción que se destaca como principal (sugerencia por ubicación en F3). Por defecto, la primera que no es de contacto.
+ */
+export function exampleActions(proposal: LocalesProposal, primaryIndex?: number): PublicAction[] {
+  const isContact = (i: number) => CONTACT_TYPES.has(proposal.actions[i].type);
+  const primary = primaryIndex !== undefined && primaryIndex >= 0 && !isContact(primaryIndex)
+    ? primaryIndex
+    : proposal.actions.findIndex((_, i) => !isContact(i));
+  return proposal.actions.map((action, i) => {
+    const group = isContact(i) ? "contact" : i === primary ? "primary" : "secondary";
+    // La principal se dibuja primero; el resto conserva el orden elegido.
+    const order = i === primary ? -1 : i;
+    return { key: `${action.type}-${i}`, type: action.type, label: action.label, order, enabled: true, external: false, group };
   });
 }
 
-export function PhoneFrame({ proposal, compact = false }: { proposal: LocalesProposal; compact?: boolean }) {
+export function PhoneFrame({ proposal, compact = false, primaryIndex }: { proposal: LocalesProposal; compact?: boolean; primaryIndex?: number }) {
   return (
     <div className={`${styles.phone}${compact ? ` ${styles.phoneCompact}` : ""}`} aria-hidden="true">
       <div className={styles.phoneScreen}>
-        <LocalLandingView brand={exampleBrand(proposal)} actions={exampleActions(proposal)} framed
-          emptyHint="Elige qué quieres lograr y aquí aparecerán las acciones de tu punto." />
+        <LocalLandingView brand={exampleBrand(proposal)} actions={exampleActions(proposal, primaryIndex)} framed
+          emptyHint={proposal.actions.length ? undefined : "Elige qué quieres lograr y aquí aparecerán las acciones de tu punto."} />
       </div>
     </div>
   );

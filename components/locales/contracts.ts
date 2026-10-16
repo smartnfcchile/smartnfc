@@ -1,5 +1,5 @@
-// Contratos de F3 para SmartNFC Locales. F2 solo DEFINE estas interfaces: el resultado económico y la
-// solicitud comercial final se implementan y publican en F3, como componentes separados y verificables.
+// Contratos del resultado de SmartNFC Locales. Definidos en F2; implementados en F3 por LocalesQuote
+// (resultado económico) y LocalesRequest (solicitud), como componentes separados y reemplazables.
 import type { ReactNode } from "react";
 import type { LocalesProposal, SupportSelection, supportCounts } from "../../lib/locales/proposal";
 

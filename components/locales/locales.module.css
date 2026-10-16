@@ -1,0 +1,60 @@
+/* Estilos encapsulados de la experiencia Locales (F2). Complementan las clases .fl-* del motor (F0). */
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- Vista previa ---------- */
+.preview{display:grid;gap:14px;justify-items:center;padding:18px 16px 20px;border-radius:24px;background:#08111f;color:#fff;box-shadow:0 24px 60px #08111f2e}
+.previewHead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;width:100%}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;background:#ffffff1a;color:#c7f43b;font-size:11px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+.previewSummary{color:#aab6c8;font-size:13px;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:0;padding:0;list-style:none}
+.chips li{padding:5px 10px;border-radius:999px;background:#ffffff14;color:#e6ebf2;font-size:12.5px;font-weight:700}
+
+/* Teléfono: marco neutro alrededor del componente real de la landing del Local. */
+.phone{width:100%;max-width:300px;padding:9px;border-radius:40px;background:linear-gradient(160deg,#2a3443,#0d131d);box-shadow:inset 0 0 0 1px #ffffff1f,0 30px 60px -20px #000c}
+.phoneScreen{position:relative;height:560px;overflow:hidden;border-radius:32px;background:#f6f7f9}
+.phoneScreen::after{content:"";position:absolute;inset:auto 0 0;height:64px;background:linear-gradient(transparent,#f6f7f9);pointer-events:none}
+.phoneCompact{max-width:250px}
+.phoneCompact .phoneScreen{height:400px}
+/* El componente real está pensado para 440 px: se escala dentro del marco sin alterar su diseño. */
+.phoneScreen > *{width:375px;transform:scale(.749);transform-origin:top left}
+.phoneCompact .phoneScreen > *{transform:scale(.618)}
+
+/* ---------- Resultado ---------- */
+.result{margin-top:14px}
+.resultLead{margin:0 0 22px;color:#4b5768;font-size:15.5px;line-height:1.55}
+.resultGrid{display:grid;gap:28px}
+.resultPhone{display:grid;justify-items:center;gap:10px;padding:22px 16px;border-radius:24px;background:#08111f}
+.caption{max-width:300px;margin:0;color:#aab6c8;font-size:12.5px;line-height:1.45;text-align:center}
+.resultBody{display:grid;gap:26px;min-width:0}
+.h3{margin:0 0 6px;font-size:19px;letter-spacing:-.02em;font-weight:850}
+.muted{margin:0;color:#5b6676;font-size:14px;line-height:1.5}
+.points{display:grid;gap:10px;margin:14px 0 0;padding:0;list-style:none}
+.pointRow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;padding:14px 16px;border:1.5px solid #dde2e8;border-radius:16px;background:#fff}
+.pointName{display:grid;gap:2px;min-width:0}
+.pointName b{font-size:16px}
+.pointName span{color:#5b6676;font-size:13px}
+.select{min-height:48px;min-width:190px;padding:0 12px;border:1.5px solid #cfd6df;border-radius:12px;background:#fff;color:#08111f;font:inherit;font-size:15px;font-weight:750}
+.select:focus-visible{outline:3px solid #246bfd;outline-offset:1px}
+.total{margin:12px 0 0;font-size:14.5px;color:#08111f}
+.hint{margin:8px 0 0;color:#8a4b00;font-size:13.5px;font-weight:700}
+.actions{display:grid;gap:8px;margin:12px 0 10px;padding:0;list-style:none;counter-reset:a}
+.actions li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #e1e5ea;font-weight:750;font-size:15px}
+.actions li::before{counter-increment:a;content:counter(a);display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:8px;background:#eef3ff;color:#1d4fd7;font-size:12px;font-weight:850}
+.tag{margin-left:auto;padding:3px 8px;border-radius:999px;background:#08111f;color:#c7f43b;font-size:11px;font-weight:850;letter-spacing:.04em;text-transform:uppercase}
+.notes{padding:16px 18px;border-radius:16px;background:#fff7e6;border:1px solid #f5d89a}
+.notes ul,.conditions ul{display:grid;gap:8px;margin:8px 0 0;padding-left:18px;font-size:14.5px;line-height:1.5}
+.conditions{padding:16px 18px;border-radius:16px;background:#eef1f5}
+.link{color:#1d4fd7;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.link:focus-visible{outline:3px solid #246bfd;outline-offset:2px;border-radius:4px}
+.resultActions{display:flex;flex-wrap:wrap;gap:10px}
+
+@media(min-width:900px){
+  .resultGrid{grid-template-columns:320px minmax(0,1fr);gap:44px;align-items:start}
+  .resultPhone{position:sticky;top:110px}
+}
+
+@media(max-width:359px){
+  .phone{max-width:250px}
+  .phone .phoneScreen{height:400px}
+  .phone .phoneScreen > *{transform:scale(.618)}
+}

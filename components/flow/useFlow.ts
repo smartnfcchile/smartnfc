@@ -8,9 +8,11 @@ import { RESULT, type AnswerValue, type FlowAction, type FlowDefinition, type Fl
 
 const PARAM = "paso";
 
-function setStepInUrl(step: string, mode: "push" | "replace") {
+/** El primer paso no lleva parámetro: la URL de entrada queda limpia (p. ej. /local). */
+function setStepInUrl(step: string, mode: "push" | "replace", start: string) {
   const url = new URL(window.location.href);
-  url.searchParams.set(PARAM, step);
+  if (step === start) url.searchParams.delete(PARAM); else url.searchParams.set(PARAM, step);
+  if (url.href === window.location.href && mode === "replace") return;
   if (mode === "push") window.history.pushState(null, "", url.toString());
   else window.history.replaceState(null, "", url.toString());
 }
@@ -20,15 +22,17 @@ export function useFlow(flow: FlowDefinition) {
   const stateRef = useRef(state);
   useLayoutEffect(() => { stateRef.current = state; }, [state]);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const start = useMemo(() => initialState(flow).current, [flow]);
 
-  // Al entrar: la URL refleja el inicio. Si alguien llega con ?paso=… (recarga o enlace), vuelve al inicio:
+  // Al entrar: URL limpia (sin ?paso=). Si alguien llega con ?paso=… (recarga o enlace), vuelve al inicio:
   // las respuestas no se guardan, así que no se puede reconstruir un paso intermedio.
-  useEffect(() => { setStepInUrl(stateRef.current.current, "replace"); }, []);
+  useEffect(() => { setStepInUrl(start, "replace", start); }, [start]);
 
   // Botones Atrás / Adelante del navegador.
   useEffect(() => {
     const onPop = () => {
-      const target = new URL(window.location.href).searchParams.get(PARAM);
+      // Sin parámetro = primer paso.
+      const target = new URL(window.location.href).searchParams.get(PARAM) ?? start;
       const s = stateRef.current;
       if (!target || target === s.current) return;
       if (s.history.includes(target)) { setDirection("back"); dispatch({ type: "goto", step: target }); return; }
@@ -36,11 +40,11 @@ export function useFlow(flow: FlowDefinition) {
       const question = getQuestion(flow, s.current);
       const next = flowReducer(flow, s, { type: "next" });
       if (question && validate(question, s.answers) === null && next.current === target) { setDirection("forward"); dispatch({ type: "next" }); }
-      else setStepInUrl(s.current, "replace");
+      else setStepInUrl(s.current, "replace", start);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [flow]);
+  }, [flow, start]);
 
   const answer = useCallback((questionId: string, value: AnswerValue | undefined) => dispatch({ type: "answer", questionId, value }), []);
 
@@ -50,9 +54,9 @@ export function useFlow(flow: FlowDefinition) {
     if (after.current === s.current) return false;
     setDirection("forward");
     dispatch({ type: "next" });
-    setStepInUrl(after.current, "push");
+    setStepInUrl(after.current, "push", start);
     return true;
-  }, [flow]);
+  }, [flow, start]);
 
   // El botón "Atrás" de la interfaz usa el historial del navegador para que ambos queden sincronizados.
   const goBack = useCallback(() => {
@@ -63,8 +67,8 @@ export function useFlow(flow: FlowDefinition) {
   const restart = useCallback(() => {
     setDirection("back");
     dispatch({ type: "reset" });
-    setStepInUrl(initialState(flow).current, "replace");
-  }, [flow]);
+    setStepInUrl(start, "replace", start);
+  }, [start]);
 
   const question = getQuestion(flow, state.current);
   const effective = useMemo(() => effectiveAnswers(flow, state.answers), [flow, state.answers]);

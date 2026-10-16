@@ -18,6 +18,11 @@ type Props = {
 export default function QuestionScreen({ question, answers, error, onAnswer, onNext, headingRef, nextLabel = "Siguiente" }: Props) {
   const baseId = useId();
   const [showError, setShowError] = useState(false);
+  // Opción única con avance automático: con mouse o toque basta elegir, así que "Siguiente" se oculta.
+  // Con teclado (foco visible o una tecla dentro del formulario) se muestra para confirmar de forma explícita.
+  const [keyboard, setKeyboard] = useState(false);
+  const autoOnly = question.kind === "single" && !!question.autoAdvance;
+  const showNext = !autoOnly || keyboard;
   const value = answers[question.id];
   const options = optionsFor(question, answers);
   const headingId = `${baseId}-title`, helpId = `${baseId}-help`, errorId = `${baseId}-error`;
@@ -46,7 +51,9 @@ export default function QuestionScreen({ question, answers, error, onAnswer, onN
   };
 
   return (
-    <form className="fl-question" onSubmit={submit} noValidate>
+    <form className="fl-question" onSubmit={submit} noValidate
+      onKeyDownCapture={autoOnly && !keyboard ? () => setKeyboard(true) : undefined}
+      onFocusCapture={autoOnly && !keyboard ? e => { if ((e.target as Element).matches(":focus-visible")) setKeyboard(true); } : undefined}>
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className="fl-title">{question.title}</h2>
       {question.help && <p id={helpId} className="fl-help">{question.help}</p>}
 
@@ -97,9 +104,11 @@ export default function QuestionScreen({ question, answers, error, onAnswer, onN
 
       <p id={errorId} className="fl-error" role="alert">{showError && error ? error : ""}</p>
 
-      <div className="fl-actions">
-        <button type="submit" className="fl-next">{question.optional && (value === undefined || value === "") ? "Omitir" : nextLabel}</button>
-      </div>
+      {showNext && (
+        <div className="fl-actions">
+          <button type="submit" className="fl-next">{question.optional && (value === undefined || value === "") ? "Omitir" : nextLabel}</button>
+        </div>
+      )}
     </form>
   );
 }

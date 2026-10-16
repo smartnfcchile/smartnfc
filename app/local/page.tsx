@@ -1,190 +1,163 @@
-import React from "react";
+// SmartNFC Locales (F2): capa pública indexable + experiencia conversacional.
+// Todos los precios y condiciones salen de lib/commercial/public-offers.ts (F1). Sin Club (D9), sin captura de
+// datos (D6) y sin contratación inmediata (D16). El resultado económico y la solicitud final son F3.
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Metadata } from "next";
+import SmartNFCLogo from "../../components/brand/SmartNFCLogo";
+import LocalesFlow from "../../components/locales/LocalesFlow";
+import { PACK_3_MINI_CLP, PACK_5_MINI_CLP, TAX_NOTE, formatCLP, getPublicOffer, priceOf } from "../../lib/commercial/public-offers";
+import { MAX_POINT_ACTIONS } from "../../lib/local/public-actions";
+import styles from "./local.module.css";
+
+const title = "SmartNFC Locales | Puntos NFC y QR para tu negocio";
+const description = "Puntos NFC y QR con la marca de tu local: reseñas en Google, WhatsApp, redes, carta, promociones y ubicación en un solo toque. Arma tu propuesta en minutos.";
 
 export const metadata: Metadata = {
-  title: "Smart NFC Local | Fidelización por WhatsApp y Club de Beneficios Presenciales",
-  description: "Atrae y fideliza clientes presenciales en tu tienda o local. Captación de leads mediante códigos QR y redirección automática a WhatsApp.",
+  title: { absolute: title },
+  description,
+  alternates: { canonical: "/local" },
+  openGraph: { title, description, url: "/local", type: "website", locale: "es_CL", siteName: "SmartNFC" },
 };
 
-export default function LocalLandingPage() {
-  const whatsappUrl = `https://wa.me/56944891518?text=${encodeURIComponent("Hola, me gustaría cotizar Smart NFC Local para mi negocio presencial.")}`;
+const WHATSAPP = `https://wa.me/56944891518?text=${encodeURIComponent("Hola, quiero información sobre SmartNFC para mi local.")}`;
 
-  const plans = [
-    {
-      name: "Impulsa",
-      price: "$29.900 + IVA",
-      period: "/mes",
-      limits: "Implementación: $149.900 + IVA (pago único)",
-      description: "La solución completa de fidelización digital para locales físicos e independientes.",
-      features: [
-        "1 Club de beneficios digital",
-        "3 Puntos de contacto QR/NFC físicos",
-        "Redirección a WhatsApp para promociones",
-        "Métricas mensuales y analíticas en tiempo real",
-        "Sucursal adicional por $19.900 + IVA/mes",
-        "Soporte adicional por $39.900 + IVA (opcional)",
-      ],
-      isPopular: false,
-    },
-    {
-      name: "Cliente Fundador",
-      price: "$19.900 + IVA",
-      period: "/mes (por 12 meses)",
-      limits: "Implementación: $79.900 + IVA (pago único)",
-      description: "Oferta exclusiva de lanzamiento para negocios pioneros locales.",
-      features: [
-        "1 Club de beneficios digital",
-        "3 Puntos de contacto QR/NFC físicos",
-        "Redirección a WhatsApp de promociones",
-        "Analíticas completas en tiempo real",
-        "Máximo 5 negocios de Valdivia",
-        "Precio congelado de licencia por 12 meses",
-      ],
-      isPopular: true,
-      priceNote: "Exclusivo para 5 negocios de Valdivia",
-    },
-    {
-      name: "Personalizado",
-      price: "Cotizar",
-      period: "",
-      limits: "Multi-sucursal y capacidades escalables",
-      description: "Para cadenas de locales y franquicias que requieren administración centralizada de múltiples sucursales.",
-      features: [
-        "Campañas e hitos ilimitados",
-        "Multi-sucursal con reportes independientes",
-        "Touchpoints QR/NFC ilimitados",
-        "Soporte corporativo dedicado",
-      ],
-      isPopular: false,
-    },
-  ];
+const FEATURES = [
+  { t: "Tu marca en cada punto", d: "Una página con el logo, la portada y los colores de tu local." },
+  { t: "Las acciones que tú eliges", d: `WhatsApp, reseñas en Google, redes sociales, carta, promociones, ubicación y teléfono. Hasta ${MAX_POINT_ACTIONS} acciones por punto, en el orden que quieras.` },
+  { t: "Promociones con vigencia", d: "Cada promoción puede tener fecha de inicio y de término." },
+  { t: "Cambia sin reimprimir", d: "El mismo NFC y QR sirven aunque cambies lo que abre el punto." },
+  { t: "Visitas y clics por acción", d: "Métricas por período: hoy, esta semana, la semana pasada, este mes o un rango que elijas." },
+] as const;
+
+const STEPS = [
+  { t: "Armamos tu propuesta", d: "Eliges qué quieres lograr y dónde irán los puntos. Los soportes llevan tu marca con personalización gráfica estándar." },
+  { t: "Dejamos cada punto listo", d: "SmartNFC vincula el NFC y el QR de cada soporte antes de entregarlo." },
+  { t: "Tus clientes acercan el teléfono", d: "Se abre tu página en el navegador, sin instalar nada. Tú cambias las acciones cuando quieras." },
+] as const;
+
+const FAQ = [
+  ["¿Mis clientes necesitan una aplicación?", "No. La página se abre en el navegador del teléfono: por NFC en equipos compatibles y por código QR en el resto."],
+  ["¿Puedo cambiar lo que abre el punto?", "Sí. Cambias las acciones desde tu panel y el soporte sigue siendo el mismo."],
+  ["¿SmartNFC aloja mi carta o catálogo?", "No. El punto enlaza la carta o el catálogo que ya tengas publicado en internet: tu sitio web, un PDF en línea o una plataforma."],
+  ["¿Qué pasa si pauso Local Pro?", "Tus locales, puntos y códigos se conservan. Mientras tanto, el punto muestra un aviso de «temporalmente inactivo» y, al reactivar, vuelve a abrir el mismo contenido."],
+  ["¿Garantizan reseñas o seguidores?", "No. Medimos visitas y clics. No confirmamos reseñas publicadas, seguidores ni compras."],
+] as const;
+
+/** "A", "NFC", "QR", "B" → "a, NFC, QR y b" (las siglas conservan mayúsculas). */
+function listText(items: readonly string[]) {
+  const words = items.map(i => (/^[A-Z]{2,}$/.test(i) ? i : i[0].toLowerCase() + i.slice(1)));
+  return words.length > 1 ? `${words.slice(0, -1).join(", ")} y ${words[words.length - 1]}` : words.join("");
+}
+
+export default function LocalPage() {
+  const localPro = getPublicOffer("LOCAL_PRO");
+  const monthly = priceOf("LOCAL_PRO", "monthly")!;
+  const annual = priceOf("LOCAL_PRO", "annual");
+  const supports = (["LOCAL_MINI", "LOCAL_STANDARD", "LOCAL_XL"] as const).map(id => ({ id, offer: getPublicOffer(id), price: priceOf(id, "one_time")! }));
+  const includes = supports[0].offer.physical?.includes ?? [];
 
   return (
-    <div className="min-h-screen bg-[#07101F] text-slate-100 flex flex-col font-sans select-none">
-      
-      {/* Header Comercial */}
-      <header className="max-w-7xl mx-auto px-6 h-20 w-full flex items-center justify-between border-b border-white/5">
-        <Link href="/" className="flex items-center gap-2 text-lg font-black tracking-tight text-white">
-          <span>Smart</span><span className="text-amber-500">NFC</span>
-          <span className="text-[10px] uppercase font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Local</span>
-        </Link>
-        <div className="flex gap-4">
-          <Link href="/login" className="text-xs font-bold text-slate-400 hover:text-white transition-all py-2">
-            Iniciar Sesión
-          </Link>
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl transition-all"
-          >
-            Contacto Comercial
-          </a>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.wrap}>
+          <Link href="/" className={styles.logo} aria-label="SmartNFC, ir al inicio"><SmartNFCLogo size={26} /></Link>
+          <nav aria-label="Principal" className={styles.nav}>
+            <a href="#precios">Precios</a>
+            <a href="#preguntas" className={styles.navOptional}>Preguntas</a>
+            <Link href="/login">Ingresar</Link>
+          </nav>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="flex-grow">
-        <section className="max-w-4xl mx-auto px-6 py-16 text-center space-y-6">
-          <div className="inline-flex">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/5 text-[9px] font-extrabold uppercase tracking-widest text-amber-400">
-              FIDELIZACIÓN PRESENCIAL B2C
-            </span>
+      <main>
+        <section className={`${styles.hero} ${styles.wrap}`} aria-labelledby="local-title">
+          <p className={styles.eyebrow}>SmartNFC Locales</p>
+          <h1 id="local-title" className={styles.h1}>Convierte cada visita en una reseña, un seguidor o una conversación.</h1>
+          <p className={styles.lead}>Un punto NFC y QR en tu mesón, tus mesas o tu entrada abre una página con tu marca y las acciones que tú eliges.</p>
+          <div className={styles.heroActions}>
+            <a className={styles.primary} href="#configurador">Arma tu propuesta</a>
+            <a className={styles.secondary} href="#precios">Ver precios</a>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-            Fideliza clientes en tu local físico a través de WhatsApp<span className="text-amber-500">.</span>
-          </h1>
-          <p className="text-sm sm:text-base text-slate-450 max-w-2xl mx-auto font-medium leading-relaxed">
-            Convierte a los clientes casuales en clientes recurrentes. Permíteles escanear un código QR o tarjeta NFC en tu local para sumarse a tu club de beneficios y recibir promociones directo en su WhatsApp.
-          </p>
-          <div className="pt-2">
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-8 py-4 rounded-2xl shadow-lg shadow-amber-500/10 transition-all hover:-translate-y-0.5"
-            >
-              Habilitar mi Negocio Presencial
-            </a>
-          </div>
+          <p className={styles.note}>Toma unos minutos. No pedimos tus datos y nada se guarda mientras respondes.</p>
         </section>
 
-        {/* Pricing Catalog */}
-        <section className="max-w-6xl mx-auto px-6 py-12 scroll-mt-24">
-          <div className="text-center space-y-2 mb-12">
-            <h2 className="text-2xl sm:text-3xl font-black text-white">Planes y Tarifas en Español</h2>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">Lanza tu propio club de beneficios y digitaliza tu local presencial hoy mismo.</p>
+        <section id="configurador" className={`fl-page ${styles.configurator}`} aria-label="Configurador de propuesta">
+          <LocalesFlow exitHref="#precios" />
+        </section>
+
+        <section className={`${styles.section} ${styles.wrap}`} aria-labelledby="que-hace">
+          <h2 id="que-hace" className={styles.h2}>Qué puede hacer tu punto</h2>
+          <ul className={styles.features}>
+            {FEATURES.map(f => <li key={f.t}><h3>{f.t}</h3><p>{f.d}</p></li>)}
+          </ul>
+        </section>
+
+        <section className={`${styles.section} ${styles.wrap}`} aria-labelledby="como-funciona">
+          <h2 id="como-funciona" className={styles.h2}>Cómo funciona</h2>
+          <ol className={styles.steps}>
+            {STEPS.map(s => <li key={s.t}><h3>{s.t}</h3><p>{s.d}</p></li>)}
+          </ol>
+        </section>
+
+        <section id="precios" className={`${styles.section} ${styles.wrap}`} aria-labelledby="precios-title" tabIndex={-1}>
+          <h2 id="precios-title" className={styles.h2}>Precios y condiciones</h2>
+          <p className={styles.sectionLead}>Valores en pesos chilenos, {TAX_NOTE}. La licencia y los soportes se contratan por separado.</p>
+
+          <div className={styles.priceGrid}>
+            <article className={`${styles.card} ${styles.cardDark}`} aria-labelledby="price-local-pro">
+              <p className={styles.cardKicker}>Licencia mensual</p>
+              <h3 id="price-local-pro">{localPro.name}</h3>
+              <p className={styles.price}>{formatCLP(monthly)}<span>/mes</span></p>
+              {annual !== null && <p className={styles.altPrice}>Pago anual: {formatCLP(annual)}. Se gestiona directamente con SmartNFC.</p>}
+              <ul>
+                <li>{localPro.limits?.locations} local y hasta {localPro.limits?.pointsPerLocation} puntos activos</li>
+                <li>El cobro comienza desde la entrega operativa</li>
+                <li>Más de {localPro.limits?.pointsPerLocation} puntos o varios locales: cotización</li>
+              </ul>
+            </article>
+
+            <article className={styles.card} aria-labelledby="price-supports">
+              <p className={styles.cardKicker}>Soportes · pago único</p>
+              <h3 id="price-supports">Acrílico personalizado</h3>
+              <ul className={styles.sizes}>
+                {supports.map(s => (
+                  <li key={s.id}><span><b>{s.offer.name.replace("Soporte ", "")}</b> {s.offer.physical?.size}</span><b>{formatCLP(s.price)}</b></li>
+                ))}
+              </ul>
+              <p className={styles.small}>Incluye {listText(includes)}.</p>
+            </article>
+
+            <article className={styles.card} aria-labelledby="price-packs">
+              <p className={styles.cardKicker}>Packs Mini · pago único</p>
+              <h3 id="price-packs">Para varias mesas</h3>
+              <ul className={styles.sizes}>
+                <li><span><b>Pack 3 Mini</b></span><b>{formatCLP(PACK_3_MINI_CLP)}</b></li>
+                <li><span><b>Pack 5 Mini</b></span><b>{formatCLP(PACK_5_MINI_CLP)}</b></li>
+              </ul>
+              <p className={styles.small}>Solo soportes: no incluyen meses de licencia.</p>
+            </article>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {plans.map((p) => (
-              <div
-                key={p.name}
-                className={`bg-slate-900/40 border rounded-3xl p-6 shadow-xl flex flex-col justify-between relative transition-all duration-300 hover:border-slate-800 ${
-                  p.isPopular ? "border-amber-500 border-2" : "border-slate-850"
-                }`}
-              >
-                {p.isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-amber-400">
-                    OFERTA LIMITADA
-                  </span>
-                )}
+          <ul className={styles.terms}>
+            <li>Los soportes requieren una licencia {localPro.name} activa para funcionar.</li>
+            <li>La instalación se cotiza aparte. El despacho se cobra según destino.</li>
+            <li>La contratación se coordina directamente con nuestro equipo después de revisar tu propuesta.</li>
+          </ul>
+        </section>
 
-                <div className="space-y-6">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-black text-white">{p.name}</h3>
-                    <p className="text-[10px] text-amber-450 font-extrabold uppercase tracking-wider">{p.limits}</p>
-                  </div>
-
-                  <div className="flex flex-col">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-white">{p.price}</span>
-                      <span className="text-xs text-slate-500 font-bold">{p.period}</span>
-                    </div>
-                    {p.priceNote && (
-                      <span className="text-[9px] text-amber-400 font-extrabold mt-0.5">{p.priceNote}</span>
-                    )}
-                  </div>
-
-                  <p className="text-[11px] text-slate-400 leading-relaxed font-semibold">{p.description}</p>
-
-                  <div className="h-px bg-slate-850" />
-
-                  <ul className="space-y-2.5">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5 text-[10.5px] text-slate-350 font-semibold leading-tight">
-                        <span className="text-amber-500 shrink-0">✓</span>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="pt-8">
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`w-full block py-3 rounded-xl text-xs font-black text-center transition-all ${
-                      p.isPopular
-                        ? "bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/10"
-                        : "bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-750"
-                    }`}
-                  >
-                    {p.price === "Cotizar" ? "Contactar Ventas" : "Reservar Licencia"}
-                  </a>
-                </div>
-              </div>
-            ))}
+        <section id="preguntas" className={`${styles.section} ${styles.wrap}`} aria-labelledby="faq-title">
+          <h2 id="faq-title" className={styles.h2}>Preguntas frecuentes</h2>
+          <div className={styles.faq}>
+            {FAQ.map(([q, a]) => <details key={q}><summary>{q}</summary><p>{a}</p></details>)}
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-6 py-12 w-full border-t border-white/5 text-center text-xs text-slate-500 font-semibold space-y-2">
-        <p>© 2026 Smart NFC Local. Todos los derechos reservados.</p>
-        <p className="text-[10px] opacity-80">Fidelización por WhatsApp, analíticas presenciales y captación física para locales en Santiago y regiones de Chile.</p>
+      <footer className={styles.footer}>
+        <div className={styles.wrap}>
+          <span>© 2026 SmartNFC · Valdivia, Chile</span>
+          <a href={WHATSAPP} target="_blank" rel="noopener noreferrer">¿Prefieres conversar? Escríbenos por WhatsApp</a>
+        </div>
       </footer>
     </div>
   );

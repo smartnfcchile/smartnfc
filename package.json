@@ -19,6 +19,7 @@
     "test:card-images:integration": "tsx --test scripts/tests/card-images-integration.test.ts",
     "test:card-actions:integration": "tsx --test scripts/tests/card-actions-integration.test.ts",
     "test:entitlements": "tsx --test scripts/tests/entitlements.test.ts",
+    "test:flow": "tsx --test scripts/tests/flow-engine.test.ts",
     "test:entitlements:integration": "tsx --test --test-concurrency=1 scripts/tests/entitlements-integration.test.ts scripts/tests/entitlements-offboarding.test.ts scripts/tests/entitlements-profile-rights.test.ts scripts/tests/entitlements-backfill.test.ts",
     "sweep:local-location": "tsx scripts/maintenance/backfill-local-location-orphans.ts",
     "test:sweep:local-location": "tsx --test scripts/tests/local-location-orphans.test.ts",

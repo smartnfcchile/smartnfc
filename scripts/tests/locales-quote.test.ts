@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { effectiveAnswers } from "../../lib/flow/engine";
@@ -108,13 +108,51 @@ test("número de WhatsApp: el mismo que ya usa el sitio (no es un número nuevo)
   }
 });
 
-test("consentimiento: borrador sin afirmar política legal; registro de imágenes vacío y completable", () => {
+test("consentimiento: borrador sin afirmar política legal", () => {
   const text = `${REQUEST_CONSENT.label} ${REQUEST_CONSENT.details}`.toLowerCase();
   for (const banned of ["política de privacidad", "términos y condiciones", "ley 21.719", "garantiza"]) assert.ok(!text.includes(banned), banned);
   assert.match(REQUEST_CONSENT.version, /^borrador-/);
   assert.ok(text.includes("revisar el mensaje") && text.includes("no es una contratación"));
-  assert.deepEqual(Object.values(SUPPORT_ASSETS), [null, null, null]);
-  assert.ok(Object.values(SCENE_ASSETS).every(v => v === null));
+});
+
+// Lee ancho y alto de un WebP (VP8, VP8L o VP8X) sin dependencias.
+function webpSize(file: string) {
+  const b = readFileSync(file);
+  assert.equal(b.toString("ascii", 0, 4), "RIFF"); assert.equal(b.toString("ascii", 8, 12), "WEBP");
+  const chunk = b.toString("ascii", 12, 16);
+  if (chunk === "VP8X") return { width: 1 + b.readUIntLE(24, 3), height: 1 + b.readUIntLE(27, 3), alpha: (b[20] & 0x10) !== 0 };
+  if (chunk === "VP8L") { const bits = b.readUInt32LE(21); return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1, alpha: ((bits >> 28) & 1) === 1 }; }
+  return { width: b.readUInt16LE(26) & 0x3fff, height: b.readUInt16LE(28) & 0x3fff, alpha: false };
+}
+const publicFile = (src: string) => join("public", src);
+
+test("F4: soportes con foto transparente, peso ≤ 60 KB, medidas exactas del registro y sin estirar", () => {
+  for (const [size, asset] of Object.entries(SUPPORT_ASSETS)) {
+    assert.ok(asset, size);
+    assert.match(asset.src, /^\/images\/locales\/soporte-(mini|standard|xl)\.webp$/);
+    const file = publicFile(asset.src);
+    assert.ok(statSync(file).size <= 60 * 1024, `${size}: ${statSync(file).size} bytes`);
+    const dim = webpSize(file);
+    assert.deepEqual([dim.width, dim.height], [asset.width, asset.height], `${size}: medidas declaradas = archivo`);
+    assert.ok(dim.alpha, `${size}: fondo transparente`);
+    assert.equal(asset.alt, "", "decorativa: el nombre del tamaño ya está escrito al lado");
+  }
+});
+
+test("F4: escenas solo para cafetería/restaurante y bar, 1600×900, ≤ 200 KB, con «Imagen ilustrativa»", () => {
+  const withScene = Object.entries(SCENE_ASSETS).filter(([, a]) => a).map(([r]) => r);
+  assert.deepEqual(withScene, ["cafe", "bar"], "los demás rubros conservan la ilustración");
+  assert.match(SCENE_ASSETS.cafe!.src, /escena-sakura-mesas\.webp$/);
+  assert.match(SCENE_ASSETS.bar!.src, /escena-sakura-meson\.webp$/);
+  for (const r of withScene) {
+    const a = SCENE_ASSETS[r as keyof typeof SCENE_ASSETS]!;
+    const file = publicFile(a.src);
+    assert.ok(statSync(file).size <= 200 * 1024, `${r}: ${statSync(file).size} bytes`);
+    assert.deepEqual(Object.values(webpSize(file)).slice(0, 2), [1600, 900]);
+    assert.deepEqual([a.width, a.height], [1600, 900]);
+    assert.equal(a.caption, "Imagen ilustrativa");
+    assert.ok(a.alt.length > 10 && !/sakura|cliente|instalad/i.test(a.alt), "alt descriptivo, sin presentar la marca ficticia como cliente");
+  }
 });
 
 test("privacidad: el código de Locales no envía ni guarda respuestas", () => {

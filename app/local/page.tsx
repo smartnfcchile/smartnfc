@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SmartNFCLogo from "../../components/brand/SmartNFCLogo";
 import LocalesFlow from "../../components/locales/LocalesFlow";
+import SupportToken from "../../components/locales/SupportToken";
 import { PACK_3_MINI_CLP, PACK_5_MINI_CLP, TAX_NOTE, formatCLP, getPublicOffer, priceOf } from "../../lib/commercial/public-offers";
 import { MAX_POINT_ACTIONS } from "../../lib/local/public-actions";
 import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
@@ -122,7 +123,11 @@ export default function LocalPage() {
               <h3 id="price-supports">Acrílico personalizado</h3>
               <ul className={styles.sizes}>
                 {supports.map(s => (
-                  <li key={s.id}><span><b>{s.offer.name.replace("Soporte ", "")}</b> {s.offer.physical?.size}</span><b>{formatCLP(s.price)}</b></li>
+                  <li key={s.id} className={styles.sizeRow}>
+                    <span className={styles.sizeThumb}><SupportToken size={s.id} scale={2.2} /></span>
+                    <span className={styles.sizeName}><b>{s.offer.name.replace("Soporte ", "")}</b> {s.offer.physical?.size}</span>
+                    <b>{formatCLP(s.price)}</b>
+                  </li>
                 ))}
               </ul>
               <p className={styles.small}>Incluye {listText(includes)}.</p>

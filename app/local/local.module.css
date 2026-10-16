@@ -53,6 +53,9 @@
 .sizes li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid #eef0f3}
 .sizes li:last-child{border-bottom:0}
 .sizes span{color:var(--muted)}
+.sizeRow{align-items:center!important}
+.sizeThumb{display:grid;flex:none;place-items:end center;width:60px;height:78px}
+.sizeName{flex:1;min-width:0}
 .sizes span b{color:var(--ink);margin-right:6px}
 .small{margin:12px 0 0;color:#5b6676;font-size:13.5px;line-height:1.45}
 .terms{display:grid;gap:6px;margin:18px 0 0;padding-left:18px;color:var(--muted);font-size:14px;line-height:1.5}

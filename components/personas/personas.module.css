@@ -57,3 +57,48 @@
   .resultGrid{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);align-items:center}
   .figure .cardFaces{grid-template-columns:minmax(0,1fr)}
 }
+
+/* P3 · Resultado comercial y solicitud */
+.commercial{display:grid;gap:18px;min-width:0}
+.offer,.request{display:grid;gap:14px;min-width:0;padding:20px;border-radius:20px;background:#fff;border:1px solid #e1e5ea}
+.request{border:1.5px solid #08111f}
+.h4{margin:6px 0 0;font-size:16px;font-weight:850}
+.priceBox{display:grid;gap:4px;padding:16px;border-radius:16px;background:#08111f;color:#fff}
+.priceTotal{margin:0;font-size:clamp(34px,8vw,44px);line-height:1;font-weight:900;letter-spacing:-.04em}
+.priceQuote{margin:0;font-size:clamp(24px,6vw,30px);line-height:1.1;font-weight:900;letter-spacing:-.02em}
+.priceDetail{margin:0;color:#d5dce6;font-size:14.5px;line-height:1.45}
+.priceHint{margin:6px 0 0;color:#c7f43b;font-size:14px;font-weight:750}
+.tiers{width:100%;border-collapse:collapse;font-size:14.5px}
+.tiers caption{caption-side:top;margin-bottom:8px;color:#5b6676;font-size:13px;line-height:1.45;text-align:left}
+.tiers th{padding:8px 10px;border-bottom:1.5px solid #dde2e8;color:#3f4b5c;font-size:12.5px;font-weight:850;text-align:left;text-transform:uppercase;letter-spacing:.04em}
+.tiers td{padding:10px;border-bottom:1px solid #eef0f3;font-weight:700}
+.tiers td:last-child,.tiers th:last-child{text-align:right}
+.tierCurrent td{background:#eef4ff;color:#08111f;font-weight:900}
+.conditions,.included{display:grid;gap:8px;margin:0;padding:0;list-style:none;font-size:14.5px;line-height:1.45}
+.conditions li{padding-left:18px;position:relative;color:#3f4b5c}
+.conditions li::before{content:"";position:absolute;left:0;top:.55em;width:7px;height:7px;border-radius:50%;background:#246bfd}
+.included li{position:relative;padding-left:26px;font-weight:700}
+.included li::before{content:"";position:absolute;left:0;top:.18em;width:16px;height:16px;border-radius:50%;background:#246bfd url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/11px no-repeat}
+.notPurchase{margin:0;padding:12px 14px;border-left:4px solid #08111f;border-radius:10px;background:#f6f7f2;color:#08111f;font-size:14.5px;font-weight:750;line-height:1.45}
+.muted{margin:0;color:#4b5768;font-size:14.5px;line-height:1.5}
+.requestForm{display:grid;gap:12px}
+.fields{display:grid;gap:6px}
+.fields label{font-size:14px;font-weight:800}
+.fields label span{color:#5b6676;font-weight:600}
+.fields input{min-height:48px;margin-bottom:6px;padding:0 14px;border:1.5px solid #cfd6df;border-radius:12px;background:#fff;color:#08111f;font:inherit;font-size:16px}
+.fields input:focus-visible{outline:3px solid #246bfd;outline-offset:1px}
+.consent{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:14px;background:#f6f7f2;font-size:14px;line-height:1.45;cursor:pointer}
+.consent input{flex:none;width:22px;height:22px;margin:1px 0 0;accent-color:#246bfd}
+.consent input:focus-visible{outline:3px solid #246bfd;outline-offset:2px}
+.consentDetails{margin:0;color:#5b6676;font-size:13px;line-height:1.5}
+.review{display:grid;gap:12px}
+.message{margin:0;max-height:340px;overflow:auto;padding:14px;border-radius:14px;background:#f6f7f2;border:1px solid #e1e5ea;font:500 13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
+.message:focus-visible{outline:3px solid #246bfd;outline-offset:2px}
+.reviewActions{display:flex;flex-wrap:wrap;gap:10px}
+.reviewActions a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.copyStatus{min-height:20px;margin:0;color:#3a5200;font-size:13.5px;font-weight:700}
+.copyStatus:empty{min-height:0}
+@media(min-width:900px){
+  .commercial{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+  .reviewActions .fl-next{width:auto;padding:0 26px}
+}

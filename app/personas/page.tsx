@@ -1,13 +1,17 @@
-// SmartNFC Personas (P2): capa pública + configurador con vistas previas del perfil y la tarjeta.
-// Sin precios ni solicitud todavía (P3), sin biblioteca visual propia (P4). Sin Pro ni captura de datos (D6),
-// sin perfil permanente (D2), sin compra (D15). La página no está enlazada desde la portada ni en el sitemap,
-// y queda fuera de los buscadores hasta completar P3.
+// SmartNFC Personas: capa pública + configurador con vistas previas (P2) + resultado comercial y solicitud (P3).
+// Precios: cardOrderPrice (tramos vigentes, IVA incluido). Sin biblioteca visual propia (P4; imágenes nuevas solo
+// generadas y aprobadas en ChatGPT). Sin Pro ni captura de datos (D6), sin perfil permanente (D2), solicitud y no
+// compra (D15). La página no está enlazada desde la portada ni en el sitemap, y sigue fuera de los buscadores
+// hasta que se autorice su publicación.
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SmartNFCLogo from "../../components/brand/SmartNFCLogo";
 import PersonasFlow from "../../components/personas/PersonasFlow";
-import { PERSONAS_VERIFIED_FEATURES } from "../../lib/commercial/public-offers";
+import { formatCLP } from "../../lib/commercial/public-offers";
+import { PERSONAS_LANDING_FEATURES } from "../../content/personas/features";
+import { personasConditions } from "../../lib/personas/quote";
+import { PERSONAS_NOT_A_PURCHASE } from "../../content/personas/consent";
 import styles from "./personas.module.css";
 
 const title = "SmartNFC Personas | Tu contacto en una tarjeta NFC";
@@ -18,7 +22,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/personas" },
   openGraph: { title, description, url: "/personas", type: "website", locale: "es_CL", siteName: "SmartNFC" },
-  robots: { index: false, follow: false }, // P2: fuera de buscadores hasta completar el resultado comercial (P3).
+  robots: { index: false, follow: false }, // Fuera de buscadores hasta autorizar la publicación de /personas.
 };
 
 const AUDIENCES = [
@@ -42,6 +46,13 @@ const FAQ = [
   ["¿Puedo mostrar mis trabajos o mi catálogo?", "Sí, con enlaces a donde ya estén publicados: redes sociales, un sitio, una carpeta o un PDF en línea. SmartNFC enlaza tu contenido; no lo aloja."],
 ] as const;
 
+const CONDITIONS = personasConditions();
+const range = (min: number, max: number | null) => (max === null ? `${min} o más` : `${min} a ${max}`);
+const FAQ_ALL = [
+  ...FAQ,
+  ["¿Qué pasa si pierdo mi tarjeta?", `Puedes pedir una reposición por ${formatCLP(CONDITIONS.replacementClp)} (${CONDITIONS.taxNote}). Tu perfil sigue siendo el mismo.`],
+] as const;
+
 export default function PersonasPage() {
   return (
     <div className={styles.page}>
@@ -49,7 +60,8 @@ export default function PersonasPage() {
         <div className={styles.wrap}>
           <Link href="/" className={styles.logo} aria-label="SmartNFC, ir al inicio"><SmartNFCLogo size={26} /></Link>
           <nav aria-label="Principal" className={styles.nav}>
-            <a href="#como-funciona">Cómo funciona</a>
+            <a href="#como-funciona" className={styles.navOptional}>Cómo funciona</a>
+            <a href="#precio">Precio</a>
             <a href="#preguntas" className={styles.navOptional}>Preguntas</a>
             <Link href="/login">Ingresar</Link>
           </nav>
@@ -64,7 +76,7 @@ export default function PersonasPage() {
             <p className={styles.lead}>Una tarjeta con NFC y QR que abre tu perfil: WhatsApp, redes, tus trabajos y tus datos para guardarte. Sin aplicaciones.</p>
             <div className={styles.heroActions}>
               <a className={styles.primary} href="#configurador">Arma tu tarjeta</a>
-              <a className={styles.secondary} href="#como-funciona">Cómo funciona</a>
+              <a className={styles.secondary} href="#precio">Ver precio</a>
             </div>
             <p className={styles.note}>Toma un par de minutos. No pedimos tus datos y nada se guarda mientras respondes.</p>
           </div>
@@ -76,7 +88,7 @@ export default function PersonasPage() {
         </section>
 
         <section id="configurador" className={`fl-page ${styles.configurator}`} aria-label="Configurador de tu SmartNFC">
-          <PersonasFlow exitHref="#como-funciona" />
+          <PersonasFlow exitHref="#precio" />
         </section>
 
         <section className={`${styles.section} ${styles.wrap}`} aria-labelledby="para-quien">
@@ -98,14 +110,30 @@ export default function PersonasPage() {
         <section className={`${styles.section} ${styles.wrap}`} aria-labelledby="que-incluye">
           <h2 id="que-incluye" className={styles.h2}>Qué puede mostrar tu perfil</h2>
           <ul className={styles.features}>
-            {PERSONAS_VERIFIED_FEATURES.map(f => <li key={f.source}>{f.label}</li>)}
+            {PERSONAS_LANDING_FEATURES.map(f => <li key={f.source}>{f.label}</li>)}
           </ul>
+        </section>
+
+        <section id="precio" className={`${styles.section} ${styles.wrap}`} aria-labelledby="precio-title" tabIndex={-1}>
+          <h2 id="precio-title" className={styles.h2}>Precio y condiciones</h2>
+          <p className={styles.sectionLead}>Pago único por tarjeta, {CONDITIONS.taxNote}. El precio del tramo se aplica a todas las tarjetas del pedido.</p>
+          <ul className={styles.tiers}>
+            {CONDITIONS.tiers.map(t => (
+              <li key={t.min}><span>{range(t.min, t.max)} {t.min === 1 && t.max === 1 ? "tarjeta" : "tarjetas"}</span><b>{t.unitClp === null ? "Cotización" : `${formatCLP(t.unitClp)} c/u`}</b></li>
+            ))}
+          </ul>
+          <ul className={styles.terms}>
+            <li>{CONDITIONS.shippingNote}</li>
+            <li>Reposición de una tarjeta: {formatCLP(CONDITIONS.replacementClp)}. Tarjeta adicional para tu mismo perfil: {formatCLP(CONDITIONS.additionalClp)}.</li>
+            <li>{PERSONAS_NOT_A_PURCHASE}</li>
+          </ul>
+          <a className={styles.primary} href="#configurador">Arma tu tarjeta</a>
         </section>
 
         <section id="preguntas" className={`${styles.section} ${styles.wrap}`} aria-labelledby="faq-title">
           <h2 id="faq-title" className={styles.h2}>Preguntas frecuentes</h2>
           <div className={styles.faq}>
-            {FAQ.map(([q, a]) => <details key={q}><summary>{q}</summary><p>{a}</p></details>)}
+            {FAQ_ALL.map(([q, a]) => <details key={q}><summary>{q}</summary><p>{a}</p></details>)}
           </div>
         </section>
       </main>

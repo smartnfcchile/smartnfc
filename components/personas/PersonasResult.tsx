@@ -1,7 +1,7 @@
 "use client";
 
-// Pantalla final de SmartNFC Personas en P2: resumen de respuestas y vistas previas grandes.
-// El resultado comercial (precio, condiciones y solicitud por WhatsApp) es P3 y se conecta por `renderOffer`.
+// Pantalla final de SmartNFC Personas: resumen de respuestas, vistas previas grandes y, por `renderOffer`,
+// el resultado comercial (P3: precio, condiciones y solicitud por WhatsApp).
 import type { ReactNode } from "react";
 import { PERSONAS_LABELS } from "../../content/flows/personas";
 import { exampleIdentity, type PersonasAnswersModel } from "../../lib/personas/answers";

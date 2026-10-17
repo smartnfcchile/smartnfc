@@ -2,6 +2,7 @@
 
 // Configurador de SmartNFC Personas (P2) sobre el motor de preguntas (F0): una pregunta por pantalla,
 // Atrás/Adelante sincronizados con el navegador y vista previa del perfil y la tarjeta con datos ficticios.
+// El resultado incluye el bloque comercial de P3 (precio, condiciones y solicitud por WhatsApp).
 import { useMemo } from "react";
 import FlowShell from "../flow/FlowShell";
 import { PERSONAS_FLOW } from "../../content/flows/personas";
@@ -9,6 +10,7 @@ import { readPersonasAnswers } from "../../lib/personas/answers";
 import type { Answers } from "../../lib/flow/types";
 import PersonasPreview from "./PersonasPreview";
 import PersonasResult, { type PersonasOfferSlot } from "./PersonasResult";
+import PersonasCommercial from "./PersonasCommercial";
 
 function Preview({ answers }: { answers: Answers }) {
   const model = useMemo(() => readPersonasAnswers(answers), [answers]);
@@ -24,7 +26,7 @@ export default function PersonasFlow({ exitHref, renderOffer }: { exitHref: stri
       exitLabel="Ver información sin responder"
       renderPreview={answers => <Preview answers={answers} />}
       renderResult={(answers, flow) => (
-        <PersonasResult model={readPersonasAnswers(answers)} onChangeAnswers={flow.goBack} onRestart={flow.restart} renderOffer={renderOffer} />
+        <PersonasResult model={readPersonasAnswers(answers)} onChangeAnswers={flow.goBack} onRestart={flow.restart} renderOffer={renderOffer ?? (model => <PersonasCommercial model={model} />)} />
       )}
     />
   );

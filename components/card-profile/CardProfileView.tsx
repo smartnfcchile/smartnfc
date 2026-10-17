@@ -7,6 +7,7 @@ import { getPublicUrl } from "../../lib/public-url";
 import LeadForm from "../../app/c/[slug]/LeadForm";
 import TrackButton from "../../app/c/[slug]/TrackButton";
 import PublicCardAnalytics from "./PublicCardAnalytics";
+import { buildProfileVcard } from "../../lib/card-profile/vcard";
 import { 
   normalizeTemplate, 
   normalizePhotoStyle, 
@@ -157,16 +158,9 @@ export default function CardProfileView({ card, isPreview = false, contactSource
   const isLightTemplate = normTemplate === "classic-light" || normTemplate === "company-light";
   const actualIsDark = !isLightTemplate;
 
-  // Generación de vCard
-  const vcard = `BEGIN:VCARD
-VERSION:3.0
-FN:${card.profileName ?? card.name}
-ORG:${card.companyName ?? card.company.name}
-TITLE:${card.role ?? ""}
-TEL:${card.phone ?? ""}
-EMAIL:${card.email ?? ""}
-END:VCARD`;
-  
+  // Generación de vCard (ORG solo si el perfil tiene empresa; ver lib/card-profile/vcard.ts)
+  const vcard = buildProfileVcard(card);
+
   const vcardUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(vcard)}`;
 
   // Formateo de canales de contacto
@@ -907,7 +901,8 @@ END:VCARD`;
 
   return (
     <>
-      <PublicCardAnalytics cardId={card.id} contactSource={contactSource} />
+      {/* La vista previa (editor, landing) no registra visitas ni envía eventos. */}
+      {!isPreview && <PublicCardAnalytics cardId={card.id} contactSource={contactSource} />}
       {isPreview ? (
         <div className="nfc-landing-container" style={{ containerType: "inline-size", containerName: "nfc-landing" }}>
           {landing}

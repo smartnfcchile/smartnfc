@@ -366,7 +366,7 @@ export default function CardEditorClient({
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300">Nombre de la Empresa</label>
+                      <label className="text-xs font-semibold text-slate-300">Empresa (opcional)</label>
                       <input 
                         type="text" 
                         name="companyName" 
@@ -531,7 +531,7 @@ export default function CardEditorClient({
                     </div>
 
                     <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
-                      <label className="text-xs font-semibold text-slate-300 block">Logo de Empresa</label>
+                      <label className="text-xs font-semibold text-slate-300 block">Logo (opcional)</label>
                       <ProfileImageSpecHint kind="logo" />
                       <FileInput
                         name="logoFile"

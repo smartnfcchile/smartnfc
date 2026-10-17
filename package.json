@@ -18,6 +18,7 @@
     "test:card-images": "tsx --test scripts/tests/card-images.test.ts scripts/tests/profile-image-specs.test.ts scripts/tests/profile-image-crop.test.ts",
     "test:card-images:integration": "tsx --test scripts/tests/card-images-integration.test.ts",
     "test:card-actions:integration": "tsx --test scripts/tests/card-actions-integration.test.ts",
+    "test:card-profile": "tsx --test --experimental-test-module-mocks scripts/tests/card-profile-view.test.ts",
     "test:commercial": "tsx --test scripts/tests/public-offers.test.ts scripts/tests/public-offers-extras.test.ts",
     "test:entitlements": "tsx --test scripts/tests/entitlements.test.ts",
     "test:flow": "tsx --test scripts/tests/flow-engine.test.ts",

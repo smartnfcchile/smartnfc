@@ -1,7 +1,7 @@
 "use client";
 
 // Una pregunta por pantalla. Controles nativos (radio, checkbox, number, text) para máxima accesibilidad.
-import { useId, useState, type FormEvent, type MouseEvent } from "react";
+import { useEffect, useId, useState, type FormEvent, type MouseEvent } from "react";
 import { optionsFor } from "../../lib/flow/engine";
 import type { Answers, AnswerValue, FlowQuestion } from "../../lib/flow/types";
 
@@ -27,6 +27,14 @@ export default function QuestionScreen({ question, answers, error, onAnswer, onN
   const options = optionsFor(question, answers);
   const headingId = `${baseId}-title`, helpId = `${baseId}-help`, errorId = `${baseId}-error`;
   const describedBy = [question.help ? helpId : null, showError && error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
+  // Número con valor inicial: se carga una vez al mostrar la pregunta si aún no tiene respuesta.
+  const needsDefault = question.kind === "number" && question.defaultValue !== undefined && value === undefined;
+  useEffect(() => {
+    if (needsDefault) onAnswer(question.id, question.defaultValue);
+    // Solo al mostrar la pregunta: si la persona borra el campo después, no se vuelve a rellenar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.id]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -90,6 +98,17 @@ export default function QuestionScreen({ question, answers, error, onAnswer, onN
             onChange={e => { setShowError(false); const n = e.target.value === "" ? undefined : Number(e.target.value); onAnswer(question.id, n); }} />
           <button type="button" className="fl-step" onClick={() => stepBy(1)} aria-label="Aumentar" disabled={numberValue !== undefined && question.max !== undefined && numberValue >= question.max}>+</button>
           {question.unit && <span className="fl-unit">{question.unit}</span>}
+        </div>
+      )}
+
+      {question.kind === "number" && question.alternative && (
+        <div className="fl-alternative">
+          <span aria-hidden="true">o</span>
+          <button type="button" aria-pressed={value === question.alternative.value}
+            className={`fl-alternative-btn${value === question.alternative.value ? " is-checked" : ""}`}
+            onClick={() => { setShowError(false); onAnswer(question.id, question.alternative!.value); setTimeout(onNext, 140); }}>
+            {question.alternative.label}
+          </button>
         </div>
       )}
 

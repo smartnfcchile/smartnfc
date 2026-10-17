@@ -33,6 +33,13 @@ export type FlowQuestion = {
   max?: number;
   step?: number;
   unit?: string;
+  /**
+   * number: alternativa independiente al campo numérico (p. ej. «50 o más: solicitar cotización»).
+   * Elegirla guarda `value` (texto) como respuesta y avanza; no pasa por la validación de rango.
+   */
+  alternative?: { value: string; label: string };
+  /** number: valor que la pantalla carga al mostrarse si la pregunta aún no tiene respuesta. */
+  defaultValue?: number;
   /** text: largo máximo. */
   maxLength?: number;
   placeholder?: string;

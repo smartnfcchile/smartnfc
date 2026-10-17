@@ -42,9 +42,10 @@ const options = <K extends keyof typeof PERSONAS_LABELS>(key: K) =>
 
 export const MAX_MOSTRAR = 4;
 export const OCUPACION_MAX = 40;
-/** Cantidad de tarjetas en el configurador (F1). Desde 50 tarjetas se cotiza aparte. */
+/** Cantidad de tarjetas en el configurador (F1). Desde 50 tarjetas se cotiza aparte, sin precio automático (17-10-2026). */
 export const CANTIDAD_MIN = 1;
 export const CANTIDAD_MAX = 49;
+export const CANTIDAD_COTIZACION = "50+" as const;
 
 /** Segmentos donde se ofrece cada opción de P2 (F1 §2). */
 export const USOS_CON_TRABAJOS = ["oficio", "emprende", "profesional"] as const;
@@ -98,7 +99,8 @@ export const PERSONAS_FLOW: FlowDefinition = {
     { id: "estilo", kind: "single", title: "¿Qué estilo prefieres para tu perfil?", options: options("estilo"), autoAdvance: true },
     { id: "color", kind: "single", title: "Elige un color", options: options("color"), autoAdvance: true },
     { id: "cantidad", kind: "number", title: "¿Cuántas tarjetas necesitas?",
-      help: `Entre ${CANTIDAD_MIN} y ${CANTIDAD_MAX}. Para 50 o más, preparamos una cotización.`,
-      min: CANTIDAD_MIN, max: CANTIDAD_MAX, step: 1, unit: "tarjetas" },
+      help: `Entre ${CANTIDAD_MIN} y ${CANTIDAD_MAX}. Si necesitas 50 o más, te preparamos una cotización.`,
+      min: CANTIDAD_MIN, max: CANTIDAD_MAX, step: 1, unit: "tarjetas", defaultValue: CANTIDAD_MIN,
+      alternative: { value: CANTIDAD_COTIZACION, label: "50 o más: solicitar cotización" } },
   ],
 };

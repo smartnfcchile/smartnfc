@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { activePath, checkFlowDefinition, effectiveAnswers, flowReducer, initialState, optionsFor, validate } from "../../lib/flow/engine";
 import { RESULT, type Answers, type FlowAction, type FlowState } from "../../lib/flow/types";
-import { CANTIDAD_MAX, CANTIDAD_MIN, MAX_MOSTRAR, PERSONAS_FLOW, PERSONAS_LABELS } from "../../content/flows/personas";
+import { CANTIDAD_COTIZACION, CANTIDAD_MAX, CANTIDAD_MIN, MAX_MOSTRAR, PERSONAS_FLOW, PERSONAS_LABELS } from "../../content/flows/personas";
 import { COLOR_HEX, ESTILO_TEMPLATE, PERSONAS_EXAMPLES, exampleIdentity, profileStyle, readPersonasAnswers } from "../../lib/personas/answers";
 import { normalizeTemplate } from "../../lib/templates";
 import { cardOrderPrice } from "../../lib/commercial/public-offers";
@@ -89,8 +89,21 @@ test(`P4: cantidad entera entre ${CANTIDAD_MIN} y ${CANTIDAD_MAX}`, () => {
   assert.match(validate(q("cantidad"), { cantidad: 0 })!, /mínimo es 1/);
   assert.match(validate(q("cantidad"), { cantidad: 50 })!, /máximo es 49/);
   assert.match(validate(q("cantidad"), { cantidad: 2.5 })!, /entero/);
-  assert.match(validate(q("cantidad"), {})!, /Elige una opción/, "obligatoria (P2 la iniciará en 1)");
+  assert.match(validate(q("cantidad"), {})!, /Elige una opción/, "obligatoria");
+  assert.equal(q("cantidad").defaultValue, 1, "la pantalla parte en 1 tarjeta (F1)");
   assert.match(q("cantidad").help!, /50 o más.*cotización/);
+});
+
+test("P4: «50 o más: solicitar cotización» es una alternativa independiente y sin precio automático", () => {
+  assert.deepEqual(q("cantidad").alternative, { value: CANTIDAD_COTIZACION, label: "50 o más: solicitar cotización" });
+  assert.equal(validate(q("cantidad"), { cantidad: CANTIDAD_COTIZACION }), null, "permite avanzar");
+  assert.match(validate(q("cantidad"), { cantidad: "51" })!, /número/, "solo el valor de la alternativa se acepta como texto");
+  assert.equal(path({ ...base, cantidad: CANTIDAD_COTIZACION }).at(-1), RESULT);
+  const m = model({ ...base, cantidad: CANTIDAD_COTIZACION });
+  assert.equal(m.cotizacionVolumen, true);
+  assert.equal(m.cantidad, null, "no hay cantidad con la cual calcular un precio");
+  const n = model({ ...base, cantidad: 12 });
+  assert.deepEqual([n.cotizacionVolumen, n.cantidad], [false, 12]);
 });
 
 test("P4 respeta el motor comercial vigente: todo el rango tiene precio de tramo (D1) y 50 es cotización", () => {
@@ -152,12 +165,15 @@ test("vista previa: ejemplos ficticios aprobados por segmento y estilo por defec
   assert.deepEqual(PERSONAS_EXAMPLES, {
     personal: { name: "Camila Vega", role: null },
     oficio: { name: "Miguel Rojas", role: "Maestro soldador" },
-    emprende: { name: "Fernanda Soto", role: null },
+    emprende: { name: "Fernanda Soto", role: "Emprendedora" },
     profesional: { name: "Diego Torres", role: "Arquitecto" },
   });
   assert.deepEqual(exampleIdentity(model({ uso: "oficio" })), { name: "Miguel Rojas", role: "Maestro soldador" });
   assert.deepEqual(exampleIdentity(model({ uso: "oficio", ocupacion: "Gasfíter" })), { name: "Miguel Rojas", role: "Gasfíter" });
   assert.deepEqual(exampleIdentity(model({})), { name: "Camila Vega", role: null });
+  assert.deepEqual(exampleIdentity(model({ uso: "personal", ocupacion: "Ignorada" })), { name: "Camila Vega", role: null }, "uso personal: sin cargo");
+  assert.deepEqual(exampleIdentity(model({ uso: "emprende" })), { name: "Fernanda Soto", role: "Emprendedora" });
+  assert.deepEqual(exampleIdentity(model({ uso: "emprende", ocupacion: "Repostería" })), { name: "Fernanda Soto", role: "Repostería" });
   assert.deepEqual(profileStyle(model({})), { template: "classic-dark", themeColor: "#2563EB" });
   assert.deepEqual(profileStyle(model({ ...base, estilo: "llamativo", color: "naranjo" })), { template: "neobrutalist", themeColor: "#EA580C" });
 });

@@ -3,7 +3,7 @@
 // lib/commercial/public-offers.ts; la vista previa visual (P2) consume este modelo.
 import type { Answers } from "../flow/types";
 import type { NormalizedTemplate } from "../templates";
-import { CANTIDAD_MAX, CANTIDAD_MIN, OCUPACION_MAX, PERSONAS_LABELS } from "../../content/flows/personas";
+import { CANTIDAD_COTIZACION, CANTIDAD_MAX, CANTIDAD_MIN, OCUPACION_MAX, PERSONAS_LABELS } from "../../content/flows/personas";
 
 export type Uso = keyof typeof PERSONAS_LABELS.uso;
 export type Mostrar = keyof typeof PERSONAS_LABELS.mostrar;
@@ -28,7 +28,7 @@ export const DEFAULT_COLOR: ColorId = "azul";
 export const PERSONAS_EXAMPLES: Record<Uso, { name: string; role: string | null }> = {
   personal: { name: "Camila Vega", role: null },
   oficio: { name: "Miguel Rojas", role: "Maestro soldador" },
-  emprende: { name: "Fernanda Soto", role: null },
+  emprende: { name: "Fernanda Soto", role: "Emprendedora" },
   profesional: { name: "Diego Torres", role: "Arquitecto" },
 };
 
@@ -51,7 +51,10 @@ export type PersonasAnswersModel = {
   contenidoDonde: ContenidoDonde | null;
   estilo: Estilo | null;
   color: ColorId | null;
+  /** Tarjetas entre 1 y 49 (con precio por tramo en P3). null si no se respondió o si se pidió cotización. */
   cantidad: number | null;
+  /** «50 o más: solicitar cotización»: sin precio automático. */
+  cotizacionVolumen: boolean;
   notices: PersonasNotice[];
 };
 
@@ -86,6 +89,7 @@ export function readPersonasAnswers(a: Answers): PersonasAnswersModel {
     estilo: oneOf(PERSONAS_LABELS.estilo, str(a, "estilo")),
     color: oneOf(PERSONAS_LABELS.color, str(a, "color")),
     cantidad,
+    cotizacionVolumen: a.cantidad === CANTIDAD_COTIZACION,
     notices,
   };
 }

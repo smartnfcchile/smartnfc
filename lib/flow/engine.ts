@@ -69,6 +69,7 @@ export function validate(question: FlowQuestion, answers: Answers): string | nul
       return null;
     }
     case "number": {
+      if (question.alternative && value === question.alternative.value) return null;
       const n = value as number;
       if (typeof n !== "number" || !Number.isFinite(n)) return "Ingresa un número.";
       if (!Number.isInteger(n)) return "Ingresa un número entero.";

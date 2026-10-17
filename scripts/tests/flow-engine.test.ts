@@ -154,3 +154,14 @@ test("inicio: omite preguntas condicionales no visibles", () => {
   assert.equal(startStep(flow), "visible");
   assert.equal(startStep({ id: "vacio", questions: [] }), RESULT);
 });
+
+test("número con alternativa independiente: la alternativa valida y las preguntas sin alternativa no cambian", () => {
+  const withAlt = { id: "n", kind: "number" as const, title: "N", min: 1, max: 49, alternative: { value: "50+", label: "50 o más" } };
+  assert.equal(validate(withAlt, { n: "50+" }), null);
+  assert.equal(validate(withAlt, { n: 10 }), null);
+  assert.match(validate(withAlt, { n: 50 })!, /máximo es 49/);
+  assert.match(validate(withAlt, { n: "otro" })!, /número/);
+  const plain = FLOW.questions.find(x => x.id === "cantidad")!;
+  assert.equal(plain.alternative, undefined);
+  assert.match(validate(plain, { cantidad: "50+" })!, /número/, "sin alternativa, un texto sigue siendo inválido");
+});

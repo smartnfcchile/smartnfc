@@ -38,6 +38,19 @@
 .cards h3,.steps h3{margin:0;font-size:17px;letter-spacing:-.01em;font-weight:800}
 .cards p,.steps p{margin:6px 0 0;color:var(--muted);font-size:14.5px;line-height:1.5}
 .steps{counter-reset:s}
+/* P4 · Espacios de imagen: solo se dibujan cuando hay un archivo aprobado en content/personas/assets.ts. */
+.cardWithMedia{padding-top:0!important;overflow:hidden}
+.cardMedia{position:relative;margin:0 -20px 16px}
+.cardImage{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover}
+/* Foto completa (sin recorte) dentro del mismo contenedor 4:3: franjas en el crema cálido del diseño. */
+.cardMedia[data-fit="contain"]{background:#ece7dd}
+.cardMedia[data-fit="contain"] .cardImage{object-fit:contain;object-position:top}
+.cardMedia figcaption,.productMedia figcaption{position:absolute;right:8px;bottom:8px;padding:3px 8px;border-radius:999px;background:#08111fcc;color:#e7ecf3;font-size:11px;font-weight:700}
+/* Con la foto 16:9 alineada arriba en 4:3, la franja inferior ocupa el 25 % del alto: la leyenda se centra en ella. */
+.cardMedia[data-fit="contain"] figcaption{bottom:12.5%;transform:translateY(50%)}
+.priceLayout{display:grid;gap:22px;align-items:center}
+.productMedia{position:relative;margin:22px 0 0;max-width:560px}
+.productImage{display:block;width:100%;height:auto;border-radius:20px}
 .steps li::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:32px;height:32px;margin-bottom:12px;border-radius:10px;background:var(--lime);color:var(--ink);font-weight:900}
 
 .features{display:grid;gap:10px;margin:24px 0 0;padding:0;list-style:none}
@@ -69,6 +82,8 @@
   .wrap{padding-inline:28px}
   .hero{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);align-items:center;gap:48px;padding-top:64px;padding-bottom:40px}
   .cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .priceLayout{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:44px}
+  .priceLayout .productMedia{order:2}
   .features{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:439px){

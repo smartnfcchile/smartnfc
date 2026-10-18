@@ -4,10 +4,11 @@
 // compra (D15). La página no está enlazada desde la portada ni en el sitemap, y sigue fuera de los buscadores
 // hasta que se autorice su publicación.
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import SmartNFCLogo from "../../components/brand/SmartNFCLogo";
 import PersonasFlow from "../../components/personas/PersonasFlow";
+import PersonasFigure from "../../components/personas/PersonasFigure";
+import { PERSONAS_HERO, PERSONAS_OG_ASSET, PERSONAS_PRODUCT_ASSET, PERSONAS_SEGMENT_ASSETS } from "../../content/personas/assets";
 import { formatCLP } from "../../lib/commercial/public-offers";
 import { PERSONAS_LANDING_FEATURES } from "../../content/personas/features";
 import { personasConditions } from "../../lib/personas/quote";
@@ -21,16 +22,19 @@ export const metadata: Metadata = {
   title: { absolute: title },
   description,
   alternates: { canonical: "/personas" },
-  openGraph: { title, description, url: "/personas", type: "website", locale: "es_CL", siteName: "SmartNFC" },
+  openGraph: {
+    title, description, url: "/personas", type: "website", locale: "es_CL", siteName: "SmartNFC",
+    ...(PERSONAS_OG_ASSET ? { images: [{ url: PERSONAS_OG_ASSET.src, width: PERSONAS_OG_ASSET.width, height: PERSONAS_OG_ASSET.height, alt: PERSONAS_OG_ASSET.alt }] } : {}),
+  },
   robots: { index: false, follow: false }, // Fuera de buscadores hasta autorizar la publicación de /personas.
 };
 
-const AUDIENCES = [
-  { t: "Uso personal", d: "Comparte tu WhatsApp y tus redes sin dictar tu número ni deletrear tu usuario." },
-  { t: "Oficios y trabajo independiente", d: "Que te guarden en el momento y puedan ver tus trabajos antes de llamarte." },
-  { t: "Emprendimientos y creadores", d: "Tu catálogo, tu tienda o tus redes, a un toque del teléfono de tus clientes." },
-  { t: "Profesionales", d: "Tu contacto, tu agenda o tu sitio en un perfil ordenado y fácil de guardar." },
-] as const;
+const AUDIENCES: readonly { uso: keyof typeof PERSONAS_SEGMENT_ASSETS; t: string; d: string }[] = [
+  { uso: "personal", t: "Uso personal", d: "Comparte tu WhatsApp y tus redes sin dictar tu número ni deletrear tu usuario." },
+  { uso: "oficio", t: "Oficios y trabajo independiente", d: "Que te guarden en el momento y puedan ver tus trabajos antes de llamarte." },
+  { uso: "emprende", t: "Emprendimientos y creadores", d: "Tu catálogo, tu tienda o tus redes, a un toque del teléfono de tus clientes." },
+  { uso: "profesional", t: "Profesionales", d: "Tu contacto, tu agenda o tu sitio en un perfil ordenado y fácil de guardar." },
+];
 
 const STEPS = [
   { t: "Acercas la tarjeta", d: "En teléfonos con NFC basta acercarla. En el resto, se escanea el código QR con la cámara." },
@@ -54,6 +58,21 @@ const FAQ_ALL = [
 ] as const;
 
 export default function PersonasPage() {
+  const priceBody = (
+    <>
+      <ul className={styles.tiers}>
+        {CONDITIONS.tiers.map(t => (
+          <li key={t.min}><span>{range(t.min, t.max)} {t.min === 1 && t.max === 1 ? "tarjeta" : "tarjetas"}</span><b>{t.unitClp === null ? "Cotización" : `${formatCLP(t.unitClp)} c/u`}</b></li>
+        ))}
+      </ul>
+      <ul className={styles.terms}>
+        <li>{CONDITIONS.shippingNote}</li>
+        <li>Reposición de una tarjeta: {formatCLP(CONDITIONS.replacementClp)}. Tarjeta adicional para tu mismo perfil: {formatCLP(CONDITIONS.additionalClp)}.</li>
+        <li>{PERSONAS_NOT_A_PURCHASE}</li>
+      </ul>
+      <a className={styles.primary} href="#configurador">Arma tu tarjeta</a>
+    </>
+  );
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -80,11 +99,7 @@ export default function PersonasPage() {
             </div>
             <p className={styles.note}>Toma un par de minutos. No pedimos tus datos y nada se guarda mientras respondes.</p>
           </div>
-          <figure className={styles.heroMedia}>
-            <Image src="/images/smartnfc-tap-hero.webp" alt="Persona acercando una tarjeta NFC a un teléfono móvil" width={1600} height={900} priority
-              sizes="(max-width: 899px) 100vw, 50vw" className={styles.heroImage} />
-            <figcaption>Imagen ilustrativa</figcaption>
-          </figure>
+          <PersonasFigure asset={PERSONAS_HERO} priority sizes="(max-width: 899px) 100vw, 50vw" className={styles.heroMedia} imageClassName={styles.heroImage} />
         </section>
 
         <section id="configurador" className={`fl-page ${styles.configurator}`} aria-label="Configurador de tu SmartNFC">
@@ -95,7 +110,12 @@ export default function PersonasPage() {
           <h2 id="para-quien" className={styles.h2}>Para quién es</h2>
           <p className={styles.sectionLead}>El mismo producto para todos: cambia lo que muestras en tu perfil.</p>
           <ul className={styles.cards}>
-            {AUDIENCES.map(a => <li key={a.t}><h3>{a.t}</h3><p>{a.d}</p></li>)}
+            {AUDIENCES.map(a => (
+              <li key={a.t} className={PERSONAS_SEGMENT_ASSETS[a.uso] ? styles.cardWithMedia : undefined}>
+                <PersonasFigure asset={PERSONAS_SEGMENT_ASSETS[a.uso]} sizes="(max-width: 719px) 100vw, (max-width: 899px) 50vw, 260px" className={styles.cardMedia} imageClassName={styles.cardImage} />
+                <h3>{a.t}</h3><p>{a.d}</p>
+              </li>
+            ))}
           </ul>
         </section>
 
@@ -117,17 +137,12 @@ export default function PersonasPage() {
         <section id="precio" className={`${styles.section} ${styles.wrap}`} aria-labelledby="precio-title" tabIndex={-1}>
           <h2 id="precio-title" className={styles.h2}>Precio y condiciones</h2>
           <p className={styles.sectionLead}>Pago único por tarjeta, {CONDITIONS.taxNote}. El precio del tramo se aplica a todas las tarjetas del pedido.</p>
-          <ul className={styles.tiers}>
-            {CONDITIONS.tiers.map(t => (
-              <li key={t.min}><span>{range(t.min, t.max)} {t.min === 1 && t.max === 1 ? "tarjeta" : "tarjetas"}</span><b>{t.unitClp === null ? "Cotización" : `${formatCLP(t.unitClp)} c/u`}</b></li>
-            ))}
-          </ul>
-          <ul className={styles.terms}>
-            <li>{CONDITIONS.shippingNote}</li>
-            <li>Reposición de una tarjeta: {formatCLP(CONDITIONS.replacementClp)}. Tarjeta adicional para tu mismo perfil: {formatCLP(CONDITIONS.additionalClp)}.</li>
-            <li>{PERSONAS_NOT_A_PURCHASE}</li>
-          </ul>
-          <a className={styles.primary} href="#configurador">Arma tu tarjeta</a>
+          {PERSONAS_PRODUCT_ASSET ? (
+            <div className={styles.priceLayout}>
+              <PersonasFigure asset={PERSONAS_PRODUCT_ASSET} sizes="(max-width: 899px) 100vw, 480px" className={styles.productMedia} imageClassName={styles.productImage} />
+              <div>{priceBody}</div>
+            </div>
+          ) : priceBody}
         </section>
 
         <section id="preguntas" className={`${styles.section} ${styles.wrap}`} aria-labelledby="faq-title">

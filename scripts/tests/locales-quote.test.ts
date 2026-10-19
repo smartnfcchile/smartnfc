@@ -104,9 +104,11 @@ test("mensaje: solo lo visible, datos opcionales depurados y enlace al número v
 });
 
 test("número de WhatsApp: el mismo que ya usa el sitio (no es un número nuevo)", () => {
-  for (const file of ["components/HomeLanding.tsx", "app/empresas/page.tsx", "app/page.tsx"]) {
+  for (const file of ["components/HomeLanding.tsx", "app/page.tsx"]) {
     assert.ok(readFileSync(file, "utf8").includes(SALES_WHATSAPP_DIGITS), file);
   }
+  // Desde la nueva landing (19-10-2026), /empresas usa la misma constante en vez de repetir el número.
+  assert.ok(/import \{ SALES_WHATSAPP_DIGITS \} from "..\/..\/content\/locales\/contact"/.test(readFileSync("app/empresas/page.tsx", "utf8")), "app/empresas/page.tsx");
 });
 
 test("consentimiento: alineado con el aviso común, sin afirmar aprobación legal", () => {

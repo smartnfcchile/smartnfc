@@ -3,6 +3,7 @@
 // el único destino es el enlace de WhatsApp que la persona decide abrir.
 import { LOCALES_LABELS } from "../../content/flows/locales";
 import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
+import { PRIVACY_MESSAGE_TAG } from "../../content/legal/privacy";
 import { formatCLP } from "../commercial/public-offers";
 import { SUPPORT_LABELS, type LocalesProposal, type SupportSelection } from "./proposal";
 import type { LocalesQuote } from "./quote";
@@ -50,7 +51,7 @@ export function buildRequestMessage(proposal: LocalesProposal, selection: Suppor
     proposal.notices.some(n => n.id === "google-profile") ? "perfil de Google por crear o verificar" : null,
   ].filter(Boolean);
   if (pending.length) lines.push(`Pendiente: ${pending.join("; ")}`);
-  lines.push("", `Ref: ${REQUEST_REF}`);
+  lines.push("", `Ref: ${REQUEST_REF} · ${PRIVACY_MESSAGE_TAG}`);
   const message = lines.join("\n");
   return message.length > REQUEST_MESSAGE_MAX ? message.slice(0, REQUEST_MESSAGE_MAX - 1) + "…" : message;
 }

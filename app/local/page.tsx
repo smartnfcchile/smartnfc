@@ -9,6 +9,7 @@ import SupportToken from "../../components/locales/SupportToken";
 import { PACK_3_MINI_CLP, PACK_5_MINI_CLP, TAX_NOTE, formatCLP, getPublicOffer, priceOf } from "../../lib/commercial/public-offers";
 import { MAX_POINT_ACTIONS } from "../../lib/local/public-actions";
 import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
+import { PRIVACY_PATH } from "../../content/legal/privacy";
 import styles from "./local.module.css";
 
 const title = "SmartNFC Locales | Puntos NFC y QR para tu negocio";
@@ -163,6 +164,7 @@ export default function LocalPage() {
         <div className={styles.wrap}>
           <span>© 2026 SmartNFC · Valdivia, Chile</span>
           <a href={WHATSAPP} target="_blank" rel="noopener noreferrer">¿Prefieres conversar? Escríbenos por WhatsApp</a>
+          <Link href={PRIVACY_PATH} prefetch={false}>Aviso de privacidad</Link>
         </div>
       </footer>
     </div>

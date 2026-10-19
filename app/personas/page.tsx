@@ -13,6 +13,7 @@ import { formatCLP } from "../../lib/commercial/public-offers";
 import { PERSONAS_LANDING_FEATURES } from "../../content/personas/features";
 import { personasConditions } from "../../lib/personas/quote";
 import { PERSONAS_NOT_A_PURCHASE } from "../../content/personas/consent";
+import { PRIVACY_PATH } from "../../content/legal/privacy";
 import styles from "./personas.module.css";
 
 const title = "SmartNFC Personas | Tu contacto en una tarjeta NFC";
@@ -154,7 +155,7 @@ export default function PersonasPage() {
       </main>
 
       <footer className={styles.footer}>
-        <div className={styles.wrap}><span>© 2026 SmartNFC · Valdivia, Chile</span></div>
+        <div className={`${styles.wrap} ${styles.footerRow}`}><span>© 2026 SmartNFC · Valdivia, Chile</span><Link href={PRIVACY_PATH} prefetch={false}>Aviso de privacidad</Link></div>
       </footer>
     </div>
   );

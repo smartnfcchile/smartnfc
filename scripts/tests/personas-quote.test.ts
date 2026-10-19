@@ -14,6 +14,7 @@ import { PERSONAS_CONSENT, PERSONAS_NOT_A_PURCHASE } from "../../content/persona
 import { PERSONAS_VERIFIED_FEATURES, cardOrderPrice, formatCLP } from "../../lib/commercial/public-offers";
 import { PERSONAS_LANDING_FEATURES } from "../../content/personas/features";
 import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
+import { PRIVACY_MESSAGE_TAG, PRIVACY_NOTICE, PRIVACY_PATH } from "../../content/legal/privacy";
 import PersonasOffer from "../../components/personas/PersonasOffer";
 import PersonasRequest from "../../components/personas/PersonasRequest";
 
@@ -107,7 +108,7 @@ test("mensaje: solo lo elegido o escrito por la persona; nunca los datos de ejem
     "Despacho: según destino, por confirmar.",
     "Pendiente: publicar mis trabajos o catálogo en internet.",
     "Entiendo que es una solicitud, no una compra confirmada.", "",
-    `Ref: ${PERSONAS_REQUEST_REF}`,
+    `Ref: ${PERSONAS_REQUEST_REF} · ${PRIVACY_MESSAGE_TAG}`,
   ].join("\n"));
   const anon = buildPersonasRequestMessage(model({ uso: "oficio", mostrar: ["whatsapp"], estilo: "oscuro", color: "azul", cantidad: 1 }), buildPersonasQuote(model({ uso: "oficio", mostrar: ["whatsapp"], estilo: "oscuro", color: "azul", cantidad: 1 })), C);
   for (const fake of ["Miguel Rojas", "Maestro soldador", "Nombre:", "Ciudad:", "example.com", "0000 0000"]) assert.ok(!anon.includes(fake), fake);
@@ -140,7 +141,9 @@ test("solicitud: consentimiento sin marcar, sin enlace a WhatsApp antes de acept
   assert.ok(html.includes(PERSONAS_NOT_A_PURCHASE));
   assert.ok(html.includes(PERSONAS_CONSENT.label));
   assert.ok(!/<form[^>]*action=/.test(html), "el formulario no envía a ningún servidor");
-  assert.equal(PERSONAS_CONSENT.version, "borrador-2026-10-17");
+  // Desde el 19-10-2026 el consentimiento usa la versión del aviso común de privacidad (antes: borrador-2026-10-17).
+  assert.equal(PERSONAS_CONSENT.version, PRIVACY_NOTICE.version);
+  assert.ok(html.includes(`href="${PRIVACY_PATH}"`), "enlace al aviso de privacidad");
 });
 
 test("restricciones: textos comerciales sin Pro, CRM, permanencia, compra inmediata, Equipo ni Local (D2, D6, D15, D16)", () => {

@@ -7,6 +7,7 @@ import type { Answers } from "../../lib/flow/types";
 import { LOCALES_FLOW } from "../../content/flows/locales";
 import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
 import { REQUEST_CONSENT } from "../../content/locales/consent";
+import { PRIVACY_NOTICE } from "../../content/legal/privacy";
 import { SCENE_ASSETS, SUPPORT_ASSETS } from "../../content/locales/assets";
 import { TAX_NOTE, formatCLP, priceOf } from "../../lib/commercial/public-offers";
 import { buildProposal, initialSupportSelection, type SupportSelection } from "../../lib/locales/proposal";
@@ -108,11 +109,12 @@ test("número de WhatsApp: el mismo que ya usa el sitio (no es un número nuevo)
   }
 });
 
-test("consentimiento: borrador sin afirmar política legal", () => {
+test("consentimiento: alineado con el aviso común, sin afirmar aprobación legal", () => {
   const text = `${REQUEST_CONSENT.label} ${REQUEST_CONSENT.details}`.toLowerCase();
   for (const banned of ["política de privacidad", "términos y condiciones", "ley 21.719", "garantiza"]) assert.ok(!text.includes(banned), banned);
-  assert.match(REQUEST_CONSENT.version, /^borrador-/);
-  assert.ok(text.includes("revisar el mensaje") && text.includes("no es una contratación"));
+  // Desde el 19-10-2026 usa la versión del aviso común (antes: borrador-2026-10-16).
+  assert.equal(REQUEST_CONSENT.version, PRIVACY_NOTICE.version);
+  assert.ok(text.includes("revisarlo antes de enviarlo") && text.includes("no es una contratación"));
 });
 
 // Lee ancho y alto de un WebP (VP8, VP8L o VP8X) sin dependencias.

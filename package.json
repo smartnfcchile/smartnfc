@@ -22,6 +22,7 @@
     "test:commercial": "tsx --test scripts/tests/public-offers.test.ts scripts/tests/public-offers-extras.test.ts",
     "test:entitlements": "tsx --test scripts/tests/entitlements.test.ts",
     "test:flow": "tsx --test scripts/tests/flow-engine.test.ts",
+    "test:privacy": "tsx --test scripts/tests/privacy.test.ts",
     "test:personas": "tsx --test scripts/tests/personas-flow.test.ts scripts/tests/personas-preview.test.ts scripts/tests/personas-quote.test.ts scripts/tests/personas-assets.test.ts",
     "test:card-preview": "tsx --test scripts/tests/card-preview-qr.test.ts",
     "test:locales": "tsx --test scripts/tests/locales-flow.test.ts scripts/tests/locales-quote.test.ts",

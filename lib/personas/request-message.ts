@@ -3,6 +3,7 @@
 // el único destino es el enlace de WhatsApp que la persona decide abrir.
 // Reutiliza (sin modificar) la limpieza de texto y el número comercial verificado de Locales (F3).
 import { PERSONAS_LABELS } from "../../content/flows/personas";
+import { PRIVACY_MESSAGE_TAG } from "../../content/legal/privacy";
 import { formatCLP } from "../commercial/public-offers";
 import { sanitizeField, whatsappRequestUrl } from "../locales/request-message";
 import type { PersonasAnswersModel } from "./answers";
@@ -42,7 +43,7 @@ export function buildPersonasRequestMessage(model: PersonasAnswersModel, quote: 
   lines.push("Despacho: según destino, por confirmar.");
   if (model.notices.some(n => n.id === "content-not-online")) lines.push("Pendiente: publicar mis trabajos o catálogo en internet.");
   lines.push("Entiendo que es una solicitud, no una compra confirmada.");
-  lines.push("", `Ref: ${PERSONAS_REQUEST_REF}`);
+  lines.push("", `Ref: ${PERSONAS_REQUEST_REF} · ${PRIVACY_MESSAGE_TAG}`);
   const message = lines.join("\n");
   return message.length > PERSONAS_MESSAGE_MAX ? message.slice(0, PERSONAS_MESSAGE_MAX - 1) + "…" : message;
 }

@@ -4,6 +4,8 @@
 // vista previa del mensaje y apertura de WhatsApp por decisión de la persona. Sin almacenamiento en servidor:
 // no hay fetch, formularios enviados, cookies ni almacenamiento local; el mensaje solo existe en esta página.
 import { useId, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { PRIVACY_PATH } from "../../content/legal/privacy";
 import { REQUEST_CONSENT } from "../../content/locales/consent";
 import { buildLocalesQuote } from "../../lib/locales/quote";
 import { REQUEST_FIELD_MAX, buildRequestMessage, whatsappRequestUrl } from "../../lib/locales/request-message";
@@ -48,7 +50,7 @@ export default function LocalesRequest({ proposal, selection }: LocalesResultInp
               onChange={e => { setConsent(e.target.checked); if (e.target.checked) setError(false); }} />
             <span>{REQUEST_CONSENT.label}</span>
           </label>
-          <p id={`${id}-consent-details`} className={styles.consentDetails}>{REQUEST_CONSENT.details}</p>
+          <p id={`${id}-consent-details`} className={styles.consentDetails}>{REQUEST_CONSENT.details} <Link href={PRIVACY_PATH} prefetch={false} target="_blank" rel="noopener">Leer el aviso de privacidad<span className="sr-only"> (se abre en una pestaña nueva)</span></Link>.</p>
           <p id={`${id}-error`} className="fl-error" role="alert">{error ? REQUEST_CONSENT.required : ""}</p>
           <button type="submit" className="fl-next">Solicitar mi propuesta</button>
         </form>

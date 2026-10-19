@@ -1,9 +1,12 @@
-// Consentimiento de la solicitud «Solicitar mi tarjeta» (SmartNFC Personas, P3).
-// BORRADOR FUNCIONAL sujeto a revisión legal: no es una política de privacidad ni debe presentarse como tal.
+// Consentimiento de la solicitud «Solicitar mi tarjeta» (SmartNFC Personas).
+// Texto alineado con el aviso común (content/legal/privacy.ts). PENDIENTE DE VALIDACIÓN LEGAL: no ha sido aprobado
+// por un abogado. No afirma que SmartNFC no conserve datos: separa lo que hace la página de lo que llega por WhatsApp.
+import { PRIVACY_MINORS_NOTE, PRIVACY_NOTICE, PRIVACY_PAGE_VS_WHATSAPP, PRIVACY_SENSITIVE_WARNING } from "../legal/privacy";
+
 export const PERSONAS_CONSENT = {
-  version: "borrador-2026-10-17",
-  label: "Acepto que se abra WhatsApp, un servicio de terceros, con un mensaje que incluye el resumen de mi configuración y los datos opcionales que ingresé, para que SmartNFC me contacte por esta solicitud.",
-  details: "Podrás revisar el mensaje antes de abrir WhatsApp y decidir si lo envías. Esta página no guarda tus respuestas ni tus datos.",
+  version: PRIVACY_NOTICE.version,
+  label: "Acepto que SmartNFC SpA reciba por WhatsApp, un servicio de Meta, mi número, el resumen de mi configuración y los datos que ingresé, solo para responder esta solicitud, según el aviso de privacidad.",
+  details: `${PRIVACY_PAGE_VS_WHATSAPP} ${PRIVACY_SENSITIVE_WARNING} ${PRIVACY_MINORS_NOTE}`,
   required: "Para preparar el mensaje, marca la casilla de aceptación.",
 } as const;
 

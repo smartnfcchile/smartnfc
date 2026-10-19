@@ -1,0 +1,58 @@
+// Aviso de privacidad común (19-10-2026) y su uso en las solicitudes de Locales y Personas.
+import "./helpers/css-modules";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PRIVACY_CONTROLLER, PRIVACY_MESSAGE_TAG, PRIVACY_NOTICE, PRIVACY_PATH, PRIVACY_SECTIONS } from "../../content/legal/privacy";
+import { PERSONAS_CONSENT } from "../../content/personas/consent";
+import { REQUEST_CONSENT } from "../../content/locales/consent";
+import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
+import PrivacidadPage, { metadata } from "../../app/privacidad/page";
+
+const all = PRIVACY_SECTIONS.flatMap(s => [s.title, ...(s.paragraphs ?? []), ...(s.items ?? [])]).join("\n");
+
+test("responsable identificado con los datos entregados por el titular", () => {
+  assert.deepEqual(
+    [PRIVACY_CONTROLLER.legalName, PRIVACY_CONTROLLER.rut, PRIVACY_CONTROLLER.email, PRIVACY_CONTROLLER.whatsappDigits],
+    ["SmartNFC SpA", "78.502.112-6", "contacto@smartnfc.cl", SALES_WHATSAPP_DIGITS],
+  );
+  assert.match(PRIVACY_CONTROLLER.address, /Santa Beatriz 170, oficina 903, piso 9, Providencia, Santiago/);
+  for (const v of Object.values(PRIVACY_CONTROLLER)) assert.ok(all.includes(String(v)) || v === SALES_WHATSAPP_DIGITS, String(v));
+});
+
+test("contenido mínimo: datos, finalidad, proveedores, transferencias, conservación, derechos, sensibles y menores", () => {
+  for (const t of ["número de teléfono", "Exclusivamente para responder", "WhatsApp, servicio de Meta", "Vercel", "fuera de Chile",
+    "6 meses desde el último contacto", "acceso, rectificación, supresión u oposición", "datos sensibles", "menores de 18 años",
+    "no se envían a servidores", "exclusivamente su titular", "no es una compra"]) assert.ok(all.includes(t), t);
+  assert.ok(!/CRM|listas de difusión/.test(all) || /No incorporamos/.test(all), "no CRM ni difusión");
+});
+
+test("sin afirmaciones no verificadas: pendiente de validación legal, sin certificaciones ni 'no almacenamos'", () => {
+  assert.match(PRIVACY_NOTICE.status, /pendiente de validación legal/i);
+  for (const banned of [/aprobado por (un )?abogado/i, /certificad/i, /no (almacenamos|guardamos|conservamos) (ningún|tus) datos/i, /cumple (con )?la ley/i, /garantiza/i])
+    assert.ok(!banned.test(all), String(banned));
+});
+
+test("consentimientos de Locales y Personas: versión del aviso, sin afirmar que SmartNFC no conserva datos", () => {
+  for (const c of [PERSONAS_CONSENT, REQUEST_CONSENT]) {
+    const text = `${c.label} ${c.details}`;
+    assert.equal(c.version, PRIVACY_NOTICE.version);
+    assert.ok(text.includes("SmartNFC SpA") && text.includes("Meta") && text.includes("tu número"), text);
+    assert.ok(/conserva según el aviso de privacidad/.test(text));
+    assert.ok(/datos sensibles/.test(text) && /menor de 18 años/.test(text));
+    assert.ok(!/no guarda tus respuestas ni tus datos/.test(text), "texto anterior retirado");
+  }
+  assert.equal(PRIVACY_MESSAGE_TAG, `Aviso de privacidad ${PRIVACY_NOTICE.version}`);
+});
+
+test("página /privacidad: fuera de buscadores, aviso de pendiente legal, todas las secciones con ancla", () => {
+  assert.equal(PRIVACY_PATH, "/privacidad");
+  assert.deepEqual(metadata.robots, { index: false, follow: false });
+  const html = renderToStaticMarkup(createElement(PrivacidadPage));
+  assert.ok(html.includes("Texto pendiente de validación legal."));
+  assert.ok(html.includes(PRIVACY_NOTICE.version));
+  for (const s of PRIVACY_SECTIONS) assert.ok(html.includes(`id="${s.id}"`) && html.includes(`href="#${s.id}"`), s.id);
+  assert.ok(html.includes('href="mailto:contacto@smartnfc.cl"'));
+  assert.ok(!/<script[^>]*src=/.test(html) && !/<form/.test(html), "sin scripts externos ni formularios");
+});

@@ -5,6 +5,8 @@
 // de la persona. Sin almacenamiento ni envío a servidores de SmartNFC: no hay fetch, formularios enviados, cookies
 // ni almacenamiento local; el mensaje solo existe en esta página hasta que la persona abre WhatsApp.
 import { useId, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { PRIVACY_PATH } from "../../content/legal/privacy";
 import { PERSONAS_CONSENT, PERSONAS_NOT_A_PURCHASE } from "../../content/personas/consent";
 import type { PersonasAnswersModel } from "../../lib/personas/answers";
 import type { PersonasConditions, PersonasQuote } from "../../lib/personas/quote";
@@ -50,7 +52,7 @@ export default function PersonasRequest({ model, quote, conditions }: { model: P
               onChange={e => { setConsent(e.target.checked); if (e.target.checked) setError(false); }} />
             <span>{PERSONAS_CONSENT.label}</span>
           </label>
-          <p id={`${id}-consent-details`} className={styles.consentDetails}>{PERSONAS_CONSENT.details}</p>
+          <p id={`${id}-consent-details`} className={styles.consentDetails}>{PERSONAS_CONSENT.details} <Link href={PRIVACY_PATH} prefetch={false} target="_blank" rel="noopener">Leer el aviso de privacidad<span className="sr-only"> (se abre en una pestaña nueva)</span></Link>.</p>
           <p id={`${id}-error`} className="fl-error" role="alert">{error ? PERSONAS_CONSENT.required : ""}</p>
           <button type="submit" className="fl-next">{action}</button>
         </form>

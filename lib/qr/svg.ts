@@ -33,3 +33,25 @@ export function qrSvg(text: string, margin = 2): QrSvg {
   }
   return { size: size + margin * 2, path };
 }
+
+/**
+ * Grupo SVG con el QR escalado a `sidePx` unidades del documento, con su posición. Corrige la exportación vectorial:
+ * el SVG de `qrcode` usa coordenadas de módulos (viewBox 0 0 N N), no de 1200 unidades.
+ */
+export function qrSvgGroup(text: string, x: number, y: number, sidePx: number, dark = "#0F172A", margin = 4): string {
+  const qr = qrSvg(text, margin);
+  const scale = sidePx / qr.size;
+  return `<g transform="translate(${x} ${y}) scale(${scale})" shape-rendering="crispEdges"><rect width="${qr.size}" height="${qr.size}" fill="#ffffff"/><path fill="${dark}" d="${qr.path}"/></g>`;
+}
+
+/** Dibuja el QR en un lienzo 2D, sin servicios externos. `margin` en módulos dentro del cuadrado `side`. */
+export function drawQrOnCanvas(ctx: { fillStyle: string | CanvasGradient | CanvasPattern; fillRect(x: number, y: number, w: number, h: number): void }, text: string, x: number, y: number, side: number, dark = "#0F172A", margin = 2): void {
+  const { size, data } = qrModules(text);
+  const cell = side / (size + margin * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(x, y, side, side);
+  ctx.fillStyle = dark;
+  for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
+    if (data[row * size + col]) ctx.fillRect(x + (col + margin) * cell, y + (row + margin) * cell, Math.ceil(cell), Math.ceil(cell));
+  }
+}

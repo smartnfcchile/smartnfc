@@ -6,6 +6,13 @@ import { SALES_WHATSAPP_DIGITS } from "../locales/contact";
 
 export const PRIVACY_PATH = "/privacidad";
 
+/**
+ * Campos opcionales de datos personales en las solicitudes (nombre, negocio o empresa, ciudad).
+ * Desactivados hasta completar la revisión legal (decisión del 19-10-2026): el mensaje lleva solo la configuración
+ * elegida. Reactivarlos requiere autorización expresa.
+ */
+export const REQUEST_PERSONAL_FIELDS_ENABLED = false;
+
 export const PRIVACY_CONTROLLER = {
   legalName: "SmartNFC SpA",
   rut: "78.502.112-6",

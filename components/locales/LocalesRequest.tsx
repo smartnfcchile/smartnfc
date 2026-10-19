@@ -5,7 +5,7 @@
 // no hay fetch, formularios enviados, cookies ni almacenamiento local; el mensaje solo existe en esta página.
 import { useId, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { PRIVACY_PATH } from "../../content/legal/privacy";
+import { PRIVACY_PATH, REQUEST_PERSONAL_FIELDS_ENABLED } from "../../content/legal/privacy";
 import { REQUEST_CONSENT } from "../../content/locales/consent";
 import { buildLocalesQuote } from "../../lib/locales/quote";
 import { REQUEST_FIELD_MAX, buildRequestMessage, whatsappRequestUrl } from "../../lib/locales/request-message";
@@ -39,12 +39,14 @@ export default function LocalesRequest({ proposal, selection }: LocalesResultInp
 
       {stage === "form" ? (
         <form onSubmit={prepare} noValidate className={styles.requestForm}>
-          <div className={styles.fields}>
-            <label htmlFor={`${id}-business`}>Nombre del negocio <span>(opcional)</span></label>
-            <input id={`${id}-business`} type="text" maxLength={REQUEST_FIELD_MAX} autoComplete="organization" value={businessName} onChange={e => setBusinessName(e.target.value)} />
-            <label htmlFor={`${id}-city`}>Ciudad <span>(opcional)</span></label>
-            <input id={`${id}-city`} type="text" maxLength={REQUEST_FIELD_MAX} autoComplete="address-level2" value={city} onChange={e => setCity(e.target.value)} />
-          </div>
+          {REQUEST_PERSONAL_FIELDS_ENABLED && (
+            <div className={styles.fields}>
+              <label htmlFor={`${id}-business`}>Nombre del negocio <span>(opcional)</span></label>
+              <input id={`${id}-business`} type="text" maxLength={REQUEST_FIELD_MAX} autoComplete="organization" value={businessName} onChange={e => setBusinessName(e.target.value)} />
+              <label htmlFor={`${id}-city`}>Ciudad <span>(opcional)</span></label>
+              <input id={`${id}-city`} type="text" maxLength={REQUEST_FIELD_MAX} autoComplete="address-level2" value={city} onChange={e => setCity(e.target.value)} />
+            </div>
+          )}
           <label className={styles.consent} htmlFor={`${id}-consent`}>
             <input id={`${id}-consent`} type="checkbox" checked={consent} aria-describedby={`${id}-consent-details${error ? ` ${id}-error` : ""}`}
               onChange={e => { setConsent(e.target.checked); if (e.target.checked) setError(false); }} />

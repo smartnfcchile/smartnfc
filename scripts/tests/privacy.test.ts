@@ -57,3 +57,27 @@ test("página /privacidad: fuera de buscadores, aviso de pendiente legal, todas 
   assert.ok(html.includes('href="mailto:contacto@smartnfc.cl"'));
   assert.ok(!/<script[^>]*src=/.test(html) && !/<form/.test(html), "sin scripts externos ni formularios");
 });
+
+test("campos opcionales de datos personales desactivados hasta la revisión legal (Personas, Empresas y Locales)", async () => {
+  const { REQUEST_PERSONAL_FIELDS_ENABLED } = await import("../../content/legal/privacy");
+  assert.equal(REQUEST_PERSONAL_FIELDS_ENABLED, false);
+  const { effectiveAnswers } = await import("../../lib/flow/engine");
+  const { PERSONAS_FLOW } = await import("../../content/flows/personas");
+  const { readPersonasAnswers } = await import("../../lib/personas/answers");
+  const { buildPersonasQuote, personasConditions } = await import("../../lib/personas/quote");
+  const PersonasRequest = (await import("../../components/personas/PersonasRequest")).default;
+  const pm = readPersonasAnswers(effectiveAnswers(PERSONAS_FLOW, { uso: "oficio", mostrar: ["whatsapp"], estilo: "claro", color: "azul", cantidad: 2 }));
+  const ph = renderToStaticMarkup(createElement(PersonasRequest, { model: pm, quote: buildPersonasQuote(pm), conditions: personasConditions() }));
+  const { EMPRESAS_FLOW } = await import("../../content/flows/empresas");
+  const { readEmpresasAnswers } = await import("../../lib/empresas/answers");
+  const { buildEmpresasQuote, empresasConditions } = await import("../../lib/empresas/quote");
+  const EmpresasRequest = (await import("../../components/empresas/EmpresasRequest")).default;
+  const em = readEmpresasAnswers(effectiveAnswers(EMPRESAS_FLOW, { personas: 4, tarjetas: 4, administra: "comercial", control: "FLEXIBLE", rotacion: "baja" }));
+  const eh = renderToStaticMarkup(createElement(EmpresasRequest, { model: em, quote: buildEmpresasQuote(em), conditions: empresasConditions() }));
+  for (const html of [ph, eh]) {
+    assert.ok(!/<input[^>]*type="text"/.test(html), "sin campos de texto");
+    assert.ok(/<input[^>]*type="checkbox"/.test(html) && html.includes('href="/privacidad"'), "consentimiento y aviso se mantienen");
+  }
+  const { readFileSync } = await import("node:fs");
+  assert.ok(readFileSync("components/locales/LocalesRequest.tsx", "utf8").includes("{REQUEST_PERSONAL_FIELDS_ENABLED && ("), "Locales usa la misma desactivación");
+});

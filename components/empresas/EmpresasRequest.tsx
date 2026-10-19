@@ -5,7 +5,7 @@
 // cookies ni almacenamiento local; el mensaje solo existe en esta página.
 import { useId, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { PRIVACY_PATH } from "../../content/legal/privacy";
+import { PRIVACY_PATH, REQUEST_PERSONAL_FIELDS_ENABLED } from "../../content/legal/privacy";
 import { EMPRESAS_CONSENT, EMPRESAS_NOT_A_PURCHASE } from "../../content/empresas/consent";
 import type { EmpresasAnswersModel } from "../../lib/empresas/answers";
 import type { EmpresasConditions, EmpresasQuote } from "../../lib/empresas/quote";
@@ -38,12 +38,14 @@ export default function EmpresasRequest({ model, quote, conditions }: { model: E
       {stage === "form" ? (
         <form onSubmit={prepare} noValidate className={styles.requestForm}>
           <p className={styles.muted}>Prepara un mensaje con esta configuración para enviarlo a SmartNFC por WhatsApp.</p>
-          <div className={styles.fields}>
-            <label htmlFor={`${id}-company`}>Empresa <span>(opcional)</span></label>
-            <input id={`${id}-company`} type="text" maxLength={EMPRESAS_FIELD_MAX} autoComplete="organization" value={company} onChange={e => setCompany(e.target.value)} />
-            <label htmlFor={`${id}-city`}>Ciudad <span>(opcional)</span></label>
-            <input id={`${id}-city`} type="text" maxLength={EMPRESAS_FIELD_MAX} autoComplete="address-level2" value={city} onChange={e => setCity(e.target.value)} />
-          </div>
+          {REQUEST_PERSONAL_FIELDS_ENABLED && (
+            <div className={styles.fields}>
+              <label htmlFor={`${id}-company`}>Empresa <span>(opcional)</span></label>
+              <input id={`${id}-company`} type="text" maxLength={EMPRESAS_FIELD_MAX} autoComplete="organization" value={company} onChange={e => setCompany(e.target.value)} />
+              <label htmlFor={`${id}-city`}>Ciudad <span>(opcional)</span></label>
+              <input id={`${id}-city`} type="text" maxLength={EMPRESAS_FIELD_MAX} autoComplete="address-level2" value={city} onChange={e => setCity(e.target.value)} />
+            </div>
+          )}
           <label className={styles.consent} htmlFor={`${id}-consent`}>
             <input id={`${id}-consent`} type="checkbox" checked={consent} aria-describedby={`${id}-consent-details${error ? ` ${id}-error` : ""}`}
               onChange={e => { setConsent(e.target.checked); if (e.target.checked) setError(false); }} />

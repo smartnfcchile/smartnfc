@@ -133,7 +133,7 @@ test("vista de ejemplo del panel: nombres ficticios y aviso de ejemplo; capacida
   assert.ok(html.includes("Ejemplo") && html.includes("8 de 10") && html.includes("Daniela Soto"));
 });
 
-test("publicación: noindex y fuera del sitemap mientras no se autorice; imágenes pendientes declaradas", async () => {
+test("publicación: noindex y fuera del sitemap mientras no se autorice; espacios de imagen declarados", async () => {
   assert.equal(EMPRESAS_PUBLISHED, false);
   const { metadata } = await import("../../app/empresas/page");
   assert.deepEqual(metadata.robots, { index: false, follow: false });
@@ -154,4 +154,41 @@ test("flujo: recorrido completo llega al resultado con la ramificación de cotiz
   assert.equal(s.current, "result");
   const m = readEmpresasAnswers(effectiveAnswers(EMPRESAS_FLOW, s.answers));
   assert.deepEqual(m.notices.map(n => n.id), ["rotation", "admin-pending"]);
+});
+
+// Lee ancho y alto de un WebP (VP8, VP8L o VP8X) o JPEG sin dependencias.
+function imageSize(file: string): [number, number] {
+  const b = readFileSync(file);
+  if (b[0] === 0xff && b[1] === 0xd8) {
+    let i = 2;
+    while (i < b.length) {
+      const marker = b[i + 1]; const len = b.readUInt16BE(i + 2);
+      if (marker >= 0xc0 && marker <= 0xc3) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)];
+      i += 2 + len;
+    }
+    throw new Error("JPEG sin SOF");
+  }
+  assert.equal(b.toString("ascii", 0, 4), "RIFF"); assert.equal(b.toString("ascii", 8, 12), "WEBP");
+  const chunk = b.toString("ascii", 12, 16);
+  if (chunk === "VP8X") return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+  if (chunk === "VP8 ") return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+  const bits = b.readUInt32LE(21); return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)];
+}
+
+test("imágenes integradas: archivo local, medida exacta del inventario, peso máximo, formato, leyenda y sin duplicados", () => {
+  const srcs = new Set<string>();
+  for (const [key, s] of Object.entries(EMPRESAS_SLOTS)) {
+    assert.ok(s.asset, `${key}: imagen integrada`);
+    const a = s.asset!;
+    assert.equal(a.src, `/images/empresas/${s.file}`, key);
+    const file = `public${a.src}`;
+    assert.deepEqual(imageSize(file), [s.width, s.height], `${key}: medida real`);
+    assert.deepEqual([a.width, a.height], [s.width, s.height], `${key}: medida declarada`);
+    const kb = readFileSync(file).length / 1024;
+    assert.ok(kb <= s.maxKb, `${key}: ${kb.toFixed(1)} KB > ${s.maxKb}`);
+    assert.ok(a.alt.length >= 20, `${key}: alt`);
+    if (key !== "og") assert.equal(a.caption, "Imagen ilustrativa", `${key}: leyenda`);
+    assert.ok(!srcs.has(a.src)); srcs.add(a.src);
+  }
+  assert.ok(EMPRESAS_SLOTS.og.file.endsWith(".jpg"));
 });

@@ -2,10 +2,13 @@
 // Componente de servidor: sin estado, sin scripts propios, sin captura de datos.
 import Image from "next/image";
 import Link from "next/link";
+import { Building2, Store, UserRound } from "lucide-react";
 import SmartNFCLogo from "../brand/SmartNFCLogo";
 import { HOME_FAQ, HOME_SOLUTIONS, HOME_STEPS, HOME_WHATSAPP } from "../../content/home";
 import { PRIVACY_PATH } from "../../content/legal/privacy";
 import styles from "./home.module.css";
+
+const QUICK_ICONS = { personas: UserRound, locales: Store, empresas: Building2 } as const;
 
 export default function HomeSolutions() {
   return (
@@ -15,7 +18,7 @@ export default function HomeSolutions() {
         <div className={styles.headerRow}>
           <Link href="/" className={styles.logo} aria-label="SmartNFC, inicio"><SmartNFCLogo size={28} /></Link>
           <nav aria-label="Principal" className={styles.nav}>
-            {HOME_SOLUTIONS.map(s => <Link key={s.id} href={s.href}>{s.label}</Link>)}
+            {HOME_SOLUTIONS.map(s => <Link key={s.id} href={s.href} className={styles.navSolution}>{s.label}</Link>)}
             <Link href="/login" className={styles.login}>Ingresar</Link>
           </nav>
         </div>
@@ -26,6 +29,13 @@ export default function HomeSolutions() {
           <div className={styles.wrap}>
             <h1 id="home-title" className={styles.h1}>Conecta con un toque. <span>Crece con cada conexión.</span></h1>
             <p className={styles.lead}>Una forma más inteligente de conectar personas, negocios y empresas. Descubre la solución que necesitas.</p>
+            {/* Solo en móvil: accesos directos a las tres soluciones en la primera pantalla. En escritorio, las tarjetas ya se ven completas. */}
+            <nav aria-label="Elige tu solución" className={styles.quick}>
+              {HOME_SOLUTIONS.map(s => {
+                const Icon = QUICK_ICONS[s.id];
+                return <Link key={s.id} href={s.href} className={styles.quickItem} data-solution={s.id}><Icon aria-hidden="true" size={22} strokeWidth={2.2} /><span>{s.label}</span></Link>;
+              })}
+            </nav>
           </div>
         </section>
 

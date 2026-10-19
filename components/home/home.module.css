@@ -6,9 +6,9 @@
 .skip:focus{top:12px}
 
 .header{border-bottom:1px solid #e3e6dc;background:#fbfbf8}
-.headerRow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 16px;width:100%;max-width:1160px;margin:0 auto;padding:8px 16px}
+.headerRow{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:4px 16px;width:100%;max-width:1160px;margin:0 auto;padding:8px 16px}
 .logo{display:inline-flex;align-items:center;min-height:44px}
-.nav{display:flex;flex-wrap:wrap;gap:2px;width:100%;justify-content:space-between}
+.nav{display:flex;gap:4px;width:auto}
 .nav a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 6px;border-radius:10px;color:#2c3746;font-size:14px;font-weight:800;white-space:nowrap}
 @media(min-width:380px){.nav a{padding:0 9px;font-size:14.5px}}
 .nav a:hover{background:#eef0ea}
@@ -83,3 +83,18 @@
   .faq{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
 }
 .arrow{margin-left:8px}
+
+/* Accesos rápidos (solo móvil): tres soluciones visibles en la primera pantalla. */
+.navSolution{display:none!important}
+.quick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:440px;margin:18px auto 0}
+.quickItem{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:76px;padding:10px 6px;border-radius:16px;background:#fff;border:1px solid #dfe3e8;box-shadow:0 8px 20px #08111f0d;color:var(--ink);font-size:14.5px;font-weight:850}
+.quickItem svg{flex:none}
+.quickItem[data-solution="personas"] svg{color:#1d4fd7}
+.quickItem[data-solution="locales"] svg{color:#4d6b00}
+.quickItem[data-solution="empresas"] svg{color:#08111f}
+.quickItem:active{transform:scale(.98)}
+.quickItem:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+@media(min-width:720px){
+  .quick{display:none}
+  .navSolution{display:inline-flex!important}
+}

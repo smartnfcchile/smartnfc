@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // Exportación de tarjetas físicas (19-10-2026): el PNG y el SVG usan la misma matriz QR local que la vista previa.
 // Antes: el PNG pedía el QR a api.qrserver.com y, si fallaba, se descargaba sin QR; el SVG lo escalaba como si
 // midiera 1200 unidades y quedaba de ~5 unidades (ilegible).

@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // Aviso de privacidad común (19-10-2026) y su uso en las solicitudes de Locales y Personas.
 import "./helpers/css-modules";
 import assert from "node:assert/strict";

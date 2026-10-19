@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { activePath, checkFlowDefinition, effectiveAnswers, flowReducer, initialState, nextStep, optionsFor, progress, startStep, validate } from "../../lib/flow/engine";

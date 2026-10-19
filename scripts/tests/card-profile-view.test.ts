@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // P0 Personas: regresión del perfil público real (CardProfileView) y de la vCard.
 // - El perfil público (/c/[slug], isPreview=false) mantiene analítica, acciones con enlace real y vCard.
 // - La vista previa (editor y landings) no monta la analítica ni genera enlaces activos.
@@ -6,7 +7,6 @@
 // componentes que envían eventos) se sustituyen por espías (node:test mock.module) para comprobar si se
 // montan y con qué datos: TrackButton resuelve su destino al hacer clic, por eso se verifica su `href`.
 // No usa base de datos ni red.
-import "./helpers/test-database";
 import { test, mock, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";

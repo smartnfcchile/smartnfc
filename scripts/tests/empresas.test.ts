@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // SmartNFC Empresas (E1): flujo, plan y tarjetas desde el motor comercial, mensaje, consentimiento y restricciones.
 import "./helpers/css-modules";
 import assert from "node:assert/strict";

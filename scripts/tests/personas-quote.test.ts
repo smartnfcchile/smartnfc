@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // P3 SmartNFC Personas: resultado comercial (precios por cardOrderPrice) y solicitud por WhatsApp.
 import "./helpers/css-modules";
 import assert from "node:assert/strict";

@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // P4 SmartNFC Personas: registro de imágenes y espacios de integración.
 // Regla: las imágenes nuevas se generan y aprueban solo en ChatGPT; mientras no llegan, cada espacio es null y la
 // página no cambia. Estas pruebas validan cualquier archivo que se registre: existe, es local, tiene el tamaño

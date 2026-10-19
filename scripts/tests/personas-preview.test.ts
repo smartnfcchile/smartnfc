@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // P2 SmartNFC Personas: datos ficticios de las vistas previas (perfil real y tarjeta física real).
 import assert from "node:assert/strict";
 import { test } from "node:test";

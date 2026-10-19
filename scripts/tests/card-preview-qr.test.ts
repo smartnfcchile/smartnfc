@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // P2 Personas: QR local de CardPreview (vista de la tarjeta física).
 // - Destino: el QR codifica exactamente la URL recibida (la misma que antes se enviaba a api.qrserver.com),
 //   con la corrección de errores de los QR de producción.

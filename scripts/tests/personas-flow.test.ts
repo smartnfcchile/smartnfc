@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 // P1 SmartNFC Personas: árbol de preguntas, ramificación y modelo de respuestas (diseño F1, 17-10-2026).
 import assert from "node:assert/strict";
 import { test } from "node:test";

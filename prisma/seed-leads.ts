@@ -1,3 +1,4 @@
+import "../scripts/lib/seed-guard";
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 

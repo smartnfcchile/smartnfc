@@ -1,3 +1,4 @@
+import "../lib/maintenance-guard";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -52,6 +53,7 @@ async function main() {
     console.log("\n[DRY-RUN] Simulación exitosa. Ningún cambio fue aplicado a la base de datos.");
     console.log("Para aplicar realmente los cambios, ejecuta el comando añadiendo la bandera --apply:");
     console.log(`npx tsx scripts/maintenance/import-physical-nfc-cards.ts ${companyIdArg ? `--company-id=${companyIdArg}` : `--company-slug=${companySlugArg}`} --count=${countArg} --batch=${batchCodeArg} --apply`);
+    console.log("Si el destino es remoto, agrega además --confirm-host=<host de DATABASE_URL>.");
     return;
   }
 

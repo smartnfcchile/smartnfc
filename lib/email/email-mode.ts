@@ -15,14 +15,20 @@ export type EmailModeDecision = { mode: EmailMode; reason: string };
 type Env = Record<string, string | undefined>;
 
 export function resolveEmailMode(env: Env = process.env): EmailModeDecision {
+  // Una variable definida con un valor inesperado (vacío, mayúsculas, otro texto) bloquea.
   const vercelEnv = env.VERCEL_ENV;
-  if (vercelEnv && vercelEnv !== "production") return { mode: "disabled", reason: `entorno Vercel '${vercelEnv}'` };
-  if (env.GITHUB_ACTIONS === "true") return { mode: "disabled", reason: "GitHub Actions" };
+  if (vercelEnv !== undefined && vercelEnv !== "production") return { mode: "disabled", reason: `entorno Vercel '${vercelEnv}'` };
+  const githubActions = env.GITHUB_ACTIONS;
+  if (githubActions !== undefined && githubActions.trim() !== "" && githubActions.trim().toLowerCase() !== "false") {
+    return { mode: "disabled", reason: "GitHub Actions" };
+  }
 
-  const explicit = env.EMAIL_MODE?.trim();
-  if (explicit === "disabled") return { mode: "disabled", reason: "EMAIL_MODE=disabled" };
-  if (explicit === "live") return { mode: "live", reason: "EMAIL_MODE=live" };
-  if (explicit) return { mode: "disabled", reason: "EMAIL_MODE con valor no reconocido" };
+  if (env.EMAIL_MODE !== undefined) {
+    const explicit = env.EMAIL_MODE.trim();
+    if (explicit === "live") return { mode: "live", reason: "EMAIL_MODE=live" };
+    if (explicit === "disabled") return { mode: "disabled", reason: "EMAIL_MODE=disabled" };
+    return { mode: "disabled", reason: explicit ? "EMAIL_MODE con valor no reconocido" : "EMAIL_MODE vacío" };
+  }
 
   if (env.NODE_ENV === "production") return { mode: "live", reason: "producción" };
   return { mode: "disabled", reason: `NODE_ENV '${env.NODE_ENV ?? "sin definir"}'` };

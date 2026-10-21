@@ -9,7 +9,9 @@
 | GitHub Actions (`GITHUB_ACTIONS=true`) | Bloqueado siempre |
 | `EMAIL_MODE=disabled` | Bloqueado (también sirve como interruptor de emergencia en producción) |
 | `EMAIL_MODE=live` | Envía, salvo en preview o GitHub Actions |
-| `EMAIL_MODE` con otro valor | Bloqueado |
+| `EMAIL_MODE` vacío o con otro valor (incluido `LIVE` en mayúsculas) | Bloqueado |
+| `VERCEL_ENV` definido con un valor distinto de `production` (incluido vacío) | Bloqueado |
+| `GITHUB_ACTIONS` con cualquier valor no vacío distinto de `false` | Bloqueado |
 | Desarrollo local (`next dev`) y pruebas sin `EMAIL_MODE` | Bloqueado |
 
 Cuando el envío se bloquea, `sendEmail` devuelve `{ success: false, skipped: true }`: los llamadores muestran o registran el mismo aviso que ante una configuración incompleta (`EMAIL_SEND_FAILED`). El registro no incluye el destinatario.

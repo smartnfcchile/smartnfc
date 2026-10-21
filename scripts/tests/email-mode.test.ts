@@ -22,6 +22,42 @@ test("Modo de correo: producción envía; desarrollo, pruebas, CI y previews no"
     [{ NODE_ENV: "test" }, "disabled"],
     [{}, "disabled"],
     [{ NODE_ENV: "development", EMAIL_MODE: "live" }, "live"],
+    [{ NODE_ENV: "production", EMAIL_MODE: " live " }, "live"],
+  ];
+  for (const [env, expected] of cases) {
+    assert.equal(resolveEmailMode(env).mode, expected, JSON.stringify(env));
+  }
+});
+
+test("Modo de correo: variables ausentes o con valores inesperados nunca habilitan el envío", () => {
+  const unexpected: Array<Record<string, string | undefined>> = [
+    { NODE_ENV: "" },
+    { NODE_ENV: "Production" },
+    { NODE_ENV: "PRODUCTION" },
+    { NODE_ENV: "production " },
+    { NODE_ENV: "production", VERCEL_ENV: "" },
+    { NODE_ENV: "production", VERCEL_ENV: "Production" },
+    { NODE_ENV: "production", VERCEL_ENV: "staging" },
+    { NODE_ENV: "production", GITHUB_ACTIONS: "TRUE" },
+    { NODE_ENV: "production", GITHUB_ACTIONS: "1" },
+    { NODE_ENV: "production", EMAIL_MODE: "" },
+    { NODE_ENV: "production", EMAIL_MODE: "   " },
+    { NODE_ENV: "production", EMAIL_MODE: "LIVE" },
+    { NODE_ENV: "production", EMAIL_MODE: "true" },
+    { NODE_ENV: "production", EMAIL_MODE: "off" },
+    { NODE_ENV: "development", EMAIL_MODE: "Live" },
+  ];
+  for (const env of unexpected) {
+    assert.equal(resolveEmailMode(env).mode, "disabled", JSON.stringify(env));
+  }
+  // GITHUB_ACTIONS="false" (explícito) no bloquea por sí solo.
+  assert.equal(resolveEmailMode({ NODE_ENV: "production", GITHUB_ACTIONS: "false" }).mode, "live");
+});
+
+test("Modo de correo: la matriz base se mantiene", () => {
+  const cases: Array<[Record<string, string | undefined>, "live" | "disabled"]> = [
+    [{ NODE_ENV: "production", VERCEL_ENV: "production" }, "live"],
+    [{}, "disabled"],
   ];
   for (const [env, expected] of cases) {
     assert.equal(resolveEmailMode(env).mode, expected, JSON.stringify(env));

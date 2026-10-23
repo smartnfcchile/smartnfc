@@ -104,9 +104,14 @@ test("mensaje: solo lo visible, datos opcionales depurados y enlace al número v
   assert.ok(buildRequestMessage(multi, initialSupportSelection(multi.points), buildLocalesQuote(multi, initialSupportSelection(multi.points))).includes("(un local de referencia)"));
 });
 
-test("número de WhatsApp: el mismo que ya usa el sitio (no es un número nuevo)", () => {
-  for (const file of ["components/HomeLanding.tsx", "app/page.tsx"]) {
-    assert.ok(readFileSync(file, "utf8").includes(SALES_WHATSAPP_DIGITS), file);
+test("número de WhatsApp: una sola constante comercial para todo el sitio (+56 9 3010 6251 desde el 23-10-2026)", () => {
+  assert.equal(SALES_WHATSAPP_DIGITS, "56930106251");
+  // La portada, el blog y el JSON-LD usan la constante; el número anterior no queda en ninguna página pública.
+  for (const file of ["content/home.ts", "app/blog/[slug]/page.tsx", "lib/seo/structured-data.ts", "app/local/page.tsx"]) {
+    assert.ok(readFileSync(file, "utf8").includes("SALES_WHATSAPP_DIGITS"), file);
+  }
+  for (const file of ["app/page.tsx", "app/blog/[slug]/page.tsx", "content/legal/privacy.ts", "content/home.ts", "app/local/page.tsx", "app/empresas/page.tsx", "app/personas/page.tsx"]) {
+    assert.ok(!/56944891518|4489 1518/.test(readFileSync(file, "utf8")), `${file}: número anterior`);
   }
   // Desde la nueva landing (19-10-2026), /empresas usa la misma constante en vez de repetir el número.
   assert.ok(/import \{ SALES_WHATSAPP_DIGITS \} from "..\/..\/content\/locales\/contact"/.test(readFileSync("app/empresas/page.tsx", "utf8")), "app/empresas/page.tsx");

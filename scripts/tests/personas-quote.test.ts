@@ -129,7 +129,7 @@ test("mensaje: texto libre saneado (sin saltos ni caracteres de control) y largo
 test("WhatsApp: número comercial verificado y mensaje codificado", () => {
   const url = whatsappRequestUrl("Hola & chao ñ\nRef: X");
   assert.equal(url, `https://wa.me/${SALES_WHATSAPP_DIGITS}?text=${encodeURIComponent("Hola & chao ñ\nRef: X")}`);
-  assert.equal(SALES_WHATSAPP_DIGITS, "56944891518");
+  assert.equal(SALES_WHATSAPP_DIGITS, "56930106251"); // número comercial vigente desde el 23-10-2026
 });
 
 test("solicitud: consentimiento sin marcar, sin enlace a WhatsApp antes de aceptar y aviso de no compra (D15)", () => {

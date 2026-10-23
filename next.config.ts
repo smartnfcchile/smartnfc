@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+/** Rutas que nunca deben indexarse. Se rastrean (no están bloqueadas en robots.txt) para que lean el noindex. */
+export const NOINDEX_PATHS = ["/c/:path*", "/l/:path*", "/p/:path*", "/q/:path*", "/t/:path*", "/login", "/activar-cuenta", "/olvide-mi-contrasena", "/restablecer-contrasena"];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
@@ -48,6 +51,8 @@ const nextConfig: NextConfig = {
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
       { source: "/dashboard/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
       { source: "/superadmin/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
+      // Fuera de buscadores: perfiles de clientes, enlaces NFC/QR y autenticación (23-10-2026).
+      ...NOINDEX_PATHS.map(source => ({ source, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] })),
     ];
   },
 };

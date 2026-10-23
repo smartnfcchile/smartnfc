@@ -14,6 +14,9 @@ import { PERSONAS_LANDING_FEATURES } from "../../content/personas/features";
 import { personasConditions } from "../../lib/personas/quote";
 import { PERSONAS_NOT_A_PURCHASE } from "../../content/personas/consent";
 import { PRIVACY_PATH } from "../../content/legal/privacy";
+import JsonLd from "../../components/seo/JsonLd";
+import SocialLinks from "../../components/brand/SocialLinks";
+import { faqSchema, graph, organizationSchema, serviceSchema } from "../../lib/seo/structured-data";
 import styles from "./personas.module.css";
 
 const title = "SmartNFC Personas | Tu contacto en una tarjeta NFC";
@@ -52,6 +55,7 @@ const FAQ = [
 ] as const;
 
 const CONDITIONS = personasConditions();
+const PRICED = CONDITIONS.tiers.filter((t): t is typeof t & { unitClp: number } => t.unitClp !== null);
 const range = (min: number, max: number | null) => (max === null ? `${min} o más` : `${min} a ${max}`);
 const FAQ_ALL = [
   ...FAQ,
@@ -76,6 +80,8 @@ export default function PersonasPage() {
   );
   return (
     <div className={styles.page}>
+      <JsonLd data={graph(organizationSchema(), serviceSchema({ path: "/personas", name: "SmartNFC Personas", description, serviceType: "Tarjeta NFC con perfil digital",
+        aggregate: { low: Math.min(...PRICED.map(t => t.unitClp)), high: Math.max(...PRICED.map(t => t.unitClp)) } }), faqSchema(FAQ_ALL))} />
       <header className={styles.header}>
         <div className={styles.wrap}>
           <Link href="/" className={styles.logo} aria-label="SmartNFC, ir al inicio"><SmartNFCLogo size={26} /></Link>
@@ -155,7 +161,7 @@ export default function PersonasPage() {
       </main>
 
       <footer className={styles.footer}>
-        <div className={`${styles.wrap} ${styles.footerRow}`}><span>© 2026 SmartNFC · Valdivia, Chile</span><Link href={PRIVACY_PATH} prefetch={false}>Aviso de privacidad</Link></div>
+        <div className={`${styles.wrap} ${styles.footerRow}`}><span>© 2026 SmartNFC · Valdivia, Chile</span><Link href={PRIVACY_PATH} prefetch={false}>Aviso de privacidad</Link><SocialLinks /></div>
       </footer>
     </div>
   );

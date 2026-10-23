@@ -18,7 +18,7 @@ export const PRIVACY_CONTROLLER = {
   rut: "78.502.112-6",
   address: "Santa Beatriz 170, oficina 903, piso 9, Providencia, Santiago, Chile",
   email: "contacto@smartnfc.cl",
-  whatsappDisplay: "+56 9 4489 1518",
+  whatsappDisplay: "+56 9 3010 6251",
   whatsappDigits: SALES_WHATSAPP_DIGITS,
 } as const;
 

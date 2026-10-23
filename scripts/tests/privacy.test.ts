@@ -81,3 +81,33 @@ test("campos opcionales de datos personales desactivados hasta la revisión lega
   const { readFileSync } = await import("node:fs");
   assert.ok(readFileSync("components/locales/LocalesRequest.tsx", "utf8").includes("{REQUEST_PERSONAL_FIELDS_ENABLED && ("), "Locales usa la misma desactivación");
 });
+
+test("SEO: redes oficiales, Organization con sameAs y correo único, y noindex en perfiles de clientes y autenticación", async () => {
+  const { SOCIAL_LINKS, SOCIAL_URLS } = await import("../../content/social");
+  assert.deepEqual(SOCIAL_LINKS.map(s => s.href), [
+    "https://www.instagram.com/smartnfc_oficial/", "https://www.facebook.com/profile.php?id=61588700696550",
+    "https://www.tiktok.com/@smartnfc.cl", "https://www.linkedin.com/company/smartnfc-chile-spa/", "https://www.youtube.com/@SmartNFCChile",
+  ]);
+  for (const s of SOCIAL_LINKS) assert.ok(/^M[\d.\s-]/.test(s.path) && s.path.length > 100, `${s.id}: ícono`);
+  const { organizationSchema, faqSchema, serviceSchema } = await import("../../lib/seo/structured-data");
+  const org = organizationSchema();
+  assert.deepEqual(org.sameAs, [...SOCIAL_URLS]);
+  assert.equal(org.email, "contacto@smartnfc.cl");
+  assert.equal(org.telephone, "+56930106251");
+  assert.equal(faqSchema([["¿P?", "R."]]).mainEntity[0].acceptedAnswer.text, "R.");
+  const svc = serviceSchema({ path: "/x", name: "N", description: "D", serviceType: "T", offers: [{ name: "Plan", price: 100, unit: "mes" }] });
+  assert.equal((svc as { provider: { "@id": string } }).provider["@id"], "https://www.smartnfc.cl/#organization");
+  const SocialLinks = (await import("../../components/brand/SocialLinks")).default;
+  const html = renderToStaticMarkup(createElement(SocialLinks));
+  assert.equal((html.match(/target="_blank" rel="noopener noreferrer"/g) ?? []).length, 5);
+  assert.ok(html.includes('aria-label="Instagram (se abre en una pestaña nueva)"'));
+  const config = (await import("../../next.config")).default as { headers: () => Promise<{ source: string; headers: { key: string; value: string }[] }[]> };
+  const rules = await config.headers();
+  for (const p of ["/c/:path*", "/login", "/activar-cuenta", "/olvide-mi-contrasena", "/restablecer-contrasena"])
+    assert.ok(rules.some(r => r.source === p && r.headers.some(h => h.key === "X-Robots-Tag" && h.value.startsWith("noindex"))), p);
+  const robots = (await import("../../app/robots")).default();
+  const rule = Array.isArray(robots.rules) ? robots.rules[0] : robots.rules;
+  assert.deepEqual(rule.disallow, ["/api/", "/dashboard/", "/superadmin/"]);
+  const sitemap = (await import("../../app/sitemap")).default().map(e => e.url);
+  for (const hidden of ["/personas", "/empresas", "/privacidad"]) assert.ok(!sitemap.some(u => u.endsWith(hidden)), hidden);
+});

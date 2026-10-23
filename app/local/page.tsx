@@ -10,6 +10,9 @@ import { PACK_3_MINI_CLP, PACK_5_MINI_CLP, TAX_NOTE, formatCLP, getPublicOffer, 
 import { MAX_POINT_ACTIONS } from "../../lib/local/public-actions";
 import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
 import { PRIVACY_PATH } from "../../content/legal/privacy";
+import JsonLd from "../../components/seo/JsonLd";
+import SocialLinks from "../../components/brand/SocialLinks";
+import { faqSchema, graph, organizationSchema, serviceSchema } from "../../lib/seo/structured-data";
 import styles from "./local.module.css";
 
 const title = "SmartNFC Locales | Puntos NFC y QR para tu negocio";
@@ -19,7 +22,8 @@ export const metadata: Metadata = {
   title: { absolute: title },
   description,
   alternates: { canonical: "/local" },
-  openGraph: { title, description, url: "/local", type: "website", locale: "es_CL", siteName: "SmartNFC" },
+  openGraph: { title, description, url: "/local", type: "website", locale: "es_CL", siteName: "SmartNFC",
+    images: [{ url: "/images/locales/local-og.jpg", width: 1200, height: 630, alt: "Comedor de un restaurante de ejemplo con puntos SmartNFC Locales" }] },
 };
 
 const WHATSAPP = `https://wa.me/${SALES_WHATSAPP_DIGITS}?text=${encodeURIComponent("Hola, quiero información sobre SmartNFC para mi local.")}`;
@@ -61,6 +65,13 @@ export default function LocalPage() {
 
   return (
     <div className={styles.page}>
+      <JsonLd data={graph(organizationSchema(), serviceSchema({ path: "/local", name: "SmartNFC Locales", description, serviceType: "Puntos NFC y QR para negocios",
+        offers: [
+          { name: "Soporte Mini", price: priceOf("LOCAL_MINI", "one_time")! },
+          { name: "Soporte Standard", price: priceOf("LOCAL_STANDARD", "one_time")! },
+          { name: "Soporte XL", price: priceOf("LOCAL_XL", "one_time")! },
+          { name: "Local Pro", price: priceOf("LOCAL_PRO", "monthly")!, unit: "mes" },
+        ] }), faqSchema(FAQ))} />
       <header className={styles.header}>
         <div className={styles.wrap}>
           <Link href="/" className={styles.logo} aria-label="SmartNFC, ir al inicio"><SmartNFCLogo size={26} /></Link>
@@ -165,6 +176,7 @@ export default function LocalPage() {
           <span>© 2026 SmartNFC · Valdivia, Chile</span>
           <a href={WHATSAPP} target="_blank" rel="noopener noreferrer">¿Prefieres conversar? Escríbenos por WhatsApp</a>
           <Link href={PRIVACY_PATH} prefetch={false}>Aviso de privacidad</Link>
+          <SocialLinks />
         </div>
       </footer>
     </div>

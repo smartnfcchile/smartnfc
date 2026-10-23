@@ -1,5 +1,4 @@
-// Número comercial de WhatsApp para las solicitudes de Locales.
-// Verificado el 16-10-2026: es el mismo número que usa hoy todo el sitio (app/page.tsx telephone del JSON-LD
-// de la organización, HomeLanding, /empresas (la antigua QuoteCalculator, hoy reemplazada), /blog y el sitio publicado www.smartnfc.cl),
-// y el valor por defecto del antiguo NEXT_PUBLIC_SALES_WHATSAPP (retirado en 845ccc9). No es un número nuevo.
-export const SALES_WHATSAPP_DIGITS = "56944891518";
+// Número comercial único de WhatsApp de SmartNFC: lo usan Locales, Personas, Empresas, la portada, el blog, el aviso
+// de privacidad y el JSON-LD de la organización. Desde el 23-10-2026: +56 9 3010 6251 (antes +56 9 4489 1518).
+// Los mensajes precargados siguen diferenciados por línea (Locales, Personas, Empresas).
+export const SALES_WHATSAPP_DIGITS = "56930106251";

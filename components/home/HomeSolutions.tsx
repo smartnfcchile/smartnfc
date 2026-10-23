@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Building2, Store, UserRound } from "lucide-react";
 import SmartNFCLogo from "../brand/SmartNFCLogo";
+import SocialLinks from "../brand/SocialLinks";
 import { HOME_FAQ, HOME_SOLUTIONS, HOME_STEPS, HOME_WHATSAPP } from "../../content/home";
 import { PRIVACY_PATH } from "../../content/legal/privacy";
 import styles from "./home.module.css";
@@ -80,6 +81,7 @@ export default function HomeSolutions() {
           <div>
             <SmartNFCLogo size={26} />
             <p>Conecta personas, negocios y empresas con un toque.</p>
+            <SocialLinks className={styles.social} />
           </div>
           <nav aria-label="Soluciones" className={styles.footerNav}>
             <b>Soluciones</b>

@@ -234,3 +234,8 @@ html { scroll-behavior: smooth; }
   .fl-dir-forward,.fl-dir-back{animation:none}
   .fl-progress i,.fl-option,.fl-next{transition:none}
 }
+
+/* Redes sociales en los pies de página (components/brand/SocialLinks.tsx). */
+.smartnfc-social{transition:background .15s}
+.smartnfc-social:hover{background:#08111f12}
+.smartnfc-social:focus-visible{outline:3px solid #246bfd;outline-offset:2px}

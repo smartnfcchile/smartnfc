@@ -17,6 +17,9 @@ import { PRIVACY_PATH } from "../../content/legal/privacy";
 import { SALES_WHATSAPP_DIGITS } from "../../content/locales/contact";
 import { formatCLP } from "../../lib/commercial/public-offers";
 import { empresasConditions } from "../../lib/empresas/quote";
+import JsonLd from "../../components/seo/JsonLd";
+import SocialLinks from "../../components/brand/SocialLinks";
+import { faqSchema, graph, organizationSchema, serviceSchema } from "../../lib/seo/structured-data";
 import styles from "./empresas.module.css";
 
 const title = "SmartNFC Empresas | Identidad digital y tarjetas NFC para tu equipo";
@@ -73,6 +76,8 @@ const FAQ: readonly [string, string][] = [
 export default function EmpresasPage() {
   return (
     <div className={styles.page}>
+      <JsonLd data={graph(organizationSchema(), serviceSchema({ path: "/empresas", name: "SmartNFC Empresas", description, serviceType: "Administración de perfiles digitales y tarjetas NFC para equipos",
+        offers: C.plans.filter(p => p.monthlyClp !== null).map(p => ({ name: p.name, price: p.monthlyClp!, unit: "mes" })) }), faqSchema(FAQ))} />
       <a href="#contenido" className={styles.skip}>Saltar al contenido</a>
       <header className={styles.header}>
         <div className={styles.wrap}>
@@ -212,7 +217,7 @@ export default function EmpresasPage() {
       </main>
 
       <footer className={styles.footer}>
-        <div className={`${styles.wrap} ${styles.footerRow}`}><span>© 2026 SmartNFC · Valdivia, Chile</span><Link href={PRIVACY_PATH} prefetch={false}>Aviso de privacidad</Link></div>
+        <div className={`${styles.wrap} ${styles.footerRow}`}><span>© 2026 SmartNFC · Valdivia, Chile</span><Link href={PRIVACY_PATH} prefetch={false}>Aviso de privacidad</Link><SocialLinks /></div>
       </footer>
     </div>
   );

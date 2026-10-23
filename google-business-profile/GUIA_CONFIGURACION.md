@@ -7,7 +7,7 @@
 - Dirección: usar la dirección real solo para verificación y ocultarla al público
 - Categoría principal recomendada: Empresa de software
 - Categorías secundarias, solo si Google las ofrece: Proveedor de productos promocionales; Servicio de marketing por Internet; Consultora de administración empresarial
-- Teléfono: +56 9 4489 1518
+- Teléfono: +56 9 3010 6251
 - Sitio web: https://www.smartnfc.cl/
 - Horario sugerido: lunes a viernes, 09:00–18:00
 - Atención: con cita previa
@@ -130,7 +130,7 @@ Imagen: 03-solucion-equipos.png
 ¿Quieres conocer SmartNFC aplicado a tu empresa? Coordinamos demostraciones para revisar perfiles digitales, tarjetas NFC, administración de equipos y captura de contactos. Atención en terreno desde Valdivia y sesiones remotas para empresas de otras regiones.
 
 Botón: Contactar
-Enlace: https://wa.me/56944891518?text=Hola%2C%20quiero%20una%20demostraci%C3%B3n%20de%20SmartNFC.
+Enlace: https://wa.me/56930106251?text=Hola%2C%20quiero%20una%20demostraci%C3%B3n%20de%20SmartNFC.
 Imagen: 01-portada-smartnfc.png
 
 ## 7. Uso de las imágenes

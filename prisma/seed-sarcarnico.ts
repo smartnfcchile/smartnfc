@@ -1,3 +1,4 @@
+import "../scripts/lib/seed-guard";
 import { PrismaClient, LocalCampaignStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -5,19 +6,30 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Iniciando seed de campaña de demostración 'Sarcárnico'...");
 
-  // 1. Resolver o crear una empresa demo
-  let company = await prisma.company.findFirst();
+  // 1. Empresa explícita: nunca se elige "la primera" empresa de la base.
+  //    Uso: npx tsx prisma/seed-sarcarnico.ts --company=<slug>
+  //    Con --create-company se crea una empresa demo con ese slug si no existe.
+  const args = process.argv.slice(2);
+  const companySlug = args.find((a) => a.startsWith("--company="))?.slice("--company=".length).trim();
+  if (!companySlug) {
+    throw new Error("Indica la empresa destino con --company=<slug>. El seed no elige empresas automáticamente.");
+  }
+  let company = await prisma.company.findUnique({ where: { slug: companySlug } });
   if (!company) {
+    if (!args.includes("--create-company")) {
+      throw new Error(`No existe la empresa '${companySlug}'. Usa --create-company para crear una empresa demo con ese slug.`);
+    }
     company = await prisma.company.create({
       data: {
         name: "Empresa Demo Sarcárnico",
+        slug: companySlug,
         isActive: true,
         plan: "ENTERPRISE"
       }
     });
     console.log("✅ Creada Empresa Demo:", company.name);
   } else {
-    console.log("✅ Reutilizando Empresa existente para la campaña demo:", company.name);
+    console.log("✅ Usando la empresa indicada:", company.name);
   }
 
   // 2. Crear la campaña de demostración en estado DRAFT de forma idempotente

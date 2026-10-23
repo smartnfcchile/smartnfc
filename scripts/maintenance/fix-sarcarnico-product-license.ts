@@ -1,3 +1,4 @@
+import "../lib/maintenance-guard";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

@@ -227,6 +227,9 @@ Las pruebas de base de datos deben usar PostgreSQL desechable.
 
 No ejecutar scripts historicos peligrosos contra una base real.
 
+Seeds (`prisma/seed*.ts`) y utilidades locales solo se ejecutan contra PostgreSQL local; el `seed-guard` lo impone.
+Ningun agente ejecuta scripts de mantenimiento con `--apply` ni usa `--confirm-host` sin autorizacion expresa del usuario para ese destino. Ver `docs/db-target-guards.md`.
+
 No modificar una prueba solamente para hacerla verde sin demostrar que su expectativa era incorrecta.
 
 Para cambios de UI o autorizacion realizar QA funcional cuando corresponda, incluyendo escritorio, movil, navegacion, acceso directo por URL, APIs, server actions, estados activo/inactivo, persistencia, reactivacion y limites.

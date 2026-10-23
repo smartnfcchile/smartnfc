@@ -46,7 +46,7 @@ Estrategia aprobada: **migración aditiva → despliegue del código nuevo → r
 
 ## 7. SWEEP APPLY
 
-- [ ] Ejecutar `npm run sweep:local-location -- --apply` contra el entorno objetivo, con la misma revisión explícita del destino.
+- [ ] Ejecutar `npm run sweep:local-location -- --apply --confirm-host=<host>` contra el entorno objetivo, con la misma revisión explícita del destino. `<host>` es el host que el dry-run mostró en `[maintenance-guard] Destino`, escrito a mano; sin esa confirmación exacta el script se niega a escribir en un servidor remoto (ver `docs/db-target-guards.md`).
 - [ ] Confirmar en la salida que "Campañas huérfanas restantes: 0".
 - [ ] El sweep es idempotente (ver Escenario E) — no hay urgencia ni riesgo en volver a ejecutarlo si hay dudas sobre si corrió correctamente.
 
@@ -97,7 +97,7 @@ El schema ya quedó aplicado y es compatible con el código viejo (confirmado en
 
 ### C. Deploy correcto pero falla el sweep
 
-El código nuevo ya está sirviendo tráfico con normalidad. Una campaña huérfana (si la hay) queda en el estado descrito en la sección D del informe H-4: no se pierde ningún dato, los puntos ya existentes de esa campaña siguen resolviendo en público sin problema, y el único efecto es que esa campaña específica no puede recibir puntos nuevos hasta que se reconcilie (falla cerrado, no abierto). No es bloqueante. Acción: reintentar `npm run sweep:local-location -- --apply` cuando se pueda, sin presión de tiempo. Mientras tanto, un administrador de la empresa afectada puede reasignar la campaña manualmente desde `/dashboard/local/locales` si lo necesita con urgencia, sin depender del sweep.
+El código nuevo ya está sirviendo tráfico con normalidad. Una campaña huérfana (si la hay) queda en el estado descrito en la sección D del informe H-4: no se pierde ningún dato, los puntos ya existentes de esa campaña siguen resolviendo en público sin problema, y el único efecto es que esa campaña específica no puede recibir puntos nuevos hasta que se reconcilie (falla cerrado, no abierto). No es bloqueante. Acción: reintentar `npm run sweep:local-location -- --apply --confirm-host=<host>` cuando se pueda, sin presión de tiempo. Mientras tanto, un administrador de la empresa afectada puede reasignar la campaña manualmente desde `/dashboard/local/locales` si lo necesita con urgencia, sin depender del sweep.
 
 ### D. Aparecen campañas huérfanas
 
@@ -124,7 +124,7 @@ npm run test:security
 npx prisma migrate deploy
 # ... despliegue de la aplicación según la plataforma real usada ...
 npm run sweep:local-location                 # dry-run, comportamiento por defecto
-npm run sweep:local-location -- --apply      # aplica la reconciliación
+npm run sweep:local-location -- --apply --confirm-host=<host>   # aplica la reconciliación (host escrito a mano)
 ```
 
 ## Qué falta antes del despliegue real (H-4 no lo ejecuta)

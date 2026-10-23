@@ -19,6 +19,7 @@
 //
 // Dry-run is the default. Nothing is written unless --apply is passed explicitly.
 
+import "../lib/maintenance-guard";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

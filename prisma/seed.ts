@@ -1,6 +1,7 @@
+import "../scripts/lib/seed-guard";
 import { PrismaClient, PlanType, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
+import { DEMO_USER_EMAIL, decideSuperadminSeed, seedPassword } from "../scripts/lib/seed-policy";
 import { PHYSICAL_CARD_TEMPLATES, TEMPLATE_EDITABLE_FIELDS, makeTemplateSide } from "../lib/physical-card/templates";
 
 const prisma = new PrismaClient();
@@ -31,44 +32,55 @@ async function main() {
     },
   });
 
-  const passwordHash = await bcrypt.hash("Agustin1234", 10);
-
-  const user = await prisma.user.upsert({
-    where: { email: "agustin@demo.cl" },
-    update: {},
-    create: {
-      name: "Agustín",
-      email: "agustin@demo.cl",
-      password: passwordHash,
-      role: UserRole.COMPANY_OWNER,
-      companyId: company.id,
-    },
-  });
-
-  // Promocionar al superadministrador si está configurado en el env
-  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || process.env.SEED_SUPERADMIN_EMAIL;
-  const superAdminPassword = process.env.SEED_SUPERADMIN_PASSWORD;
-  if (superAdminEmail) {
-    console.log(`Verificando/Creando superadministrador con email: ${superAdminEmail}`);
-    const rawPassword = superAdminPassword || crypto.randomBytes(18).toString("hex");
-    const superAdminPasswordHash = await bcrypt.hash(rawPassword, 10);
-    await prisma.user.upsert({
-      where: { email: superAdminEmail.trim().toLowerCase() },
-      update: {
-        role: UserRole.SUPERADMIN,
-        isActive: true,
-        ...(superAdminPassword ? { password: superAdminPasswordHash } : {}),
-      },
-      create: {
-        name: "Super Administrador",
-        email: superAdminEmail.trim().toLowerCase(),
-        password: superAdminPasswordHash,
-        role: UserRole.SUPERADMIN,
-        isActive: true,
+  // Usuario demo local: sin contraseña fija. Se usa SEED_DEMO_PASSWORD o una aleatoria que se
+  // muestra una sola vez en esta consola local. Si ya existe, no se modifica.
+  let user = await prisma.user.findUnique({ where: { email: DEMO_USER_EMAIL } });
+  if (!user) {
+    const demoPassword = seedPassword(process.env.SEED_DEMO_PASSWORD);
+    user = await prisma.user.create({
+      data: {
+        name: "Usuario Demo",
+        email: DEMO_USER_EMAIL,
+        password: await bcrypt.hash(demoPassword.value, 10),
+        role: UserRole.COMPANY_OWNER,
         companyId: company.id,
       },
     });
-    console.log(`✅ Superadministrador configurado con éxito.`);
+    console.log(`Usuario demo creado: ${DEMO_USER_EMAIL}`);
+    if (demoPassword.generated) console.log(`Contraseña generada (solo base local, no se vuelve a mostrar): ${demoPassword.value}`);
+  }
+
+  // Superadministrador local opcional. El seed nunca promueve una cuenta existente con otro rol.
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || process.env.SEED_SUPERADMIN_EMAIL)?.trim().toLowerCase();
+  if (superAdminEmail) {
+    const existing = await prisma.user.findUnique({ where: { email: superAdminEmail }, select: { id: true, role: true } });
+    const decision = decideSuperadminSeed(existing, Boolean(process.env.SEED_SUPERADMIN_PASSWORD?.trim()));
+    if (decision.action === "create") {
+      const password = seedPassword(process.env.SEED_SUPERADMIN_PASSWORD);
+      await prisma.user.create({
+        data: {
+          name: "Super Administrador",
+          email: superAdminEmail,
+          password: await bcrypt.hash(password.value, 10),
+          role: UserRole.SUPERADMIN,
+          isActive: true,
+          companyId: company.id,
+        },
+      });
+      console.log("Superadministrador local creado.");
+      if (password.generated) console.log(`Contraseña generada (solo base local, no se vuelve a mostrar): ${password.value}`);
+    } else if (decision.action === "refresh-existing-superadmin") {
+      await prisma.user.update({
+        where: { id: existing!.id },
+        data: {
+          isActive: true,
+          ...(decision.updatePassword ? { password: await bcrypt.hash(process.env.SEED_SUPERADMIN_PASSWORD!.trim(), 10) } : {}),
+        },
+      });
+      console.log("Superadministrador local existente verificado.");
+    } else {
+      console.warn(`Superadministrador NO configurado: ${decision.reason}.`);
+    }
   }
 
   await prisma.card.upsert({
@@ -88,7 +100,7 @@ async function main() {
       companyName: "NFC Smart Cards Pro",
       bio: "Tarjetas digitales inteligentes con NFC, QR dinámico, captura de contactos y métricas de interacción en tiempo real.",
       location: "Valdivia, Chile",
-      email: "agustin@demo.cl",
+      email: DEMO_USER_EMAIL,
       phone: "+56912345678",
       whatsapp: "56912345678",
       linkedin: "https://www.linkedin.com",

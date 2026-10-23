@@ -109,5 +109,13 @@ test("SEO: redes oficiales, Organization con sameAs y correo único, y noindex e
   const rule = Array.isArray(robots.rules) ? robots.rules[0] : robots.rules;
   assert.deepEqual(rule.disallow, ["/api/", "/dashboard/", "/superadmin/"]);
   const sitemap = (await import("../../app/sitemap")).default().map(e => e.url);
-  for (const hidden of ["/personas", "/empresas", "/privacidad"]) assert.ok(!sitemap.some(u => u.endsWith(hidden)), hidden);
+  // Desde el 23-10-2026 Personas y Empresas son indexables; /privacidad sigue fuera hasta la validación legal.
+  for (const listed of ["/", "/local", "/personas", "/empresas", "/blog"]) assert.ok(sitemap.includes(`https://www.smartnfc.cl${listed === "/" ? "/" : listed}`), listed);
+  assert.ok(!sitemap.some(u => u.endsWith("/privacidad") || u.includes("/c/") || u.includes("/login")), "rutas privadas fuera del sitemap");
+  const personas = (await import("../../app/personas/page")).metadata;
+  assert.deepEqual(personas.robots, { index: true, follow: true });
+  assert.deepEqual(personas.alternates, { canonical: "/personas" });
+  assert.equal((personas.twitter as { card?: string })?.card, "summary_large_image");
+  const priv = (await import("../../app/privacidad/page")).metadata;
+  assert.deepEqual(priv.robots, { index: false, follow: false });
 });

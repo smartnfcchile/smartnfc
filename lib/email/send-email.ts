@@ -1,4 +1,5 @@
 import { resend } from "./resend";
+import { resolveEmailMode } from "./email-mode";
 import React from "react";
 import { render } from "@react-email/render";
 
@@ -9,6 +10,15 @@ interface SendEmailParams {
 }
 
 export async function sendEmail({ to, subject, react }: SendEmailParams) {
+  // Fuera de producción no se envían correos reales (pruebas, CI, previews, desarrollo).
+  // Se devuelve el mismo contrato que una configuración incompleta para que los llamadores
+  // registren el aviso habitual sin cambiar su flujo. No se registra el destinatario.
+  const emailMode = resolveEmailMode();
+  if (emailMode.mode !== "live") {
+    console.warn(`[sendEmail] Envío bloqueado en este entorno (${emailMode.reason}).`);
+    return { success: false, skipped: true, error: `Envío de correo deshabilitado: ${emailMode.reason}` };
+  }
+
   // 4. Verificar configuración antes de intentar enviar (Requisito 4)
   const resendApiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;

@@ -26,6 +26,7 @@
     "test:empresas": "tsx --test scripts/tests/empresas.test.ts",
     "test:personas": "tsx --test scripts/tests/personas-flow.test.ts scripts/tests/personas-preview.test.ts scripts/tests/personas-quote.test.ts scripts/tests/personas-assets.test.ts",
     "test:card-preview": "tsx --test scripts/tests/card-preview-qr.test.ts scripts/tests/physical-export-qr.test.ts",
+    "test:utils": "tsx --test scripts/tests/vcf.test.ts scripts/tests/physical-card.test.ts",
     "test:locales": "tsx --test scripts/tests/locales-flow.test.ts scripts/tests/locales-quote.test.ts",
     "test:entitlements:integration": "tsx --test --test-concurrency=1 scripts/tests/entitlements-integration.test.ts scripts/tests/entitlements-offboarding.test.ts scripts/tests/entitlements-profile-rights.test.ts scripts/tests/entitlements-backfill.test.ts",
     "sweep:local-location": "tsx scripts/maintenance/backfill-local-location-orphans.ts",

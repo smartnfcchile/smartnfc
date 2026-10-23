@@ -1,0 +1,113 @@
+name: SmartNFC Unit tests, profile integration & build
+
+# Ejecuta en cada PR las suites deterministas que antes no corrían en CI y valida `next build`.
+#
+# Seguridad:
+# - No usa secretos del repositorio. No hay claves de Resend, Blob, Neon ni Vercel en este job.
+# - La única base de datos es el servicio efímero `postgres:16`, creado y descartado por el job.
+# - GITHUB_ACTIONS=true y EMAIL_MODE=disabled bloquean el envío de correos transaccionales;
+#   LOCAL_REPORT_EMAIL_MODE=disabled bloquea los reportes Local.
+# - Quedan fuera, a propósito, las suites que necesitan servicios externos o reescritura
+#   (backfill, concurrency, lifecycle): ver docs/ci-test-inventory.md.
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unit-and-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests (sin base de datos)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EMAIL_MODE: disabled
+      LOCAL_REPORT_EMAIL_MODE: disabled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Personas
+        run: npm run test:personas
+      - name: Locales
+        run: npm run test:locales
+      - name: Oferta comercial
+        run: npm run test:commercial
+      - name: Motor de flujos
+        run: npm run test:flow
+      - name: Privacidad
+        run: npm run test:privacy
+      - name: Imágenes de perfil y tarjeta
+        run: npm run test:card-images
+      - name: Vista previa y QR de tarjeta
+        run: npm run test:card-preview
+      - name: Perfil digital público
+        run: npm run test:card-profile
+      - name: Seguridad de correo y secret scan
+        run: npm run test:security
+      - name: Utilidades (vCard y validación de impresión)
+        run: npm run test:utils
+
+  profile-integration-and-build:
+    name: Integración de perfiles (PostgreSQL efímero) y next build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: smartnfc_profiles_ci
+          POSTGRES_PASSWORD: profiles-ci-only-ephemeral
+          POSTGRES_DB: block2_disposable_profiles_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smartnfc_profiles_ci -d block2_disposable_profiles_ci"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://smartnfc_profiles_ci:profiles-ci-only-ephemeral@127.0.0.1:5432/block2_disposable_profiles_ci
+      BLOCK2_TEST_DATABASE_URL: postgresql://smartnfc_profiles_ci:profiles-ci-only-ephemeral@127.0.0.1:5432/block2_disposable_profiles_ci
+      NEXTAUTH_SECRET: ci-only-secret
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      EMAIL_MODE: disabled
+      LOCAL_REPORT_EMAIL_MODE: disabled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Apply migrations to the ephemeral database
+        run: npm run db:migrate
+      - name: Guard — refuse to continue without a disposable local database
+        run: npm run ci:assert-block2-db
+      # Estas suites se omiten en silencio si no hay base; en CI una omisión es un fallo.
+      - name: Integración — imágenes del perfil
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:card-images:integration 2>&1 | tee card-images-integration.log
+          if grep -qE '^# skipped [1-9]' card-images-integration.log; then echo "Suite omitida: la base desechable no fue seleccionada." >&2; exit 1; fi
+      - name: Integración — acciones de la landing del perfil
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:card-actions:integration 2>&1 | tee card-actions-integration.log
+          if grep -qE '^# skipped [1-9]' card-actions-integration.log; then echo "Suite omitida: la base desechable no fue seleccionada." >&2; exit 1; fi
+      - name: next build
+        run: npm run build

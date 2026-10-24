@@ -133,11 +133,13 @@ test("vista de ejemplo del panel: nombres ficticios y aviso de ejemplo; capacida
   assert.ok(html.includes("Ejemplo") && html.includes("8 de 10") && html.includes("Daniela Soto"));
 });
 
-test("publicación: noindex y fuera del sitemap mientras no se autorice; espacios de imagen declarados", async () => {
-  assert.equal(EMPRESAS_PUBLISHED, false);
+test("publicación: indexable y en el sitemap (autorizado el 23-10-2026); metadatos y espacios de imagen", async () => {
+  assert.equal(EMPRESAS_PUBLISHED, true);
   const { metadata } = await import("../../app/empresas/page");
-  assert.deepEqual(metadata.robots, { index: false, follow: false });
-  assert.ok(!sitemap().some(e => e.url.endsWith("/empresas")), "fuera del sitemap");
+  assert.deepEqual(metadata.robots, { index: true, follow: true });
+  assert.deepEqual(metadata.alternates, { canonical: "/empresas" });
+  assert.ok(sitemap().some(e => e.url === "https://www.smartnfc.cl/empresas"), "en el sitemap");
+  assert.equal((metadata.twitter as { card?: string })?.card, "summary_large_image");
   for (const s of Object.values(EMPRESAS_SLOTS)) {
     assert.ok(s.asset === null || s.asset.src.startsWith("/images/empresas/"), s.file);
     assert.ok(s.brief.length > 40 && s.maxKb > 0 && s.width > 0 && s.height > 0, s.file);

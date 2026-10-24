@@ -30,7 +30,8 @@ export const metadata: Metadata = {
     title, description, url: "/personas", type: "website", locale: "es_CL", siteName: "SmartNFC",
     ...(PERSONAS_OG_ASSET ? { images: [{ url: PERSONAS_OG_ASSET.src, width: PERSONAS_OG_ASSET.width, height: PERSONAS_OG_ASSET.height, alt: PERSONAS_OG_ASSET.alt }] } : {}),
   },
-  robots: { index: false, follow: false }, // Fuera de buscadores hasta autorizar la publicación de /personas.
+  twitter: { card: "summary_large_image", title, description, ...(PERSONAS_OG_ASSET ? { images: [PERSONAS_OG_ASSET.src] } : {}) },
+  robots: { index: true, follow: true }, // Indexación autorizada el 23-10-2026.
 };
 
 const AUDIENCES: readonly { uso: keyof typeof PERSONAS_SEGMENT_ASSETS; t: string; d: string }[] = [

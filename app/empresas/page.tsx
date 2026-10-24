@@ -34,6 +34,7 @@ export const metadata: Metadata = {
     title, description, url: "/empresas", type: "website", locale: "es_CL", siteName: "SmartNFC",
     ...(OG ? { images: [{ url: OG.src, width: OG.width, height: OG.height, alt: OG.alt }] } : {}),
   },
+  twitter: { card: "summary_large_image", title, description, ...(OG ? { images: [OG.src] } : {}) },
   robots: EMPRESAS_PUBLISHED ? { index: true, follow: true } : { index: false, follow: false },
 };
 

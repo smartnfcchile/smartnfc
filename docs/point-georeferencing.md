@@ -90,3 +90,13 @@ Antes de producción: CI verde y revisión PR; proveedor configurado con límite
 Rollback de aplicación: volver al despliegue anterior de cada proyecto afectado. Dejar tabla nueva y enums intactos: el código anterior los ignora. No ejecutar DROP ni revertir migraciones productivas automáticamente. Si se requiere eliminar datos geográficos, autorizar y revisar una operación específica con respaldo/retención. Reaplicar la versión anterior no cambia NFC/QR ni pierde destinos. Mantener migraciones aditivas en historial; no editar las ya aplicadas.
 
 Pendientes de aceptación: configuración y prueba real de Geoapify, preview funcional autenticado y CI remoto/revisión del PR. Producción no desplegada.
+
+## Actualización de aceptación del preview
+
+Commit de código/configuración: 7fcd33f65a1017d9f2ecf4014c68a4ddaae89ce5. Los cuatro workflows CI terminaron en success: Empresas PR Check, Local reports, Block 2 y Point geolocation.
+
+Preview desplegado READY en https://smartnfc-pnq1z8muy-smartnfcchiles-projects.vercel.app (dpl_3WX5QVFE5krnxLLFy9GQ9qrMCTst). Se verificó la migración 20261025170000_point_geolocation aplicada en la nueva base geolocation_preview. Antes de transferir credencial se verificaron endpoint separado, rol propio, nombre de base y cero tablas; después de autorización explícita se creó DATABASE_URL cifrada exclusiva preview/feat/point-georeferencing. No se modificaron Production ni Development. El duplicado smartnfc-8ndu canceló su build de esta rama y producción del principal continúa en da2ceb8.
+
+El guard de la rama ahora exige GEOLOCATION_PREVIEW_ALLOW=1, configurado solo para el preview aislado del proyecto principal. Sin esa bandera cancela la construcción. El build manual migró exclusivamente la base ficticia, usando el script que verifica entorno/rama/base antes de ejecutar Prisma.
+
+El usuario configurará las claves gratuitas Geoapify directamente. La validación remota autenticada sigue pendiente: Vercel Authentication bloquea tanto el navegador disponible (cuenta sin acceso al equipo) como el fetch del conector con enlace temporal. No se desactivó esa protección. READY confirma despliegue, no aceptación completa de mapa/búsqueda ni del flujo autenticado remoto. Continúa como PR draft; no solicitar producción aún.

@@ -1,0 +1,46 @@
+name: Point geolocation
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  geolocation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: geo_ci
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: geolocation_disposable
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U geo_ci -d geolocation_disposable"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://geo_ci:disposable-ci-only@127.0.0.1:5432/geolocation_disposable
+      GEOLOCATION_TEST_DATABASE_URL: postgresql://geo_ci:disposable-ci-only@127.0.0.1:5432/geolocation_disposable
+      NEXTAUTH_SECRET: disposable-ci-auth-only
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npx tsx --test scripts/tests/geolocation.test.ts scripts/tests/geolocation-integration.test.ts
+      - run: npm run test:db-isolation
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run check:secrets
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          npm run start > /tmp/geolocation-server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/login > /dev/null && break; sleep 1; done
+          npx playwright test --config playwright.geolocation.config.ts

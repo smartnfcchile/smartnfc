@@ -295,6 +295,7 @@ model CardLink {
 }
 
 model PhysicalNfcCard {
+  installation PointGeolocation?
   id        String    @id @default(cuid())
   token     String    @unique
   uid       String?   @unique
@@ -501,6 +502,7 @@ enum LocalPointMedium {
 }
 
 model LocalTouchpoint {
+  installation PointGeolocation?
   id                   String                     @id @default(cuid())
   campaignId           String
   campaign             LocalCampaign              @relation(fields: [campaignId], references: [id], onDelete: Restrict)
@@ -979,4 +981,33 @@ model CompanyLimitOverride {
   createdAt       DateTime  @default(now())
 
   @@index([companyId, limit, startsAt])
+}
+
+enum InstallationMethod {
+  MANUAL
+  MAP
+  ADDRESS
+}
+
+enum InstallationVisibility {
+  PRIVATE
+}
+
+// No relation is loaded by public NFC/QR resolvers. Absence means PENDING.
+model PointGeolocation {
+  id                String @id @default(cuid())
+  localTouchpointId String? @unique
+  localTouchpoint   LocalTouchpoint? @relation(fields: [localTouchpointId], references: [id], onDelete: Cascade)
+  physicalNfcCardId String? @unique
+  physicalNfcCard   PhysicalNfcCard? @relation(fields: [physicalNfcCardId], references: [id], onDelete: Cascade)
+  latitude          Float
+  longitude         Float
+  label             String? @db.VarChar(120)
+  address           String? @db.VarChar(300)
+  accuracyMeters    Float?
+  method            InstallationMethod @default(MANUAL)
+  visibility        InstallationVisibility @default(PRIVATE)
+  updatedById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

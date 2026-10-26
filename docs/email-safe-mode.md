@@ -2,23 +2,49 @@
 
 `lib/email/send-email.ts` (invitaciones, activación, restablecimiento de contraseña, avisos de producción de tarjetas) solo envía correos reales cuando `resolveEmailMode()` (`lib/email/email-mode.ts`) devuelve `live`.
 
-| Entorno | Resultado |
-|---|---|
-| Producción en Vercel (`NODE_ENV=production`, `VERCEL_ENV=production`) | Envía, sin configuración adicional |
-| Preview o development de Vercel (`VERCEL_ENV` distinto de `production`) | Bloqueado siempre, incluso con `EMAIL_MODE=live` |
-| GitHub Actions (`GITHUB_ACTIONS=true`) | Bloqueado siempre |
-| `EMAIL_MODE=disabled` | Bloqueado (también sirve como interruptor de emergencia en producción) |
-| `EMAIL_MODE=live` | Envía, salvo en preview o GitHub Actions |
-| `EMAIL_MODE` vacío o con otro valor (incluido `LIVE` en mayúsculas) | Bloqueado |
-| `VERCEL_ENV` definido con un valor distinto de `production` (incluido vacío) | Bloqueado |
-| `GITHUB_ACTIONS` con cualquier valor no vacío distinto de `false` | Bloqueado |
-| Desarrollo local (`next dev`) y pruebas sin `EMAIL_MODE` | Bloqueado |
+## Regla: lista de permitidos
 
-Cuando el envío se bloquea, `sendEmail` devuelve `{ success: false, skipped: true }`: los llamadores muestran o registran el mismo aviso que ante una configuración incompleta (`EMAIL_SEND_FAILED`). El registro no incluye el destinatario.
+Se envía **solo** si todas estas condiciones se cumplen a la vez. Esto confirma que el código corre como función de un despliegue de producción en Vercel:
 
-Notas:
+| Variable | Valor exigido | Por qué |
+|---|---|---|
+| `NODE_ENV` | `production` | Compilación de producción |
+| `VERCEL` | `1` | Vercel expone sus variables de sistema |
+| `VERCEL_ENV` | `production` | No es un preview ni development |
+| `VERCEL_TARGET_ENV` | ausente o `production` | Coherencia con `VERCEL_ENV` |
+| `VERCEL_REGION` | definida y distinta de `dev1` | Solo existe en ejecución dentro de Vercel. `vercel env pull` no la escribe y `vercel dev` usa `dev1` |
+| `CI`, `GITHUB_ACTIONS` | ausentes, `false` o `0` | Nunca desde CI |
+| `EMAIL_MODE` | ausente o `live` | `disabled` es el interruptor de emergencia |
 
-- Para probar un envío real desde desarrollo hay que agregar `EMAIL_MODE=live` al `.env` local de forma deliberada.
-- `next start` local se ejecuta con `NODE_ENV=production`: cualquier prueba E2E futura debe arrancar el servidor con `EMAIL_MODE=disabled`.
+Cualquier ausencia, valor inesperado (vacío, mayúsculas, espacios) o contradicción **bloquea**.
+
+## Casos cerrados respecto de la versión anterior
+
+| Caso | Antes | Ahora |
+|---|---|---|
+| `next start` local con `NODE_ENV=production` y un `.env` real (sin `VERCEL_ENV`) | enviaba | bloquea |
+| `.env` copiado desde Vercel Production (`VERCEL=1`, `VERCEL_ENV=production`) + `next start` local | enviaba | bloquea (falta `VERCEL_REGION`) |
+| `vercel dev` con variables de producción | enviaba | bloquea (`NODE_ENV=development` / `dev1`) |
+| `EMAIL_MODE=live` en desarrollo local | enviaba | bloquea. **Ya no hay opt-in local** |
+| `VERCEL_TARGET_ENV` distinto de `VERCEL_ENV` | no se revisaba | bloquea |
+| `CI=1` (otros sistemas de CI) | no se revisaba | bloquea |
+
+## Operación legítima en producción
+
+No requiere variables nuevas. `VERCEL`, `VERCEL_ENV` y `VERCEL_REGION` las pone Vercel en ejecución **si el proyecto tiene activada la opción "Automatically expose System Environment Variables"** (Settings → Environment Variables).
+
+**Antes del merge:** verificar esa casilla en los dos proyectos (`smartnfc` y `smartnfc-8ndu`). Si está desactivada, el correo de producción se bloquearía.
+
+**Después del despliegue:** pedir un restablecimiento de contraseña para una cuenta propia y confirmar que llega.
+
+Si producción queda bloqueada por una configuración incompleta, `sendEmail` registra `console.error("[sendEmail] ALERTA: ...")`, visible en los logs de Vercel. El interruptor deliberado (`EMAIL_MODE=disabled`) no genera alerta.
+
+## Comportamiento cuando se bloquea
+
+`sendEmail` devuelve `{ success: false, skipped: true }`. Los llamadores muestran o registran el mismo aviso que ante una configuración incompleta (`EMAIL_SEND_FAILED`). El registro no incluye el destinatario.
+
+## Notas
+
+- Para probar plantillas sin enviar, usar las pruebas con el doble de Resend (`scripts/tests/email-mode.test.ts`) o React Email en local.
 - Los reportes de SmartNFC Local mantienen su propio interruptor, `LOCAL_REPORT_EMAIL_MODE` (por defecto `disabled`).
-- Verificación: `npm run test:security` (incluye `scripts/tests/email-mode.test.ts`).
+- Verificación: `npm run test:security`.

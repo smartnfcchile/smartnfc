@@ -1,5 +1,5 @@
 import { resend } from "./resend";
-import { resolveEmailMode } from "./email-mode";
+import { looksLikeBlockedProduction, resolveEmailMode } from "./email-mode";
 import React from "react";
 import { render } from "@react-email/render";
 
@@ -15,7 +15,12 @@ export async function sendEmail({ to, subject, react }: SendEmailParams) {
   // registren el aviso habitual sin cambiar su flujo. No se registra el destinatario.
   const emailMode = resolveEmailMode();
   if (emailMode.mode !== "live") {
-    console.warn(`[sendEmail] Envío bloqueado en este entorno (${emailMode.reason}).`);
+    if (looksLikeBlockedProduction(process.env, emailMode)) {
+      // Visible en los logs de Vercel: indica una configuración de producción incompleta o contradictoria.
+      console.error(`[sendEmail] ALERTA: entorno con apariencia de producción, envío bloqueado (${emailMode.reason}). Revisar docs/email-safe-mode.md.`);
+    } else {
+      console.warn(`[sendEmail] Envío bloqueado en este entorno (${emailMode.reason}).`);
+    }
     return { success: false, skipped: true, error: `Envío de correo deshabilitado: ${emailMode.reason}` };
   }
 

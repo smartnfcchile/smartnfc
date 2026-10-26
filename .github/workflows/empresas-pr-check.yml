@@ -32,6 +32,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Empresas — flujo, cotización y mensaje (sin base de datos)
+        run: npm run test:empresas
+
       - name: Typecheck
         run: npx tsc --noEmit
 

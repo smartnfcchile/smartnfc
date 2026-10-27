@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ChevronRight, MapPin, Palette, Plus } from "lucide-react";
+import { ChevronRight, MapPin, Palette } from "lucide-react";
 import { prisma } from "../../../../lib/prisma";
 import { requireLocalPage } from "../../../../lib/local/access";
 import { resolveLocalBrand } from "../../../../lib/local/brand";
-import { saveLocationAction, moveCampaignLocationAction } from "./actions";
+import { moveCampaignLocationAction } from "./actions";
+import LocationCreateForm from "../../../../components/local/LocationCreateForm";
 
 export const dynamic = "force-dynamic";
 
@@ -56,14 +57,7 @@ export default async function LocationsPage() {
         {!locations.length && <p className="text-sm text-slate-500 dark:text-slate-400">Todavía no tienes locales. Crea el primero para configurar su identidad.</p>}
       </section>
 
-      <form action={saveLocationAction} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white"><Plus aria-hidden className="h-4 w-4" />Agregar local</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Nombre<input name="name" className={`${field} mt-2`} required minLength={2} maxLength={120}/></label>
-          <label className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Dirección<input name="address" className={`${field} mt-2`} maxLength={240}/></label>
-        </div>
-        <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Crear local</button>
-      </form>
+      <LocationCreateForm field={field} />
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-slate-900 dark:text-white">Asignación de campañas</h2>

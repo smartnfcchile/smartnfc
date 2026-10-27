@@ -12,6 +12,7 @@ import { connectE2EDatabase, E2E_EMAIL_DOMAIN, truncateE2EDatabase } from "./db-
 export const STATE_DIR = path.resolve(__dirname, "../.state");
 export const ACCOUNTS_FILE = path.join(STATE_DIR, "accounts.json");
 
+export type CardRef = { id: string; slug: string };
 export type UserRole = "SUPERADMIN" | "COMPANY_OWNER" | "COMPANY_ADMIN" | "COLLABORATOR";
 export type Account = { email: string; password: string; name: string; role: UserRole };
 export type SeedState = {
@@ -27,7 +28,10 @@ export type SeedState = {
     pending: Omit<Account, "password">;
     pendingMessage: Omit<Account, "password">;
     resetMessage: Account;
+    personaPro: Account;
+    personaBase: Account;
   };
+  cards: { personaPro: CardRef; personaBase: CardRef; personaSinDerecho: CardRef; inactiva: CardRef };
   tokens: { activation: string; activationExpired: string; reset: string; activationMessage: string; resetMessage: string };
   companies: { empresa: string; inactiva: string; platform: string };
 };
@@ -81,6 +85,28 @@ export async function seedE2E(): Promise<SeedState> {
     await prisma.card.create({ data: { companyId: empresa.id, userId: u.id, name: u.account.name, slug: local, profileName: u.account.name } });
   }
 
+  // ── Etapa 2: Personas ──
+  // personaPro: Pro activo + derecho permanente por compra (PURCHASE). Es la tarjeta que editan las pruebas.
+  // personaBase: Pro VENCIDO + derecho permanente: el perfil básico debe seguir publicado (CLAUDE.md).
+  // personaSinDerecho: sin licencia ni derecho: el perfil público muestra el estado neutral de inactivo.
+  // inactiva: tarjeta desactivada: el perfil público responde 404.
+  const personaProCo = await prisma.company.create({ data: { name: "Persona Pro E2E", slug: "e2e-persona-pro" } });
+  const personaBaseCo = await prisma.company.create({ data: { name: "Persona Base E2E", slug: "e2e-persona-base" } });
+  const sinDerechoCo = await prisma.company.create({ data: { name: "Persona Sin Derecho E2E", slug: "e2e-persona-sin-derecho" } });
+  await prisma.companyProductLicense.create({ data: { companyId: personaProCo.id, product: "EMPRESAS", planCode: "EMPRESAS_PRO" } });
+  await prisma.companyProductLicense.create({ data: { companyId: personaBaseCo.id, product: "EMPRESAS", planCode: "EMPRESAS_PRO", status: "EXPIRED", expiresAt: new Date(Date.now() - 24 * 3600_000) } });
+  const personaPro = await user(prisma, personaProCo.id, "e2e-persona", "Persona Pro E2E", "COMPANY_OWNER");
+  const personaBase = await user(prisma, personaBaseCo.id, "e2e-persona-base", "Persona Base E2E", "COMPANY_OWNER");
+  const sinDerechoUser = await user(prisma, sinDerechoCo.id, "e2e-persona-sin-derecho", "Persona Sin Derecho E2E", "COMPANY_OWNER");
+  const cardPro = await prisma.card.create({ data: { companyId: personaProCo.id, userId: personaPro.id, name: "Persona Pro E2E", slug: "e2e-persona-pro", profileName: "Persona Pro E2E" } });
+  const cardBase = await prisma.card.create({ data: { companyId: personaBaseCo.id, userId: personaBase.id, name: "Persona Base E2E", slug: "e2e-persona-base",
+    profileName: "Camila Base E2E", role: "Diseñadora ficticia", email: "camila.base@smartnfc.test", showEmail: true } });
+  const cardSin = await prisma.card.create({ data: { companyId: sinDerechoCo.id, userId: sinDerechoUser.id, name: "Sin Derecho E2E", slug: "e2e-persona-sin-derecho", profileName: "Sin Derecho E2E" } });
+  const cardInactiva = await prisma.card.create({ data: { companyId: personaProCo.id, userId: personaPro.id, name: "Inactiva E2E", slug: "e2e-tarjeta-inactiva", isActive: false } });
+  for (const card of [cardPro, cardBase, cardInactiva]) {
+    await prisma.cardProfileRight.create({ data: { cardId: card.id, companyId: card.companyId, origin: "PURCHASE", reason: "Datos ficticios E2E", grantedByUserId: superadmin.id } });
+  }
+
   const tokens = { activation: token(), activationExpired: token(), reset: token(), activationMessage: token(), resetMessage: token() };
   const inOneDay = new Date(Date.now() + 24 * 3600_000);
   await prisma.userActivationToken.create({ data: { userId: pending.id, tokenHash: sha256(tokens.activation), expiresAt: inOneDay } });
@@ -102,6 +128,14 @@ export async function seedE2E(): Promise<SeedState> {
       pending: { email: pending.account.email, name: pending.account.name, role: pending.account.role },
       pendingMessage: { email: pendingMessage.account.email, name: pendingMessage.account.name, role: pendingMessage.account.role },
       resetMessage: resetMessage.account,
+      personaPro: personaPro.account,
+      personaBase: personaBase.account,
+    },
+    cards: {
+      personaPro: { id: cardPro.id, slug: cardPro.slug },
+      personaBase: { id: cardBase.id, slug: cardBase.slug },
+      personaSinDerecho: { id: cardSin.id, slug: cardSin.slug },
+      inactiva: { id: cardInactiva.id, slug: cardInactiva.slug },
     },
     tokens,
     companies: { empresa: empresa.id, inactiva: inactiva.id, platform: platform.id },

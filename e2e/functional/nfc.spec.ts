@@ -21,9 +21,11 @@ const audits = (action: string, entityId: string) => readOnly((db) => db.adminAu
 
 async function openNfcAdmin(page: Page) {
   await page.goto(`/superadmin/locales/${nfc.companyId}`);
-  await expect(page.locator("tr", { hasText: nfc.points.p1.name })).toBeVisible({ timeout: 20_000 });
+  await expect(row(page, nfc.points.p1.name)).toBeVisible({ timeout: 20_000 });
 }
-const row = (page: Page, pointName: string) => page.locator("tr", { hasText: pointName });
+// Fila de la tabla de puntos con sus controles NFC (el punto también aparece en otras tablas de la página).
+const row = (page: Page, pointName: string) =>
+  page.locator("tr", { hasText: pointName, has: page.getByRole("button", { name: /^(Vincular NFC|Comprobar destino)$/ }) });
 
 /** Abre «Vincular NFC» en el punto y revisa el token. Devuelve el diálogo. */
 async function reviewLink(page: Page, pointName: string, token: string) {

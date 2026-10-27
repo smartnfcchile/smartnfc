@@ -9,6 +9,8 @@
  *   valor CSS url("...") escapado para usarse en una propiedad de estilo de React.
  */
 
+import { UserFacingError } from "./user-facing-error";
+
 export const CARD_IMAGE_FIELDS = ["avatarUrl", "logoUrl", "coverUrl", "heroImageUrl"] as const;
 export type CardImageField = (typeof CARD_IMAGE_FIELDS)[number];
 
@@ -81,12 +83,12 @@ export function resolveCardImageUpdate(
   authorizedHosts: readonly string[],
 ): string | null {
   if (submitted === null) return current;
-  if (typeof submitted !== "string") throw new Error(`La ${CARD_IMAGE_LABELS[field]} no es válida.`);
+  if (typeof submitted !== "string") throw new UserFacingError(`La ${CARD_IMAGE_LABELS[field]} no es válida.`);
   const value = submitted.trim();
   if (!value) return null;
   if (current !== null && value === current) return current;
   if (!isAuthorizedCardImageUrl(value, authorizedHosts)) {
-    throw new Error(`La ${CARD_IMAGE_LABELS[field]} debe subirse desde el editor de SmartNFC.`);
+    throw new UserFacingError(`La ${CARD_IMAGE_LABELS[field]} debe subirse desde el editor de SmartNFC.`);
   }
   return value;
 }

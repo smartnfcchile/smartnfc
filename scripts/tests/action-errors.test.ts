@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { redirect, notFound } from "next/navigation";
 import { GENERIC_ACTION_ERROR, runAction, toActionFailure, UserFacingError } from "../../lib/action-errors";
+import { resolveCardImageUpdate } from "../../lib/card-images";
 
 test("éxito: devuelve ok y los datos de la acción", async () => {
   assert.deepEqual(await runAction("t", async () => ({ id: "x" })), { ok: true, success: true, id: "x" });
@@ -75,4 +76,13 @@ test("los clientes muestran el error devuelto y no el texto de excepciones del s
   const editor = fs.readFileSync(path.resolve(__dirname, "../../app/dashboard/editor/[cardId]/CardEditorClient.tsx"), "utf8");
   assert.match(editor, /const result = await addLinkAction\(fd\);/);
   assert.match(editor, /const result = await deleteLinkAction\(fd\);/);
+});
+
+test("editor: el rechazo de una imagen externa conserva su mensaje (no se vuelve genérico)", async () => {
+  const hosts = ["qateststore.public.blob.vercel-storage.com"];
+  const r = await runAction("editor.updateCard", async () => { resolveCardImageUpdate("heroImageUrl", "https://evil.example/hero.png", null, hosts); return {}; });
+  assert.equal(r.ok, false);
+  assert.match(!r.ok ? r.error : "", /debe subirse desde el editor de SmartNFC/);
+  const r2 = await runAction("editor.updateCard", async () => { resolveCardImageUpdate("logoUrl", new File([], "x.png"), null, hosts); return {}; });
+  assert.match(!r2.ok ? r2.error : "", /no es válida/);
 });

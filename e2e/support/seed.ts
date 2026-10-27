@@ -12,6 +12,7 @@ import { connectE2EDatabase, E2E_EMAIL_DOMAIN, truncateE2EDatabase } from "./db-
 export const STATE_DIR = path.resolve(__dirname, "../.state");
 export const ACCOUNTS_FILE = path.join(STATE_DIR, "accounts.json");
 
+export type NfcPoint = { id: string; name: string; code: string; destination: string };
 export type CardRef = { id: string; slug: string };
 export type UserRole = "SUPERADMIN" | "COMPANY_OWNER" | "COMPANY_ADMIN" | "COLLABORATOR";
 export type Account = { email: string; password: string; name: string; role: UserRole };
@@ -36,6 +37,7 @@ export type SeedState = {
     localB: Account;
   };
   local: { b: { locationId: string; pointId: string; pointCode: string; destination: string } };
+  nfc: { companyId: string; points: { p1: NfcPoint; p2: NfcPoint; qrOnly: NfcPoint }; tokens: Record<"entregada" | "activa" | "suspendida" | "ajena" | "identidad" | "cruzada", string>; personaSlug: string };
   cards: { personaPro: CardRef; personaBase: CardRef; personaSinDerecho: CardRef; inactiva: CardRef; equipoColab: CardRef; empresaOwner: CardRef };
   tokens: { activation: string; activationExpired: string; reset: string; activationMessage: string; resetMessage: string };
   companies: { empresa: string; inactiva: string; platform: string };
@@ -140,6 +142,30 @@ export async function seedE2E(): Promise<SeedState> {
   const pointB = await prisma.localTouchpoint.create({ data: { campaignId: campB.id, name: "Punto B E2E", code: "e2e-punto-b", objective: "WHATSAPP", medium: "NFC_QR",
     location: "Caja B", destinationUrl: destinationB, presentationMode: "DIRECT", isActive: true } });
 
+  // ── Etapa 5: NFC ──
+  // e2e-nfc: Local Pro con dos puntos NFC+QR y uno solo QR. Inventario de tarjetas físicas en distintos
+  // estados, una de otra empresa, una ligada a una identidad de Empresas y una ANÓMALA (de e2e-nfc ligada al
+  // punto de e2e-local-b) para probar que /t no cruza empresas.
+  const nfcCo = await prisma.company.create({ data: { name: "NFC Ficticio E2E", slug: "e2e-nfc" } });
+  await prisma.companyProductLicense.create({ data: { companyId: nfcCo.id, product: "LOCAL", planCode: "LOCAL_PRO" } });
+  const nfcLoc = await prisma.localLocation.create({ data: { companyId: nfcCo.id, key: `e2e-loc-nfc-${randomBytes(4).toString("hex")}`, name: "Sucursal NFC E2E", displayName: "Tienda NFC Ficticia E2E" } });
+  const nfcCamp = await prisma.localCampaign.create({ data: { companyId: nfcCo.id, locationId: nfcLoc.id, name: "Campaña NFC E2E", slug: `e2e-campana-nfc-${randomBytes(4).toString("hex")}` } });
+  const nfcPoint = async (name: string, code: string, digits: string, medium: "NFC_QR" | "QR") => {
+    const destination = `https://wa.me/${digits}`;
+    const pt = await prisma.localTouchpoint.create({ data: { campaignId: nfcCamp.id, name, code, objective: "WHATSAPP", medium, location: "Mesón", destinationUrl: destination, presentationMode: "DIRECT", isActive: true } });
+    return { id: pt.id, name, code, destination };
+  };
+  const p1 = await nfcPoint("Punto NFC 1 E2E", "e2e-nfc-p1", "56966660001", "NFC_QR");
+  const p2 = await nfcPoint("Punto NFC 2 E2E", "e2e-nfc-p2", "56966660002", "NFC_QR");
+  const qrOnly = await nfcPoint("Punto Solo QR E2E", "e2e-nfc-qr", "56966660003", "QR");
+  const nfcTokens = { entregada: "e2e-nfc-entregada", activa: "e2e-nfc-activa", suspendida: "e2e-nfc-suspendida", ajena: "e2e-nfc-ajena", identidad: "e2e-nfc-identidad", cruzada: "e2e-nfc-cruzada" };
+  await prisma.physicalNfcCard.create({ data: { token: nfcTokens.entregada, companyId: nfcCo.id, status: "ENTREGADA" } });
+  await prisma.physicalNfcCard.create({ data: { token: nfcTokens.activa, companyId: nfcCo.id, status: "ACTIVA" } });
+  await prisma.physicalNfcCard.create({ data: { token: nfcTokens.suspendida, companyId: nfcCo.id, status: "SUSPENDIDA" } });
+  await prisma.physicalNfcCard.create({ data: { token: nfcTokens.ajena, companyId: localBCo.id, status: "ACTIVA" } });
+  await prisma.physicalNfcCard.create({ data: { token: nfcTokens.identidad, companyId: personaBaseCo.id, cardId: cardBase.id, status: "ACTIVA" } });
+  await prisma.physicalNfcCard.create({ data: { token: nfcTokens.cruzada, companyId: nfcCo.id, localTouchpointId: pointB.id, status: "ACTIVA" } });
+
   const tokens = { activation: token(), activationExpired: token(), reset: token(), activationMessage: token(), resetMessage: token() };
   const inOneDay = new Date(Date.now() + 24 * 3600_000);
   await prisma.userActivationToken.create({ data: { userId: pending.id, tokenHash: sha256(tokens.activation), expiresAt: inOneDay } });
@@ -169,6 +195,7 @@ export async function seedE2E(): Promise<SeedState> {
       localB: localB.account,
     },
     local: { b: { locationId: locB.id, pointId: pointB.id, pointCode: pointB.code, destination: destinationB } },
+    nfc: { companyId: nfcCo.id, points: { p1, p2, qrOnly }, tokens: nfcTokens, personaSlug: cardBase.slug },
     cards: {
       personaPro: { id: cardPro.id, slug: cardPro.slug },
       personaBase: { id: cardBase.id, slug: cardBase.slug },

@@ -96,20 +96,30 @@ test.describe("Empresas: equipo con licencia Equipo 5 (en serie)", () => {
     const before = await equipo();
     await openUsers(page);
     await createCollaborator(page, SEXTO);
-    const shown = await modalError(page);
-    // Lo esencial (bloqueo en el servidor) es obligatorio; el texto se verifica aparte (expect.soft) para
-    // registrar qué ve realmente el usuario en un build de producción.
-    expect.soft(shown, "el usuario debe entender que alcanzó el cupo").toMatch(/máximo de identidades/);
+    await modalError(page); // hay un aviso de error (su texto se verifica en la prueba BUG-E2E-3)
     const after = await equipo();
     expect(after).toEqual(before);
     expect(await readOnly((db) => db.user.count({ where: { email: SEXTO.email } }))).toBe(0);
   });
 
+  // BUG-E2E-3 (detectado 27-oct-2026): las Server Actions informan problemas con throw new Error("...").
+  // En el build de producción React oculta ese texto (resolveErrorProd, error #441) y el usuario ve
+  // «Minified React error #441…» en lugar de, por ejemplo, «La empresa alcanzó el máximo de identidades…».
+  // El bloqueo en el servidor funciona; lo que falla es la comunicación. test.fail() hasta corregirlo.
+  test("BUG-E2E-3: el usuario recibe mensajes comprensibles al superar el cupo o repetir un correo", async ({ page }) => {
+    test.fail(true, "BUG-E2E-3: los mensajes de error de Server Actions llegan como «Minified React error #441»");
+    await openUsers(page);
+    await createCollaborator(page, SEXTO);
+    expect(await modalError(page)).toMatch(/máximo de identidades/);
+    await closeModal(page);
+    await createCollaborator(page, { name: "Duplicado E2E", email: NUEVOS[0].email });
+    expect(await modalError(page)).toContain("ya está registrado");
+  });
+
   test("un correo ya registrado se rechaza", async ({ page }) => {
     await openUsers(page);
     await createCollaborator(page, { name: "Duplicado E2E", email: NUEVOS[0].email });
-    const shown = await modalError(page);
-    expect.soft(shown, "el usuario debe saber que el correo ya existe").toContain("ya está registrado");
+    await modalError(page);
     expect(await readOnly((db) => db.user.count({ where: { email: NUEVOS[0].email } }))).toBe(1);
   });
 

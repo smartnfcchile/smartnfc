@@ -89,7 +89,6 @@ test.describe("Activación de cuenta (sin correos: el enlace lo crea el seed)", 
     await page.locator("#confirm-password").fill(password);
     await page.getByRole("button", { name: "Activar mi Cuenta" }).click();
     await expect(page).toHaveURL(/\/login\?activated=true/, { timeout: 20_000 });
-    await expect(page.getByText("¡Cuenta activada con éxito! Ya puedes iniciar sesión.")).toBeVisible();
 
     const stored: { status: string; isActive: boolean; password: string | null; activationTokens: Array<{ usedAt: Date | null; tokenHash: string }> } = await readOnly((db) => db.user.findUniqueOrThrow({
       where: { email: accounts.pending.email },
@@ -166,5 +165,49 @@ test.describe("Restablecimiento de contraseña (sin correos)", () => {
     // Otras pruebas pueden crear tokens en paralelo para SUS cuentas; aquí se verifica que ninguno es de este correo.
     const forUnknown = await readOnly((db) => db.passwordResetToken.count({ where: { user: { email: "nadie@smartnfc.test" } } }));
     expect(forUnknown).toBe(0);
+  });
+});
+
+// BUG-E2E-1 (detectado 27-oct-2026 por esta batería): tras activar o restablecer, el formulario navega con
+// router.push("/login?activated=true" | "?reset=true"), pero app/login/page.tsx lee window.location.search
+// dentro de useState ANTES de que Next.js actualice la URL, así que el mensaje de éxito no aparece.
+// Con carga directa de la URL sí aparece. test.fail(): estas pruebas pasan mientras el error exista y
+// fallarán cuando se corrija, como aviso para quitar la marca.
+const ACTIVATED_MSG = "¡Cuenta activada con éxito! Ya puedes iniciar sesión.";
+const RESET_MSG = "¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.";
+
+test.describe("Mensajes de éxito en /login", () => {
+  test("con carga directa de la URL, /login muestra los mensajes de activación y restablecimiento", async ({ page }) => {
+    await page.goto("/login?activated=true");
+    await expect(page.getByText(ACTIVATED_MSG)).toBeVisible();
+    await page.goto("/login?reset=true");
+    await expect(page.getByText(RESET_MSG)).toBeVisible();
+  });
+
+  test.describe("BUG-E2E-1: no aparecen tras la redirección del formulario", () => {
+    test.use({ allowMutations: true });
+
+    test("activación → /login muestra el mensaje de éxito", async ({ page }) => {
+      test.fail(true, "BUG-E2E-1: el mensaje de activación no aparece tras router.push");
+      const password = strongPassword();
+      await page.goto(`/activar-cuenta?token=${tokens.activationMessage}`);
+      await page.locator("#new-password").fill(password);
+      await page.locator("#confirm-password").fill(password);
+      await page.getByRole("button", { name: "Activar mi Cuenta" }).click();
+      await expect(page).toHaveURL(/\/login\?activated=true/, { timeout: 20_000 });
+      await expect(page.getByText(ACTIVATED_MSG)).toBeVisible({ timeout: 5_000 });
+    });
+
+    test("restablecimiento → /login muestra el mensaje de éxito", async ({ page }) => {
+      test.fail(true, "BUG-E2E-1: el mensaje de restablecimiento no aparece tras router.push");
+      const password = strongPassword();
+      await page.goto(`/restablecer-contrasena?token=${tokens.resetMessage}`);
+      const fields = page.locator('input[type="password"]');
+      await fields.nth(0).fill(password);
+      await fields.nth(1).fill(password);
+      await page.locator('button[type="submit"]').click();
+      await expect(page).toHaveURL(/\/login\?reset=true/, { timeout: 20_000 });
+      await expect(page.getByText(RESET_MSG)).toBeVisible({ timeout: 5_000 });
+    });
   });
 });

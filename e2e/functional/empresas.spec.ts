@@ -34,6 +34,15 @@ async function createCollaborator(page: Page, person: { name: string; email: str
   await page.getByRole("button", { name: "Crear colaborador y tarjeta" }).click();
 }
 
+/** Texto del aviso de error del modal (recuadro rojo con «⚠️»), registrado como anotación del informe. */
+async function modalError(page: Page) {
+  const box = page.locator("form div.border-red-500").first();
+  await expect(box).toBeVisible({ timeout: 20_000 });
+  const text = (await box.innerText()).trim();
+  test.info().annotations.push({ type: "mensaje mostrado al usuario", description: text });
+  return text;
+}
+
 const closeModal = (page: Page) => page.getByRole("button", { name: "Cerrar", exact: true }).click();
 
 test.describe("Empresas: equipo con licencia Equipo 5 (en serie)", () => {
@@ -87,7 +96,10 @@ test.describe("Empresas: equipo con licencia Equipo 5 (en serie)", () => {
     const before = await equipo();
     await openUsers(page);
     await createCollaborator(page, SEXTO);
-    await expect(page.getByText(/alcanzó el máximo de identidades/)).toBeVisible({ timeout: 20_000 });
+    const shown = await modalError(page);
+    // Lo esencial (bloqueo en el servidor) es obligatorio; el texto se verifica aparte (expect.soft) para
+    // registrar qué ve realmente el usuario en un build de producción.
+    expect.soft(shown, "el usuario debe entender que alcanzó el cupo").toMatch(/máximo de identidades/);
     const after = await equipo();
     expect(after).toEqual(before);
     expect(await readOnly((db) => db.user.count({ where: { email: SEXTO.email } }))).toBe(0);
@@ -96,7 +108,9 @@ test.describe("Empresas: equipo con licencia Equipo 5 (en serie)", () => {
   test("un correo ya registrado se rechaza", async ({ page }) => {
     await openUsers(page);
     await createCollaborator(page, { name: "Duplicado E2E", email: NUEVOS[0].email });
-    await expect(page.getByText("Este correo electrónico ya está registrado en la plataforma.")).toBeVisible({ timeout: 20_000 });
+    const shown = await modalError(page);
+    expect.soft(shown, "el usuario debe saber que el correo ya existe").toContain("ya está registrado");
+    expect(await readOnly((db) => db.user.count({ where: { email: NUEVOS[0].email } }))).toBe(1);
   });
 
   test("suspender a una colaboradora corta su sesión abierta, desactiva su tarjeta y conserva el historial", async ({ page, browser, baseURL }) => {

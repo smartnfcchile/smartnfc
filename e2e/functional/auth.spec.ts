@@ -171,13 +171,15 @@ test.describe("Restablecimiento de contraseña (sin correos)", () => {
 // BUG-E2E-1 (detectado 27-oct-2026 por esta batería): tras activar o restablecer, el formulario navega con
 // router.push("/login?activated=true" | "?reset=true"), pero app/login/page.tsx lee window.location.search
 // dentro de useState ANTES de que Next.js actualice la URL, así que el mensaje de éxito no aparece.
-// Con carga directa de la URL sí aparece. test.fail(): estas pruebas pasan mientras el error exista y
-// fallarán cuando se corrija, como aviso para quitar la marca.
+// Con carga directa de la URL el mensaje se ve, pero React lanza el error de hidratación #418 (el servidor
+// renderiza sin mensaje y el navegador con mensaje). Misma causa. test.fail(): estas pruebas pasan mientras
+// el error exista y fallarán cuando se corrija, como aviso para quitar la marca.
 const ACTIVATED_MSG = "¡Cuenta activada con éxito! Ya puedes iniciar sesión.";
 const RESET_MSG = "¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.";
 
 test.describe("Mensajes de éxito en /login", () => {
-  test("con carga directa de la URL, /login muestra los mensajes de activación y restablecimiento", async ({ page }) => {
+  test("BUG-E2E-1: con carga directa de la URL, /login muestra los mensajes sin errores de React", async ({ page }) => {
+    test.fail(true, "BUG-E2E-1: error de hidratación React #418 al cargar /login?activated=true");
     await page.goto("/login?activated=true");
     await expect(page.getByText(ACTIVATED_MSG)).toBeVisible();
     await page.goto("/login?reset=true");

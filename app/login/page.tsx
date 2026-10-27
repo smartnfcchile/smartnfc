@@ -1,39 +1,37 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import SmartNFCLogo from "../../components/brand/SmartNFCLogo";
+import { loginNoticesFromParams, type LoginNotices } from "../../lib/login-notices";
 
+// Los avisos (?error=suspended, ?activated=true, ?reset=true) se leen con useSearchParams dentro de un
+// Suspense: así aparecen al cargar la URL directamente y tras router.push(), sin error de hidratación
+// (BUG-E2E-1). El fallback, prerenderizado en el servidor, es el mismo formulario sin avisos.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginView notices={{ error: "", success: "" }} />}>
+      <LoginWithNotices />
+    </Suspense>
+  );
+}
+
+function LoginWithNotices() {
+  const searchParams = useSearchParams();
+  const notices = loginNoticesFromParams(searchParams);
+  // key: si los avisos cambian sin desmontar la página, el estado inicial se recalcula.
+  return <LoginView key={`${notices.error}|${notices.success}`} notices={notices} />;
+}
+
+function LoginView({ notices }: { notices: LoginNotices }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [error, setError] = useState(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("error") === "suspended") {
-        return "Tu cuenta o empresa asociada ha sido suspendida. Contacta a soporte.";
-      }
-    }
-    return "";
-  });
-
-  const [successMessage, setSuccessMessage] = useState(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("activated") === "true") {
-        return "¡Cuenta activada con éxito! Ya puedes iniciar sesión.";
-      }
-      if (params.get("reset") === "true") {
-        return "¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.";
-      }
-    }
-    return "";
-  });
+  const [error, setError] = useState(notices.error);
+  const [successMessage, setSuccessMessage] = useState(notices.success);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -34,7 +34,7 @@ async function createCollaborator(page: Page, person: { name: string; email: str
   await page.getByRole("button", { name: "Crear colaborador y tarjeta" }).click();
 }
 
-const closeModal = (page: Page) => page.getByRole("button", { name: "Cerrar" }).click();
+const closeModal = (page: Page) => page.getByRole("button", { name: "Cerrar", exact: true }).click();
 
 test.describe("Empresas: equipo con licencia Equipo 5 (en serie)", () => {
   test.describe.configure({ mode: "serial" });

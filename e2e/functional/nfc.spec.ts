@@ -27,6 +27,10 @@ async function openNfcAdmin(page: Page) {
 const row = (page: Page, pointName: string) =>
   page.locator("tr", { hasText: pointName, has: page.getByRole("button", { name: /^(Vincular NFC|Comprobar destino)$/ }) });
 
+/** Fila de la tabla de puntos con la columna NFC (incluye puntos «solo QR», que no tienen botones NFC). */
+const row2 = (page: Page, pointName: string) =>
+  page.locator("tr", { hasText: pointName }).filter({ hasText: /Vincular NFC|Comprobar destino|No aplica \(solo QR\)/ });
+
 /** Abre «Vincular NFC» en el punto y revisa el token. Devuelve el diálogo. */
 async function reviewLink(page: Page, pointName: string, token: string) {
   await row(page, pointName).getByRole("button", { name: "Vincular NFC", exact: true }).click();
@@ -83,11 +87,13 @@ test.describe("NFC: vinculación por Superadmin (en serie)", () => {
     // Un punto con NFC no ofrece «Vincular NFC»: la interfaz impide el segundo vínculo (el servidor también lo valida).
     await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Vincular NFC", exact: true })).toHaveCount(0);
     await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC", exact: true })).toBeVisible();
+    // Un punto «solo QR» no ofrece vincular NFC (la regla del servidor está cubierta en scripts/tests/local-nfc-link.test.ts).
+    await expect(row2(page, nfc.points.qrOnly.name).getByText("No aplica (solo QR)")).toBeVisible();
+    await expect(row2(page, nfc.points.qrOnly.name).getByRole("button", { name: "Vincular NFC", exact: true })).toHaveCount(0);
     const casos: Array<[string, string, RegExp]> = [
       [nfc.points.p2.name, nfc.tokens.entregada, /ya está vinculado a otro Punto Inteligente/],
       [nfc.points.p2.name, nfc.tokens.ajena, /registrado para otra empresa/],
       [nfc.points.p2.name, nfc.tokens.identidad, /registrado para otra empresa|identidad digital/],
-      [nfc.points.qrOnly.name, nfc.tokens.activa, /solo para QR/],
       [nfc.points.p2.name, "e2e-token-inexistente", /No existe un NFC registrado/],
     ];
     for (const [pointName, token, mensaje] of casos) {

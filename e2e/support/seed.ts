@@ -30,8 +30,10 @@ export type SeedState = {
     resetMessage: Account;
     personaPro: Account;
     personaBase: Account;
+    equipoOwner: Account;
+    equipoColab: Account;
   };
-  cards: { personaPro: CardRef; personaBase: CardRef; personaSinDerecho: CardRef; inactiva: CardRef };
+  cards: { personaPro: CardRef; personaBase: CardRef; personaSinDerecho: CardRef; inactiva: CardRef; equipoColab: CardRef; empresaOwner: CardRef };
   tokens: { activation: string; activationExpired: string; reset: string; activationMessage: string; resetMessage: string };
   companies: { empresa: string; inactiva: string; platform: string };
 };
@@ -107,6 +109,19 @@ export async function seedE2E(): Promise<SeedState> {
     await prisma.cardProfileRight.create({ data: { cardId: card.id, companyId: card.companyId, origin: "PURCHASE", reason: "Datos ficticios E2E", grantedByUserId: superadmin.id } });
   }
 
+  // ── Etapa 3: Empresas ──
+  // e2e-equipo: licencia Equipo 5 con 2 identidades activas (dueña + colaborador activo con contraseña).
+  // Las pruebas crean colaboradores hasta 5/5, verifican el bloqueo del sexto y suspenden al colaborador
+  // con su sesión abierta. Es una empresa separada de e2e-empresa para no interferir con la etapa 1.
+  const equipoCo = await prisma.company.create({ data: { name: "Equipo Ficticio E2E", slug: "e2e-equipo" } });
+  await prisma.companyProductLicense.create({ data: { companyId: equipoCo.id, product: "EMPRESAS", planCode: "EMPRESAS_TEAM_5" } });
+  const equipoOwner = await user(prisma, equipoCo.id, "e2e-equipo-owner", "Dueño Equipo E2E", "COMPANY_OWNER");
+  const equipoColab = await user(prisma, equipoCo.id, "e2e-equipo-colab", "Colaboradora Equipo E2E", "COLLABORATOR");
+  await prisma.card.create({ data: { companyId: equipoCo.id, userId: equipoOwner.id, name: "Dueño Equipo E2E", slug: "e2e-equipo-owner", profileName: "Dueño Equipo E2E" } });
+  const cardEquipoColab = await prisma.card.create({ data: { companyId: equipoCo.id, userId: equipoColab.id, name: "Colaboradora Equipo E2E", slug: "e2e-equipo-colab", profileName: "Colaboradora Equipo E2E" } });
+  await prisma.physicalNfcCard.create({ data: { token: `e2e-${randomBytes(6).toString("hex")}`, companyId: equipoCo.id, cardId: cardEquipoColab.id, status: "ACTIVA" } });
+  const cardEmpresaOwner = await prisma.card.findUniqueOrThrow({ where: { slug: "e2e-owner" }, select: { id: true, slug: true } });
+
   const tokens = { activation: token(), activationExpired: token(), reset: token(), activationMessage: token(), resetMessage: token() };
   const inOneDay = new Date(Date.now() + 24 * 3600_000);
   await prisma.userActivationToken.create({ data: { userId: pending.id, tokenHash: sha256(tokens.activation), expiresAt: inOneDay } });
@@ -130,12 +145,16 @@ export async function seedE2E(): Promise<SeedState> {
       resetMessage: resetMessage.account,
       personaPro: personaPro.account,
       personaBase: personaBase.account,
+      equipoOwner: equipoOwner.account,
+      equipoColab: equipoColab.account,
     },
     cards: {
       personaPro: { id: cardPro.id, slug: cardPro.slug },
       personaBase: { id: cardBase.id, slug: cardBase.slug },
       personaSinDerecho: { id: cardSin.id, slug: cardSin.slug },
       inactiva: { id: cardInactiva.id, slug: cardInactiva.slug },
+      equipoColab: { id: cardEquipoColab.id, slug: cardEquipoColab.slug },
+      empresaOwner: cardEmpresaOwner,
     },
     tokens,
     companies: { empresa: empresa.id, inactiva: inactiva.id, platform: platform.id },

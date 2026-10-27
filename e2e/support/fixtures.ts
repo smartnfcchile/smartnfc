@@ -61,3 +61,20 @@ export const test = base.extend<E2EOptions & E2EGuards>({
 });
 
 export { expect };
+
+/**
+ * Segundo navegador aislado (otra sesión) con las mismas protecciones de red: solo localhost.
+ * Se usa para simular a otro usuario con la sesión abierta en paralelo.
+ */
+export async function isolatedContext(browser: import("@playwright/test").Browser, baseURL: string) {
+  const context = await browser.newContext({ baseURL });
+  const appOrigin = new URL(baseURL).origin;
+  await context.route("**/*", (route) => {
+    const url = route.request().url();
+    if (url.startsWith("data:") || url.startsWith("blob:")) return route.continue();
+    let origin = "";
+    try { origin = new URL(url).origin; } catch { /* no parseable */ }
+    return origin === appOrigin ? route.continue() : route.abort("blockedbyclient");
+  });
+  return context;
+}

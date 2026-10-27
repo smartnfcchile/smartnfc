@@ -39,7 +39,13 @@
     "test:db-isolation": "tsx --test scripts/tests/test-database-isolation.test.ts",
     "test:db-guards": "tsx --test scripts/tests/db-guards.test.ts",
     "test:db-guards:integration": "tsx --test scripts/tests/seed-guards-integration.test.ts",
-    "ci:assert-block2-db": "tsx scripts/ci/assert-block2-test-database.ts"
+    "ci:assert-block2-db": "tsx scripts/ci/assert-block2-test-database.ts",
+    "test:e2e-guard": "tsx --test scripts/tests/e2e-env-guard.test.ts",
+    "e2e:check": "tsx e2e/support/server.ts --check-only",
+    "e2e:prepare": "tsx e2e/support/server.ts --migrate",
+    "e2e:build": "tsx e2e/support/server.ts --build",
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -64,6 +70,7 @@
     "resend": "^6.17.2"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",

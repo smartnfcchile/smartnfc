@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import CardProfileView from "@/components/card-profile/CardProfileView";
 import { PROFILE_INACTIVE_TITLE, PROFILE_INACTIVE_DETAIL } from "@/lib/public-profile-status";
+import { toPublicCardProfile } from "@/lib/card-profile/public-card";
 
 type PageProps = {
   params: Promise<{
@@ -58,5 +59,8 @@ export default async function PublicCardPage({ params, searchParams }: PageProps
     contactSource = "QR";
   }
 
-  return <CardProfileView card={{ ...card, shareContactEnabled: card.shareContactEnabled && canCapture }} isPreview={false} contactSource={contactSource} />;
+  // Privacidad (BUG-E2E-2): el componente cliente recibe solo la proyección pública. Los datos con «Mostrar»
+  // desmarcado y la ficha interna de la empresa nunca llegan al HTML ni a la vCard.
+  const publicCard = toPublicCardProfile(card, { shareContactEnabled: card.shareContactEnabled && canCapture });
+  return <CardProfileView card={publicCard} isPreview={false} contactSource={contactSource} />;
 }

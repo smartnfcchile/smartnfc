@@ -32,7 +32,10 @@ export type SeedState = {
     personaBase: Account;
     equipoOwner: Account;
     equipoColab: Account;
+    localA: Account;
+    localB: Account;
   };
+  local: { b: { locationId: string; pointId: string; pointCode: string; destination: string } };
   cards: { personaPro: CardRef; personaBase: CardRef; personaSinDerecho: CardRef; inactiva: CardRef; equipoColab: CardRef; empresaOwner: CardRef };
   tokens: { activation: string; activationExpired: string; reset: string; activationMessage: string; resetMessage: string };
   companies: { empresa: string; inactiva: string; platform: string };
@@ -122,6 +125,21 @@ export async function seedE2E(): Promise<SeedState> {
   await prisma.physicalNfcCard.create({ data: { token: `e2e-${randomBytes(6).toString("hex")}`, companyId: equipoCo.id, cardId: cardEquipoColab.id, status: "ACTIVA" } });
   const cardEmpresaOwner = await prisma.card.findUniqueOrThrow({ where: { slug: "e2e-owner" }, select: { id: true, slug: true } });
 
+  // ── Etapa 4: Locales ──
+  // e2e-local-a: Local Pro (1 local) con máximo 2 puntos activos por local; sin locales: la prueba los crea.
+  // e2e-local-b: Local Pro con un local, una campaña y un punto WhatsApp activo (aislamiento).
+  const localACo = await prisma.company.create({ data: { name: "Local A Ficticio E2E", slug: "e2e-local-a" } });
+  const localBCo = await prisma.company.create({ data: { name: "Local B Ficticio E2E", slug: "e2e-local-b" } });
+  await prisma.companyProductLicense.create({ data: { companyId: localACo.id, product: "LOCAL", planCode: "LOCAL_PRO", maxActiveTouchpointsPerLocation: 2 } });
+  await prisma.companyProductLicense.create({ data: { companyId: localBCo.id, product: "LOCAL", planCode: "LOCAL_PRO" } });
+  const localA = await user(prisma, localACo.id, "e2e-local-a", "Dueña Local A E2E", "COMPANY_OWNER");
+  const localB = await user(prisma, localBCo.id, "e2e-local-b", "Dueño Local B E2E", "COMPANY_OWNER");
+  const locB = await prisma.localLocation.create({ data: { companyId: localBCo.id, key: `e2e-loc-b-${randomBytes(4).toString("hex")}`, name: "Sucursal B E2E", displayName: "Café B Ficticio E2E", phone: "+56 9 5555 0000" } });
+  const campB = await prisma.localCampaign.create({ data: { companyId: localBCo.id, locationId: locB.id, name: "Campaña B E2E", slug: `e2e-campana-b-${randomBytes(4).toString("hex")}` } });
+  const destinationB = "https://wa.me/56955550000";
+  const pointB = await prisma.localTouchpoint.create({ data: { campaignId: campB.id, name: "Punto B E2E", code: "e2e-punto-b", objective: "WHATSAPP", medium: "NFC_QR",
+    location: "Caja B", destinationUrl: destinationB, presentationMode: "DIRECT", isActive: true } });
+
   const tokens = { activation: token(), activationExpired: token(), reset: token(), activationMessage: token(), resetMessage: token() };
   const inOneDay = new Date(Date.now() + 24 * 3600_000);
   await prisma.userActivationToken.create({ data: { userId: pending.id, tokenHash: sha256(tokens.activation), expiresAt: inOneDay } });
@@ -147,7 +165,10 @@ export async function seedE2E(): Promise<SeedState> {
       personaBase: personaBase.account,
       equipoOwner: equipoOwner.account,
       equipoColab: equipoColab.account,
+      localA: localA.account,
+      localB: localB.account,
     },
+    local: { b: { locationId: locB.id, pointId: pointB.id, pointCode: pointB.code, destination: destinationB } },
     cards: {
       personaPro: { id: cardPro.id, slug: cardPro.slug },
       personaBase: { id: cardBase.id, slug: cardBase.slug },

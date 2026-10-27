@@ -70,3 +70,16 @@ export async function disconnectE2EDatabase() {
   if (client) await client.$disconnect();
   client = null;
 }
+
+/**
+ * Ajuste de fixture para simular el paso del tiempo o una renovación (p. ej. que una licencia venza).
+ * Solo actúa sobre empresas de prueba (slug "e2e-") y tras las mismas tres barreras del seed. No se usa para
+ * verificar resultados: las pruebas siguen leyendo con readOnly().
+ */
+export async function fixtureSetProductLicense(companySlug: string, product: "LOCAL" | "EMPRESAS", data: { status: "ACTIVE" | "EXPIRED" | "SUSPENDED"; expiresAt: Date | null }) {
+  if (!companySlug.startsWith(E2E_SLUG_PREFIX)) throw new E2EDatabaseRefused(`la empresa '${companySlug}' no es de prueba`);
+  const prisma = await connectE2EDatabase();
+  const company = await prisma.company.findUniqueOrThrow({ where: { slug: companySlug }, select: { id: true } });
+  const updated = await prisma.companyProductLicense.updateMany({ where: { companyId: company.id, product }, data });
+  if (updated.count !== 1) throw new Error(`[e2e] se esperaba exactamente una licencia ${product} en ${companySlug}`);
+}

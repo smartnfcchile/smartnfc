@@ -29,7 +29,7 @@ const row = (page: Page, pointName: string) =>
 
 /** Abre «Vincular NFC» en el punto y revisa el token. Devuelve el diálogo. */
 async function reviewLink(page: Page, pointName: string, token: string) {
-  await row(page, pointName).getByRole("button", { name: "Vincular NFC" }).click();
+  await row(page, pointName).getByRole("button", { name: "Vincular NFC", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByPlaceholder("https://…/t/token o token").fill(token);
   await dialog.getByRole("button", { name: "Revisar vinculación" }).click();
@@ -65,7 +65,7 @@ test.describe("NFC: vinculación por Superadmin (en serie)", () => {
     expect(log[0].metadata, "la auditoría guarda solo una pista del token").not.toContain(nfc.tokens.entregada);
 
     await page.reload();
-    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC" })).toBeVisible();
+    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC", exact: true })).toBeVisible();
   });
 
   test("/t/[token]: lleva al destino del punto, activa la tarjeta en el primer toque y registra la visita NFC", async ({ page }) => {
@@ -81,8 +81,8 @@ test.describe("NFC: vinculación por Superadmin (en serie)", () => {
   test("vínculos inválidos se rechazan con mensaje y no cambian nada", async ({ page }) => {
     test.setTimeout(90_000);
     // Un punto con NFC no ofrece «Vincular NFC»: la interfaz impide el segundo vínculo (el servidor también lo valida).
-    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Vincular NFC" })).toHaveCount(0);
-    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC" })).toBeVisible();
+    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Vincular NFC", exact: true })).toHaveCount(0);
+    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC", exact: true })).toBeVisible();
     const casos: Array<[string, string, RegExp]> = [
       [nfc.points.p2.name, nfc.tokens.entregada, /ya está vinculado a otro Punto Inteligente/],
       [nfc.points.p2.name, nfc.tokens.ajena, /registrado para otra empresa/],
@@ -103,8 +103,8 @@ test.describe("NFC: vinculación por Superadmin (en serie)", () => {
 
   test("desvincular: la tarjeta queda libre en el inventario, se audita y el punto sigue funcionando por QR", async ({ page }) => {
     const before = await cardByToken(nfc.tokens.entregada);
-    await row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Desvincular NFC" }).click();
+    await row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Desvincular NFC", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: /desvincul/i }).first()).toBeVisible({ timeout: 20_000 });
 
     const after = await cardByToken(nfc.tokens.entregada);
@@ -134,7 +134,7 @@ test.describe("NFC: permisos y privacidad del token", () => {
     await loginAndWaitForDashboard(page, accounts.localA);
     await page.goto(`/superadmin/locales/${nfc.companyId}`);
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByRole("button", { name: "Vincular NFC" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Vincular NFC", exact: true })).toHaveCount(0);
     await expect(page.getByText(nfc.points.p1.name)).toHaveCount(0);
   });
 

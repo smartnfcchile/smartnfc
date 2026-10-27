@@ -1,3 +1,4 @@
+import { UserFacingError } from "../user-facing-error";
 import { lockCapacity, requireCapability, getCompanyEntitlements } from "../entitlements";
 import { selectLocation } from "./locations";
 import { randomUUID } from "node:crypto";
@@ -28,15 +29,15 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
     const existing = pointId ? await tx.localTouchpoint.findFirst({
       where: { id: pointId, campaign: { companyId: company.id } }, include: { physicalNfcCard: true }
     }) : null;
-    if (pointId && !existing) throw new Error("Punto no disponible.");
+    if (pointId && !existing) throw new UserFacingError("Punto no disponible.");
     if (existing && (!Number.isInteger(version) || existing.configurationVersion !== version)) {
-      throw new Error("El punto cambió mientras lo editabas. Actualiza la página antes de guardar.");
+      throw new UserFacingError("El punto cambió mientras lo editabas. Actualiza la página antes de guardar.");
     }
     let selectedCampaignId = existing?.campaignId || campaignId || "";
     if (!existing && campaignId === "__new") {
-      if (!(await canCreateLocalCampaign(company.id, tx))) throw new Error("Se alcanzó el límite de campañas del local.");
+      if (!(await canCreateLocalCampaign(company.id, tx))) throw new UserFacingError("Se alcanzó el límite de campañas del local.");
       const name = campaignName?.trim();
-      if (!name || name.length < 2 || name.length > 80) throw new Error("Escribe un nombre de campaña de 2 a 80 caracteres.");
+      if (!name || name.length < 2 || name.length > 80) throw new UserFacingError("Escribe un nombre de campaña de 2 a 80 caracteres.");
       const location = await selectLocation(company.id, locationId, tx);
       // Mismos valores que usa la vista previa de "Crear una campaña nueva" (newCampaignBrandSource).
       const group = await tx.localCampaign.create({ data: { companyId: company.id, locationId: location.id, name,
@@ -46,17 +47,17 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
     const campaign = await tx.localCampaign.findFirst({
       where: { id: selectedCampaignId, companyId: company.id, status: { not: "ARCHIVED" } }
     });
-    if (!campaign) throw new Error("Selecciona una campaña disponible del local.");
+    if (!campaign) throw new UserFacingError("Selecciona una campaña disponible del local.");
 
     const entitlement = await getCompanyEntitlements(company.id, tx);
     const needsCapacity = !existing || (!existing.isActive && config.isActive && !entitlement.legacyProducts.includes("LOCAL"));
-    if (needsCapacity && !(await canCreateLocalTouchpoint(company.id, campaign.locationId ?? undefined, tx, config.isActive))) throw new Error("Se alcanzó el límite de puntos del local.");
+    if (needsCapacity && !(await canCreateLocalTouchpoint(company.id, campaign.locationId ?? undefined, tx, config.isActive))) throw new UserFacingError("Se alcanzó el límite de puntos del local.");
 
     if (config.isActive && config.objective === "CLUB" && (campaign.status !== "PUBLISHED" || !campaign.publishedSnapshot)) {
-      throw new Error("Publica el Club antes de activar este punto.");
+      throw new UserFacingError("Publica el Club antes de activar este punto.");
     }
     if (config.medium === "QR" && existing?.physicalNfcCard) {
-      throw new Error("Desvincula la tarjeta NFC antes de cambiar el soporte a solo QR.");
+      throw new UserFacingError("Desvincula la tarjeta NFC antes de cambiar el soporte a solo QR.");
     }
     const actions = config.objective === "CLUB" ? [] : config.actions;
     // El contenido de promoción solo se guarda en promociones; su imagen debe venir de la carpeta del Local del punto.
@@ -64,7 +65,7 @@ export async function saveLocalPoint(input: unknown, pointId?: string, version?:
       : config.objective === "PROMOTION" ? config.objectiveConfig : { ctaLabel: config.objectiveConfig.ctaLabel };
     const promoImage = objectiveConfig.promotion?.imageUrl;
     if (promoImage && (!campaign.locationId || !isAllowedBrandImageUrl(promoImage, campaign.locationId, ["promo"]))) {
-      throw new Error("Sube la imagen de la promoción desde este editor.");
+      throw new UserFacingError("Sube la imagen de la promoción desde este editor.");
     }
     const data = { ...config,
       // SMART_LANDING siempre es Página del Local: se guarda con su modo efectivo.

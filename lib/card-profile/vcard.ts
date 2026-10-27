@@ -14,6 +14,9 @@ export type ProfileVcardInput = {
   role: string | null;
   phone: string | null;
   email: string | null;
+  /** Si el propietario desmarcó «Mostrar», el dato no se incluye aunque llegue (defensa en profundidad, BUG-E2E-2). */
+  showPhone?: boolean;
+  showEmail?: boolean;
 };
 
 export function buildProfileVcard(card: ProfileVcardInput): string {
@@ -24,8 +27,8 @@ export function buildProfileVcard(card: ProfileVcardInput): string {
     `FN:${sanitizeVcfText(card.profileName ?? card.name)}`,
     ...(org ? [`ORG:${org}`] : []),
     `TITLE:${sanitizeVcfText(card.role)}`,
-    `TEL:${sanitizeVcfText(card.phone)}`,
-    `EMAIL:${sanitizeVcfText(card.email)}`,
+    `TEL:${sanitizeVcfText(card.showPhone === false ? null : card.phone)}`,
+    `EMAIL:${sanitizeVcfText(card.showEmail === false ? null : card.email)}`,
     "END:VCARD",
   ];
   return lines.join("\n");

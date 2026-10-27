@@ -13,7 +13,7 @@
     "test:local:integration": "tsx --test scripts/tests/local-integration.test.ts",
     "check:local:activation": "node scripts/local-activation-check.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "test:security": "node --test scripts/tests/secret-scan.test.mjs && tsx --test scripts/tests/email-security.test.ts",
+    "test:security": "node --test scripts/tests/secret-scan.test.mjs && tsx --test scripts/tests/email-security.test.ts scripts/tests/email-mode.test.ts",
     "typecheck": "tsc --noEmit",
     "test:card-images": "tsx --test scripts/tests/card-images.test.ts scripts/tests/profile-image-specs.test.ts scripts/tests/profile-image-crop.test.ts",
     "test:card-images:integration": "tsx --test scripts/tests/card-images-integration.test.ts",

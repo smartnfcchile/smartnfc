@@ -9,7 +9,14 @@
 
 import { test as base, expect, type Request } from "@playwright/test";
 
-type E2EOptions = { allowMutations: boolean };
+type E2EOptions = {
+  allowMutations: boolean;
+  /**
+   * Error de JavaScript CONOCIDO y documentado (un BUG-E2E-n) que la prueba tolera para poder verificar otra
+   * cosa (p. ej. que la base no cambió). Se anota en el informe; cualquier otro error sigue haciendo fallar.
+   */
+  knownPageError: { bug: string; pattern: RegExp } | null;
+};
 type E2EGuards = { networkGuard: void };
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -19,9 +26,10 @@ const SESSION_ONLY_POSTS = new Set(["/api/auth/callback/credentials", "/api/auth
 
 export const test = base.extend<E2EOptions & E2EGuards>({
   allowMutations: [false, { option: true }],
+  knownPageError: [null, { option: true }],
 
   networkGuard: [
-    async ({ page, baseURL, allowMutations }, use, testInfo) => {
+    async ({ page, baseURL, allowMutations, knownPageError }, use, testInfo) => {
       if (!baseURL) throw new Error("[e2e] baseURL no definida");
       const appOrigin = new URL(baseURL).origin;
       const blockedExternal: string[] = [];
@@ -54,7 +62,9 @@ export const test = base.extend<E2EOptions & E2EGuards>({
         testInfo.annotations.push({ type: "requests externos bloqueados", description: [...new Set(blockedExternal)].join("\n") });
       }
       expect(blockedMutations, "una prueba de solo lectura intentó enviar datos (POST/PUT/PATCH/DELETE)").toEqual([]);
-      expect(pageErrors, "errores de JavaScript en la página").toEqual([]);
+      const tolerated = knownPageError ? pageErrors.filter((m) => knownPageError.pattern.test(m)) : [];
+      if (tolerated.length) testInfo.annotations.push({ type: `error conocido tolerado (${knownPageError!.bug})`, description: tolerated.join("\n") });
+      expect(pageErrors.filter((m) => !tolerated.includes(m)), "errores de JavaScript en la página").toEqual([]);
     },
     { auto: true },
   ],

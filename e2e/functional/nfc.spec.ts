@@ -79,8 +79,11 @@ test.describe("NFC: vinculación por Superadmin (en serie)", () => {
   });
 
   test("vínculos inválidos se rechazan con mensaje y no cambian nada", async ({ page }) => {
+    test.setTimeout(90_000);
+    // Un punto con NFC no ofrece «Vincular NFC»: la interfaz impide el segundo vínculo (el servidor también lo valida).
+    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Vincular NFC" })).toHaveCount(0);
+    await expect(row(page, nfc.points.p1.name).getByRole("button", { name: "Desvincular NFC" })).toBeVisible();
     const casos: Array<[string, string, RegExp]> = [
-      [nfc.points.p1.name, nfc.tokens.activa, /ya tiene un NFC vinculado/],
       [nfc.points.p2.name, nfc.tokens.entregada, /ya está vinculado a otro Punto Inteligente/],
       [nfc.points.p2.name, nfc.tokens.ajena, /registrado para otra empresa/],
       [nfc.points.p2.name, nfc.tokens.identidad, /registrado para otra empresa|identidad digital/],

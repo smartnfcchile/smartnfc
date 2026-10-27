@@ -43,11 +43,46 @@ async function save(page: Page) {
   return message;
 }
 
-async function vcardOf(page: Page) {
-  const href = await page.locator('a[href^="data:text/vcard"]').first().getAttribute("href");
-  expect(href, "el perfil público ofrece «Guardar contacto»").toBeTruthy();
-  return decodeURIComponent(href!.slice(href!.indexOf(",") + 1));
+// En /c/[slug] los botones de contacto no son <a>: TrackButton registra el clic (POST /api/track) y abre el
+// destino con window.open, o con un <a download> para la vCard. Se interceptan ambos para leer el destino
+// sin abrir nada fuera de localhost.
+async function captureOutbound(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __opened: string[] };
+    w.__opened = [];
+    window.open = ((url?: string | URL) => { w.__opened.push(String(url)); return null; }) as typeof window.open;
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+      if (this.download) { w.__opened.push(this.href); return; }
+      return click.call(this);
+    };
+  });
 }
+
+async function openPublicProfile(page: Page, slug: string) {
+  await captureOutbound(page);
+  const res = await page.goto(`/c/${slug}`);
+  expect(res?.status()).toBe(200);
+}
+
+/** Hace clic en el botón visible con ese texto y devuelve el destino que abrió. */
+async function destinationOf(page: Page, name: string | RegExp) {
+  const before = await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened.length);
+  await page.getByRole("button", { name }).first().click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __opened: string[] }).__opened.length)).toBeGreaterThan(before);
+  return page.evaluate(() => { const o = (window as unknown as { __opened: string[] }).__opened; return o[o.length - 1]; });
+}
+
+async function vcardOf(page: Page) {
+  const href = await destinationOf(page, /Guardar contacto/);
+  expect(href.startsWith("data:text/vcard")).toBe(true);
+  return decodeURIComponent(href.slice(href.indexOf(",") + 1));
+}
+
+const eventsOf = (cardId: string) => readOnly(async (db) => {
+  const rows = await db.event.groupBy({ by: ["eventType"], where: { cardId }, _count: { _all: true } });
+  return Object.fromEntries(rows.map((r: { eventType: string; _count: { _all: number } }) => [r.eventType, r._count._all])) as Record<string, number>;
+});
 
 const storedCard = () => readOnly((db) => db.card.findUniqueOrThrow({
   where: { id: cards.personaPro.id },
@@ -94,21 +129,22 @@ test.describe("Personas: edición del perfil (en serie sobre una tarjeta fictici
     await tab(page, "Contacto");
     await expect(page.locator('input[name="email"]')).toHaveValue(PERFIL.email);
 
-    // Perfil público
-    const res = await page.goto(`/c/${cards.personaPro.slug}`);
-    expect(res?.status()).toBe(200);
+    // Perfil público: textos y destino real de cada botón
+    await openPublicProfile(page, cards.personaPro.slug);
     for (const text of [PERFIL.profileName, PERFIL.role, PERFIL.bio]) {
       await expect(page.getByText(text, { exact: false }).first()).toBeVisible();
     }
-    await expect(page.locator(`a[href="mailto:${PERFIL.email}"]`).first()).toBeAttached();
-    await expect(page.locator(`a[href^="tel:"]`).first()).toBeAttached();
-    await expect(page.locator(`a[href^="https://wa.me/"]`).first()).toBeAttached();
-    expect(await page.locator(`a[href^="https://wa.me/"]`).first().getAttribute("href")).toContain(PERFIL.whatsapp);
-    await expect(page.locator(`a[href="${PERFIL.linkedin}"]`).first()).toBeAttached();
+    expect(await destinationOf(page, /Contactar ahora/)).toBe(`https://wa.me/${PERFIL.whatsapp}`);
+    expect(await destinationOf(page, /^Llamar$/)).toBe(`tel:${PERFIL.phone}`);
+    expect(await destinationOf(page, /^Email$/)).toBe(`mailto:${PERFIL.email}`);
+    expect(await destinationOf(page, /LinkedIn/)).toBe(PERFIL.linkedin);
+
+    // La visita y los clics quedan registrados en la base (analítica real del perfil)
+    await expect.poll(() => eventsOf(cards.personaPro.id)).toMatchObject({ VIEW: 1, WHATSAPP_CLICK: 1, PHONE_CLICK: 1, EMAIL_CLICK: 1, LINK_CLICK: 1 });
   });
 
   test("vCard «Guardar contacto»: datos del perfil con el escape correcto", async ({ page }) => {
-    await page.goto(`/c/${cards.personaPro.slug}`);
+    await openPublicProfile(page, cards.personaPro.slug);
     const vcard = await vcardOf(page);
     const lines = vcard.split(/\r?\n/);
     expect(lines[0]).toBe("BEGIN:VCARD");
@@ -130,8 +166,8 @@ test.describe("Personas: edición del perfil (en serie sobre una tarjeta fictici
     await expect(page.getByText(ENLACE.title).first()).toBeVisible();
     await expect.poll(async () => (await storedCard()).links).toEqual([ENLACE]);
 
-    await page.goto(`/c/${cards.personaPro.slug}`);
-    await expect(page.locator(`a[href="${ENLACE.url}"]`).first()).toBeAttached();
+    await openPublicProfile(page, cards.personaPro.slug);
+    expect(await destinationOf(page, ENLACE.title)).toBe(ENLACE.url);
 
     await openEditor(page);
     await tab(page, "Enlaces");
@@ -140,8 +176,8 @@ test.describe("Personas: edición del perfil (en serie sobre una tarjeta fictici
     const row = page.locator("div.justify-between", { has: page.getByText(ENLACE.url, { exact: true }) });
     await row.getByRole("button").click();
     await expect.poll(async () => (await storedCard()).links).toEqual([]);
-    await page.goto(`/c/${cards.personaPro.slug}`);
-    await expect(page.locator(`a[href="${ENLACE.url}"]`)).toHaveCount(0);
+    await openPublicProfile(page, cards.personaPro.slug);
+    await expect(page.getByRole("button", { name: ENLACE.title })).toHaveCount(0);
   });
 
   test("ocultar correo y teléfono: se guarda y desaparecen del perfil público", async ({ page }) => {
@@ -156,11 +192,11 @@ test.describe("Personas: edición del perfil (en serie sobre una tarjeta fictici
     expect(db.showPhone).toBe(false);
     expect(db.email).toBe(PERFIL.email); // el dato se conserva; solo deja de mostrarse
 
-    await page.goto(`/c/${cards.personaPro.slug}`);
+    await openPublicProfile(page, cards.personaPro.slug);
     await expect(page.getByText(PERFIL.profileName).first()).toBeVisible();
-    await expect(page.locator('a[href^="mailto:"]')).toHaveCount(0);
-    await expect(page.locator('a[href^="tel:"]')).toHaveCount(0);
-    await expect(page.locator('a[href^="https://wa.me/"]').first()).toBeAttached(); // WhatsApp sigue visible
+    await expect(page.getByRole("button", { name: /^Email$/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Llamar$/ })).toHaveCount(0);
+    expect(await destinationOf(page, /Contactar ahora/)).toBe(`https://wa.me/${PERFIL.whatsapp}`); // WhatsApp sigue visible
   });
 
   // BUG-E2E-2 (candidato, requiere decisión de producto): con «Mostrar» desmarcado, el correo y el teléfono
@@ -168,7 +204,7 @@ test.describe("Personas: edición del perfil (en serie sobre una tarjeta fictici
   // página, porque app/c/[slug]/page.tsx entrega la tarjeta completa al componente cliente.
   test("BUG-E2E-2: un dato oculto no se publica en la vCard ni en el HTML del perfil", async ({ page }) => {
     test.fail(true, "BUG-E2E-2: correo/teléfono ocultos siguen en la vCard y en el HTML público");
-    await page.goto(`/c/${cards.personaPro.slug}`);
+    await openPublicProfile(page, cards.personaPro.slug);
     const vcard = await vcardOf(page);
     expect(vcard).not.toContain(PERFIL.email);
     expect(vcard).not.toContain(PERFIL.phone);
@@ -178,12 +214,16 @@ test.describe("Personas: edición del perfil (en serie sobre una tarjeta fictici
   });
 });
 
-test.describe("Personas: estados del perfil público y permisos (solo lectura)", () => {
-  test("Pro vencido: el perfil básico con derecho permanente sigue publicado", async ({ page }) => {
-    const res = await page.goto(`/c/${cards.personaBase.slug}`);
-    expect(res?.status()).toBe(200);
+test.describe("Personas: estados del perfil público y permisos", () => {
+  // Abrir un perfil público envía POST /api/public/events (registra la visita VIEW): es comportamiento real,
+  // por eso estas pruebas declaran escrituras. Solo afectan a la base desechable.
+  test.use({ allowMutations: true });
+
+  test("Pro vencido: el perfil básico con derecho permanente sigue publicado y registra la visita", async ({ page }) => {
+    await openPublicProfile(page, cards.personaBase.slug);
     await expect(page.getByText("Camila Base E2E").first()).toBeVisible();
-    await expect(page.locator('a[href="mailto:camila.base@smartnfc.test"]').first()).toBeAttached();
+    expect(await destinationOf(page, /^Email$/)).toBe("mailto:camila.base@smartnfc.test");
+    await expect.poll(() => eventsOf(cards.personaBase.id)).toMatchObject({ VIEW: 1, EMAIL_CLICK: 1 });
   });
 
   test("sin derecho de perfil: muestra el estado neutral, sin datos ni motivos administrativos", async ({ page }) => {
@@ -206,10 +246,13 @@ test.describe("Personas: estados del perfil público y permisos (solo lectura)",
     await expect(page.getByRole("button", { name: "Guardar Cambios" })).toHaveCount(0);
   });
 
-  test("Superadmin ve el perfil protegido, no el formulario", async ({ page }) => {
+  // Observación (no es un fallo de seguridad): app/dashboard/editor/[cardId]/page.tsx exige PROFILE_EDIT en la
+  // empresa del usuario ANTES de la rama SUPERADMIN, así que un Superadmin sin licencia propia vuelve a
+  // /dashboard y nunca ve la pantalla «Perfil protegido». Se prueba lo esencial: no accede al formulario.
+  test("Superadmin no accede al formulario de edición de un perfil de cliente", async ({ page }) => {
     await loginAndWaitForDashboard(page, accounts.superadmin);
     await page.goto(`/dashboard/editor/${cards.personaPro.id}`);
-    await expect(page.getByText("Perfil protegido")).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole("button", { name: "Guardar Cambios" })).toHaveCount(0);
   });
 });

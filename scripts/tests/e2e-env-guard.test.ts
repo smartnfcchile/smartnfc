@@ -7,6 +7,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { checkE2EAppUrl, checkE2EDatabaseUrl, findE2EEnvironmentViolations } from "../../e2e/support/env-guard";
 import { buildServerEnv, effectiveEnv } from "../../e2e/support/server";
+import { evaluateDatabase, requireE2EDatabaseUrl } from "../../e2e/support/db-guard-rules";
 
 // Demuestra que el servidor E2E no puede arrancar contra producción ni con servicios reales.
 // Ninguna prueba se conecta a una base de datos ni hace requests de red.
@@ -160,4 +161,22 @@ test("el lanzador real acepta un entorno desechable válido (solo validación, s
   const r = runLauncher({ ...cleanEnv(), E2E_DATABASE_URL: GOOD_DB });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /Entorno E2E válido/);
+});
+
+// ── Fase B: protección de la base que usa el seed (reglas puras, sin conexión) ──
+
+test("seed: la URL debe ser loopback y desechable antes de conectarse", () => {
+  assert.equal(requireE2EDatabaseUrl({ E2E_DATABASE_URL: GOOD_DB }), GOOD_DB);
+  for (const bad of [undefined, NEON_URL, `${PG}://e2e@127.0.0.1:5432/smartnfc`, `${PG}://e2e@localhost:5432/smartnfc_e2e_disposable?host=ep-x.neon.tech`]) {
+    assert.throws(() => requireE2EDatabaseUrl({ E2E_DATABASE_URL: bad }), /Base rechazada/, String(bad));
+  }
+});
+
+test("seed: ya conectado, se detiene ante cualquier señal de una base no desechable", () => {
+  const clean = { foreignCompanies: 0, foreignUsers: 0 };
+  assert.deepEqual(evaluateDatabase({ database: "smartnfc_e2e_disposable", neonSettings: 0 }, clean), []);
+  assert.notDeepEqual(evaluateDatabase({ database: "neondb", neonSettings: 0 }, clean), [], "nombre real distinto al de la URL");
+  assert.notDeepEqual(evaluateDatabase({ database: "smartnfc_e2e_disposable", neonSettings: 3 }, clean), [], "servidor Neon");
+  assert.notDeepEqual(evaluateDatabase({ database: "smartnfc_e2e_disposable", neonSettings: 0 }, { foreignCompanies: 1, foreignUsers: 0 }), [], "empresa real");
+  assert.notDeepEqual(evaluateDatabase({ database: "smartnfc_e2e_disposable", neonSettings: 0 }, { foreignCompanies: 0, foreignUsers: 1 }), [], "usuario real");
 });

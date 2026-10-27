@@ -1,6 +1,6 @@
 # Pruebas E2E con Playwright (Fase A)
 
-Estado: **Fase A** — entorno aislado y navegación pública de solo lectura. Las pruebas que modifican datos (Fase B) quedan bloqueadas hasta demostrar el aislamiento en CI.
+Estado: **Fase A** (entorno aislado y navegación pública) completada. **Fase B** (pruebas funcionales con datos ficticios) en curso por etapas: autenticación → Personas → Empresas → Locales → NFC.
 
 ## Reglas
 
@@ -44,3 +44,16 @@ Si tu carpeta tiene un `.env` con datos de producción, el guard puede rechazar 
 ## Pruebas del guard
 
 `npm run test:e2e-guard` demuestra, sin red ni base, que el lanzador rechaza Neon, URLs públicas, claves de Resend/Blob, variables de Vercel y un `.env` de producción en la carpeta.
+
+## Fase B: datos ficticios y pruebas funcionales
+
+- **Seed (`e2e/support/seed.ts`):** lo ejecuta el `globalSetup` de Playwright antes de cualquier prueba. Antes de escribir pasa por tres barreras (`e2e/support/db-guard.ts`); si alguna falla, se detiene sin escribir:
+  1. **URL:** PostgreSQL en loopback, con `e2e_disposable` en el nombre y sin parámetros que redirijan el host. Esta validación se hace antes de conectarse.
+  2. **Identidad, ya conectado:** `current_database()` incluye `e2e_disposable` y el servidor no expone parámetros `neon.*`.
+  3. **Contenido:** la base está vacía o solo tiene datos E2E (empresas con slug `e2e-` y usuarios `@smartnfc.test`). Un solo dato ajeno detiene el seed.
+- **Datos:** el seed vacía la base desechable y crea cuentas `@smartnfc.test` con contraseñas aleatorias en cada ejecución. Las guarda en `e2e/.state/accounts.json`, que está ignorado por git.
+- **Enlaces de activación y restablecimiento:** el seed los crea directamente con su hash. Nunca se envía un correo.
+- **Verificación:** las pruebas confirman lo guardado con `readOnly()`, una transacción `READ ONLY` en PostgreSQL que no puede escribir.
+- **Escrituras:** solo las pruebas con `test.use({ allowMutations: true })` pueden enviar POST de la aplicación. El inicio y cierre de sesión de NextAuth están permitidos siempre, porque son JWT sin adaptador y no escriben en la base.
+- **Proyectos:** las pruebas funcionales corren solo en `desktop-chromium`; `mobile-chromium` ejecuta la navegación pública.
+- **Fuera de alcance:** subida de imágenes (requiere Vercel Blob) y hardware NFC real. Solo se prueba la ruta `/t/[token]`.

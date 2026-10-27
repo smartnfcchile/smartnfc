@@ -3,8 +3,8 @@
 // - Solo se permiten requests al origen local de la app (más data:/blob:). Todo lo externo se aborta
 //   y queda anotado en el informe.
 // - Por defecto la prueba es de SOLO LECTURA: cualquier POST/PUT/PATCH/DELETE (local o externo) se aborta
-//   y hace fallar la prueba. Las pruebas que modifiquen datos deberán declarar `allowMutations: true`
-//   explícitamente (Fase B, una vez demostrado el aislamiento del entorno).
+//   y hace fallar la prueba, salvo el inicio y cierre de sesión de NextAuth (no escriben en la base).
+//   Las pruebas que modifican datos declaran `test.use({ allowMutations: true })`.
 // - Errores de JavaScript en la página hacen fallar la prueba.
 
 import { test as base, expect, type Request } from "@playwright/test";
@@ -13,6 +13,9 @@ type E2EOptions = { allowMutations: boolean };
 type E2EGuards = { networkGuard: void };
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+// POST de NextAuth que no escriben en la base: la sesión es JWT y no hay adaptador de base de datos
+// (lib/auth.ts solo lee el usuario en authorize()). Cualquier otro POST exige allowMutations.
+const SESSION_ONLY_POSTS = new Set(["/api/auth/callback/credentials", "/api/auth/signout", "/api/auth/_log"]);
 
 export const test = base.extend<E2EOptions & E2EGuards>({
   allowMutations: [false, { option: true }],
@@ -37,7 +40,7 @@ export const test = base.extend<E2EOptions & E2EGuards>({
           blockedExternal.push(describe(request));
           return route.abort("blockedbyclient");
         }
-        if (!allowMutations && !READ_METHODS.has(request.method())) {
+        if (!allowMutations && !READ_METHODS.has(request.method()) && !SESSION_ONLY_POSTS.has(new URL(url).pathname)) {
           blockedMutations.push(describe(request));
           return route.abort("blockedbyclient");
         }

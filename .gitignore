@@ -48,3 +48,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# datos ficticios generados por el seed E2E (contraseñas aleatorias por ejecución)
+/e2e/.state/

@@ -1,3 +1,4 @@
+import "../scripts/lib/seed-guard";
 // prisma/seed-demo.ts
 
 import { PrismaClient } from '@prisma/client';

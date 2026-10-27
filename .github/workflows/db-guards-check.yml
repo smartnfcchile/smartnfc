@@ -1,0 +1,62 @@
+name: SmartNFC DB target guards (seeds y mantenimiento)
+
+# Verifica que seeds y scripts de mantenimiento no puedan ejecutarse contra bases remotas por
+# accidente, que el seed no eleve privilegios y que los seeds sigan funcionando en una base local.
+#
+# Seguridad: sin secretos. La única base es el servicio efímero postgres:16 de este job.
+# Las pruebas de proceso usan destinos remotos ficticios bajo .invalid (nunca resuelven).
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db-guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: smartnfc_seed_guard_ci
+          POSTGRES_PASSWORD: seed-guard-ci-only-ephemeral
+          POSTGRES_DB: seed_guard_disposable_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smartnfc_seed_guard_ci -d seed_guard_disposable_ci"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://smartnfc_seed_guard_ci:seed-guard-ci-only-ephemeral@127.0.0.1:5432/seed_guard_disposable_ci
+      SEED_GUARD_TEST_DATABASE_URL: postgresql://smartnfc_seed_guard_ci:seed-guard-ci-only-ephemeral@127.0.0.1:5432/seed_guard_disposable_ci
+      NEXTAUTH_SECRET: ci-only-secret
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      EMAIL_MODE: disabled
+      LOCAL_REPORT_EMAIL_MODE: disabled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Guards — decisiones, revisión estática y procesos rechazados (sin base)
+        run: npm run test:db-guards
+      - name: Apply migrations to the ephemeral database
+        run: npm run db:migrate
+      - name: Seeds reales sobre la base efímera (una omisión cuenta como fallo)
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:db-guards:integration 2>&1 | tee seed-guards-integration.log
+          if grep -qE '^# skipped [1-9]' seed-guards-integration.log; then echo "Suite omitida: la base desechable no fue seleccionada." >&2; exit 1; fi

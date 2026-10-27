@@ -34,6 +34,8 @@
     "test:migration-history": "tsx --test scripts/tests/migration-history-protection.test.ts",
     "test:local-location-backfill-idempotency": "tsx --test scripts/tests/local-location-backfill-idempotency.test.ts",
     "test:db-isolation": "tsx --test scripts/tests/test-database-isolation.test.ts",
+    "test:db-guards": "tsx --test scripts/tests/db-guards.test.ts",
+    "test:db-guards:integration": "tsx --test scripts/tests/seed-guards-integration.test.ts",
     "ci:assert-block2-db": "tsx scripts/ci/assert-block2-test-database.ts"
   },
   "prisma": {

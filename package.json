@@ -24,6 +24,7 @@
     "test:flow": "tsx --test scripts/tests/flow-engine.test.ts",
     "test:privacy": "tsx --test scripts/tests/privacy.test.ts",
     "test:login": "tsx --test scripts/tests/login-notices.test.ts",
+    "test:action-errors": "tsx --test scripts/tests/action-errors.test.ts",
     "test:empresas": "tsx --test scripts/tests/empresas.test.ts",
     "test:personas": "tsx --test scripts/tests/personas-flow.test.ts scripts/tests/personas-preview.test.ts scripts/tests/personas-quote.test.ts scripts/tests/personas-assets.test.ts",
     "test:card-preview": "tsx --test scripts/tests/card-preview-qr.test.ts scripts/tests/physical-export-qr.test.ts",

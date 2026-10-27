@@ -179,7 +179,6 @@ const RESET_MSG = "¡Contraseña restablecida con éxito! Ya puedes iniciar sesi
 
 test.describe("Mensajes de éxito en /login", () => {
   test("BUG-E2E-1: con carga directa de la URL, /login muestra los mensajes sin errores de React", async ({ page }) => {
-    test.fail(true, "BUG-E2E-1: error de hidratación React #418 al cargar /login?activated=true");
     await page.goto("/login?activated=true");
     await expect(page.getByText(ACTIVATED_MSG)).toBeVisible();
     await page.goto("/login?reset=true");
@@ -190,7 +189,6 @@ test.describe("Mensajes de éxito en /login", () => {
     test.use({ allowMutations: true });
 
     test("activación → /login muestra el mensaje de éxito", async ({ page }) => {
-      test.fail(true, "BUG-E2E-1: el mensaje de activación no aparece tras router.push");
       const password = strongPassword();
       await page.goto(`/activar-cuenta?token=${tokens.activationMessage}`);
       await page.locator("#new-password").fill(password);
@@ -201,7 +199,6 @@ test.describe("Mensajes de éxito en /login", () => {
     });
 
     test("restablecimiento → /login muestra el mensaje de éxito", async ({ page }) => {
-      test.fail(true, "BUG-E2E-1: el mensaje de restablecimiento no aparece tras router.push");
       const password = strongPassword();
       await page.goto(`/restablecer-contrasena?token=${tokens.resetMessage}`);
       const fields = page.locator('input[type="password"]');

@@ -203,7 +203,6 @@ test.describe("Personas: edición del perfil (en serie sobre una tarjeta fictici
   // siguen saliendo en la vCard (lib/card-profile/vcard.ts no considera showEmail/showPhone) y en el HTML de la
   // página, porque app/c/[slug]/page.tsx entrega la tarjeta completa al componente cliente.
   test("BUG-E2E-2: un dato oculto no se publica en la vCard ni en el HTML del perfil", async ({ page }) => {
-    test.fail(true, "BUG-E2E-2: correo/teléfono ocultos siguen en la vCard y en el HTML público");
     await openPublicProfile(page, cards.personaPro.slug);
     const vcard = await vcardOf(page);
     expect(vcard).not.toContain(PERFIL.email);

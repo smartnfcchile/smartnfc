@@ -171,7 +171,6 @@ test.describe("Locales: dueña de Local Pro (en serie)", () => {
   test.describe("Local Pro incluye 1 local", () => {
     // BUG-E2E-3 (Locales): saveLocationAction LANZA «Límite de locales alcanzado.»; en producción React lo
     // convierte en un error no controlado (#441) en la página. El bloqueo en el servidor funciona.
-    test.use({ knownPageError: { bug: "BUG-E2E-3", pattern: /Minified React error #441/ } });
 
     test("un segundo local no se crea (bloqueo en el servidor)", async ({ page }) => {
       await page.goto("/dashboard/local/locales");
@@ -183,7 +182,6 @@ test.describe("Locales: dueña de Local Pro (en serie)", () => {
   });
 
   test("BUG-E2E-3 (Locales): al superar el límite de locales se muestra un mensaje y no un error de la página", async ({ page }) => {
-    test.fail(true, "BUG-E2E-3: saveLocationAction lanza el error; en producción aparece React #441 sin mensaje");
     await page.goto("/dashboard/local/locales");
     await page.locator('input[name="name"]').fill("Segundo Local E2E");
     await page.getByRole("button", { name: "Crear local" }).click();

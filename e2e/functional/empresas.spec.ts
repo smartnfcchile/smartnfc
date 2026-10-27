@@ -107,7 +107,6 @@ test.describe("Empresas: equipo con licencia Equipo 5 (en serie)", () => {
   // «Minified React error #441…» en lugar de, por ejemplo, «La empresa alcanzó el máximo de identidades…».
   // El bloqueo en el servidor funciona; lo que falla es la comunicación. test.fail() hasta corregirlo.
   test("BUG-E2E-3: el usuario recibe mensajes comprensibles al superar el cupo o repetir un correo", async ({ page }) => {
-    test.fail(true, "BUG-E2E-3: los mensajes de error de Server Actions llegan como «Minified React error #441»");
     await openUsers(page);
     await createCollaborator(page, SEXTO);
     expect(await modalError(page)).toMatch(/máximo de identidades/);

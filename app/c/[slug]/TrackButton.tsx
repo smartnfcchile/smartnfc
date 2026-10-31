@@ -32,15 +32,14 @@ export default function TrackButton({
       keepalive: true,
     }).catch(() => {});
 
-    if (eventType === "VCARD_DOWNLOAD") {
-      const link = document.createElement("a");
-      link.href = href;
-      link.download = "contacto.vcf";
-      link.click();
-      return;
-    }
-
+    if (eventType === "VCARD_DOWNLOAD") return;
     window.open(href, "_blank", "noopener,noreferrer");
+  }
+
+  // Native navigation remains available before hydration and without JavaScript.
+  // Tracking measures a click only; its failure must never block the contact.
+  if (eventType === "VCARD_DOWNLOAD") {
+    return <a href={href} onClick={handleClick} className={className} style={style}>{children}</a>;
   }
 
   return (

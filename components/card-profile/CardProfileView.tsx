@@ -7,7 +7,6 @@ import { getPublicUrl } from "../../lib/public-url";
 import LeadForm from "../../app/c/[slug]/LeadForm";
 import TrackButton from "../../app/c/[slug]/TrackButton";
 import PublicCardAnalytics from "./PublicCardAnalytics";
-import { buildProfileVcard } from "../../lib/card-profile/vcard";
 import { 
   normalizeTemplate, 
   normalizePhotoStyle, 
@@ -158,10 +157,7 @@ export default function CardProfileView({ card, isPreview = false, contactSource
   const isLightTemplate = normTemplate === "classic-light" || normTemplate === "company-light";
   const actualIsDark = !isLightTemplate;
 
-  // Generación de vCard (ORG solo si el perfil tiene empresa; ver lib/card-profile/vcard.ts)
-  const vcard = buildProfileVcard(card);
-
-  const vcardUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(vcard)}`;
+  const vcardUrl = `/c/${encodeURIComponent(card.slug)}/contacto.vcf`;
 
   // Formateo de canales de contacto
   const whatsapp = card.showWhatsapp ? formatPhone(card.whatsapp) : null;
@@ -662,6 +658,16 @@ export default function CardProfileView({ card, isPreview = false, contactSource
             )
           )}
 
+          {!isPreview && (
+            <details className="text-sm">
+              <summary className="cursor-pointer">¿No se abre el contacto?</summary>
+              <p className="mt-2">Si abriste la tarjeta desde Instagram, WhatsApp u otra app, usa su menú para abrirla en Safari o en tu navegador. Luego toca Guardar contacto y confirma la importación.</p>
+              <label className="mt-2 block">
+                Enlace de esta tarjeta (mantén presionado para copiar)
+                <input aria-label="Enlace de esta tarjeta" readOnly value={getPublicUrl(`/c/${encodeURIComponent(card.slug)}`)} className="mt-1 w-full rounded border bg-transparent p-2" onFocus={(event) => event.currentTarget.select()} />
+              </label>
+            </details>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {isPreview ? (
               <button

@@ -104,27 +104,27 @@ function render(card: ReturnType<typeof fixture>, props: { isPreview?: boolean; 
 const hrefOf = (eventType: string) => trackCalls.filter(t => t.eventType === eventType).map(t => t.href);
 
 /** Contenido de la vCard que descarga «Guardar contacto» (último render). */
-function lastVcard(): string {
+function lastVcard(card = fixture()): string {
   const hrefs = hrefOf("VCARD_DOWNLOAD");
   assert.equal(hrefs.length, 1, "un único botón «Guardar contacto»");
-  const prefix = "data:text/vcard;charset=utf-8,";
-  assert.ok(hrefs[0].startsWith(prefix));
-  return decodeURIComponent(hrefs[0].slice(prefix.length));
+  assert.equal(hrefs[0], `/c/${encodeURIComponent(card.slug)}/contacto.vcf`);
+  return buildProfileVcard(card);
 }
 
-const LEGACY_WITH_COMPANY = `BEGIN:VCARD
+const EXPECTED_WITH_COMPANY = `BEGIN:VCARD
 VERSION:3.0
+N:;Miguel Rojas;;;
 FN:Miguel Rojas
 ORG:Taller Rojas
 TITLE:Maestro soldador
-TEL:+56 9 1111 2222
-EMAIL:miguel@example.com
-END:VCARD`;
+TEL;TYPE=CELL,VOICE:+56911112222
+EMAIL;TYPE=INTERNET:miguel@example.com
+END:VCARD`.split("\n").join("\r\n") + "\r\n";
 
 // ---------- vCard ----------
 
-test("vCard con empresa: formato idéntico al anterior", () => {
-  assert.equal(buildProfileVcard(fixture()), LEGACY_WITH_COMPANY);
+test("vCard con empresa: formato interoperable con CRLF", () => {
+  assert.equal(buildProfileVcard(fixture()), EXPECTED_WITH_COMPANY);
 });
 
 test("vCard sin empresa (null, vacía o solo espacios): sin línea ORG y sin el nombre de la cuenta", () => {
@@ -132,13 +132,13 @@ test("vCard sin empresa (null, vacía o solo espacios): sin línea ORG y sin el 
     const v = buildProfileVcard(fixture({ companyName }));
     assert.ok(!/^ORG:/m.test(v), `ORG presente con companyName=${JSON.stringify(companyName)}`);
     assert.ok(!v.includes(ACCOUNT_NAME));
-    assert.equal(v, LEGACY_WITH_COMPANY.replace("ORG:Taller Rojas\n", ""));
+    assert.equal(v, EXPECTED_WITH_COMPANY.replace("ORG:Taller Rojas\r\n", ""));
   }
 });
 
-test("vCard: FN usa el nombre de la tarjeta si no hay nombre de perfil; campos vacíos se mantienen", () => {
+test("vCard: FN usa el nombre de la tarjeta si no hay nombre de perfil; campos vacíos se omiten", () => {
   const v = buildProfileVcard(fixture({ profileName: null, role: null, phone: null, email: null, companyName: null }));
-  assert.equal(v, "BEGIN:VCARD\nVERSION:3.0\nFN:Miguel Rojas\nTITLE:\nTEL:\nEMAIL:\nEND:VCARD");
+  assert.equal(v, "BEGIN:VCARD\r\nVERSION:3.0\r\nN:;Miguel Rojas;;;\r\nFN:Miguel Rojas\r\nEND:VCARD\r\n");
 });
 
 test("vCard: la empresa se publica sin espacios sobrantes", () => {
@@ -153,15 +153,15 @@ test("vCard: escapa coma, punto y coma y backslash (RFC 2426)", () => {
 
 test("vCard: un salto de línea en un dato no puede inyectar propiedades", () => {
   const v = buildProfileVcard(fixture({ role: "Soldador\r\nORG:Falsa", profileName: "Miguel\nTEL:+56900000000", email: "a@b.cl\nURL:https://malo.example" }));
-  const lines = v.split("\n");
-  assert.deepEqual(lines.map(l => l.split(":")[0]), ["BEGIN", "VERSION", "FN", "ORG", "TITLE", "TEL", "EMAIL", "END"]);
+  const lines = v.trimEnd().split("\r\n");
+  assert.deepEqual(lines.map(l => l.split(":")[0]), ["BEGIN", "VERSION", "N", "FN", "ORG", "TITLE", "TEL;TYPE=CELL,VOICE", "EMAIL;TYPE=INTERNET", "END"]);
   assert.equal(lines.filter(l => l.startsWith("ORG:")).length, 1);
-  assert.equal(lines.filter(l => l.startsWith("TEL:")).length, 1);
-  assert.ok(!v.includes("\r"));
+  assert.equal(lines.filter(l => l.startsWith("TEL;")).length, 1);
+  assert.ok(!v.replaceAll("\r\n", "").includes("\n"));
 });
 
-test("vCard: el teléfono conserva el formato escrito en el perfil", () => {
-  assert.match(buildProfileVcard(fixture()), /^TEL:\+56 9 1111 2222$/m);
+test("vCard: el teléfono se normaliza para importar", () => {
+  assert.match(buildProfileVcard(fixture()), /^TEL;TYPE=CELL,VOICE:\+56911112222$/m);
 });
 
 // ---------- Perfil público real ----------
@@ -195,12 +195,12 @@ test("perfil público: canales ocultos no generan acción", () => {
 
 test("perfil público: «Guardar contacto» descarga la vCard con la empresa del perfil", () => {
   render(fixture(), { isPreview: false });
-  assert.equal(lastVcard(), LEGACY_WITH_COMPANY);
+  assert.equal(lastVcard(), EXPECTED_WITH_COMPANY);
 });
 
 test("perfil público sin empresa: la vCard no incluye ORG ni el nombre de la cuenta", () => {
   render(fixture({ companyName: null }), { isPreview: false });
-  const v = lastVcard();
+  const v = lastVcard(fixture({ companyName: null }));
   assert.ok(!/^ORG:/m.test(v));
   assert.ok(!v.includes(ACCOUNT_NAME));
 });
@@ -213,7 +213,7 @@ test("perfil público: el botón de captura depende solo de shareContactEnabled 
 test("perfil público con plantilla de empresa: la cabecera sigue mostrando el nombre (sin cambios en P0)", () => {
   const html = render(fixture({ template: "company-dark", companyName: null }), { isPreview: false });
   assert.ok(html.includes(ACCOUNT_NAME), "la cabecera de empresa conserva su comportamiento");
-  assert.ok(!/^ORG:/m.test(lastVcard()), "pero la vCard no publica ORG");
+  assert.ok(!/^ORG:/m.test(lastVcard(fixture({ companyName: null }))), "pero la vCard no publica ORG");
 });
 
 // ---------- Vista previa ----------

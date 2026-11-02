@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import React from "react";
 import { sendEmail } from "../../../lib/email/send-email";
+import { runAction, UserFacingError } from "../../../lib/action-errors";
 import UserInvitationEmail from "../../../emails/UserInvitationEmail";
 import CardProductionRequestEmail from "../../../emails/CardProductionRequestEmail";
 
@@ -41,26 +42,31 @@ async function sendActivationEmail(user: { id: string; name: string | null; emai
   });
 }
 
+// Server Action: devuelve { ok, error } en vez de lanzar (BUG-E2E-3). Autorización sin cambios (ver *Impl).
 export async function createCollaboratorWithCard(name: string, email: string) {
+  return runAction("users.createCollaborator", () => createCollaboratorWithCardImpl(name, email));
+}
+
+async function createCollaboratorWithCardImpl(name: string, email: string) {
   const admin = await getCurrentUserContext();
   await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
-  if (!isAdmin) throw new Error("Solo los administradores pueden crear colaboradores.");
+  if (!isAdmin) throw new UserFacingError("Solo los administradores pueden crear colaboradores.");
 
   const personName = name.trim();
   const emailNorm = email.trim().toLowerCase();
-  if (personName.length < 2) throw new Error("Ingresa el nombre completo del colaborador.");
-  if (!emailNorm) throw new Error("Ingresa un correo electrónico válido.");
+  if (personName.length < 2) throw new UserFacingError("Ingresa el nombre completo del colaborador.");
+  if (!emailNorm) throw new UserFacingError("Ingresa un correo electrónico válido.");
 
   const existingUser = await prisma.user.findUnique({ where: { email: emailNorm }, select: { id: true } });
-  if (existingUser) throw new Error("Este correo electrónico ya está registrado en la plataforma.");
+  if (existingUser) throw new UserFacingError("Este correo electrónico ya está registrado en la plataforma.");
 
   const company = await prisma.company.findUnique({ where: { id: admin.companyId }, select: { id: true, name: true } });
-  if (!company) throw new Error("Empresa no encontrada.");
+  if (!company) throw new UserFacingError("Empresa no encontrada.");
 
   const hasIdentityCapacity = await canCreateIdentity(company.id);
   if (!hasIdentityCapacity) {
-    throw new Error("La empresa alcanzó el máximo de identidades permitido por su plan SmartNFC Empresas. Solicita una ampliación antes de crear otra tarjeta.");
+    throw new UserFacingError("La empresa alcanzó el máximo de identidades permitido por su plan SmartNFC Empresas. Solicita una ampliación antes de crear otra tarjeta.");
   }
 
   const slug = await uniqueCardSlug(company.name, personName);
@@ -73,7 +79,7 @@ export async function createCollaboratorWithCard(name: string, email: string) {
   const result = await prisma.$transaction(async (tx) => {
     await lockCapacity(tx, company.id);
     await requireCapability(company.id, "TEAM_MANAGEMENT", tx);
-    if (!(await canCreateIdentity(company.id, tx))) throw new Error("Límite de identidades alcanzado.");
+    if (!(await canCreateIdentity(company.id, tx))) throw new UserFacingError("Límite de identidades alcanzado.");
     const newUser = await tx.user.create({
       data: { name: personName, email: emailNorm, role: "COLLABORATOR", companyId: company.id, isActive: false, status: "PENDING" },
       include: { company: true },
@@ -152,7 +158,7 @@ export async function createCollaboratorWithCard(name: string, email: string) {
 
   revalidatePath("/dashboard/users");
   revalidatePath("/dashboard/cards");
-  return { success: true, userId: result.newUser.id, cardId: result.card.id, slug, emailWarning: warnings.join(" ") || null };
+  return { userId: result.newUser.id, cardId: result.card.id, slug, emailWarning: warnings.join(" ") || null };
 }
 
 // Compatibilidad temporal con componentes antiguos.
@@ -160,17 +166,22 @@ export async function createVendorUser(name: string, email: string) {
   return createCollaboratorWithCard(name, email);
 }
 
+// Server Action: devuelve { ok, error } en vez de lanzar (BUG-E2E-3). Autorización sin cambios (ver *Impl).
 export async function resendInvitationFromDashboardAction(userId: string) {
+  return runAction("users.resendInvitation", () => resendInvitationFromDashboardActionImpl(userId));
+}
+
+async function resendInvitationFromDashboardActionImpl(userId: string) {
   const admin = await getCurrentUserContext();
   await requireCapability(admin.companyId, "TEAM_MANAGEMENT");
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
-  if (!isAdmin) throw new Error("Solo los administradores pueden reenviar invitaciones.");
+  if (!isAdmin) throw new UserFacingError("Solo los administradores pueden reenviar invitaciones.");
 
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { company: true } });
-  if (!user) throw new Error("Usuario no encontrado.");
-  if (user.companyId !== admin.companyId) throw new Error("No autorizado. El usuario pertenece a otra empresa.");
-  if (user.status === "SUSPENDED") throw new Error("El colaborador está suspendido y ya no puede recibir invitaciones desde esta cuenta.");
-  if (user.password) throw new Error("El usuario ya completó su enrolamiento. Debe usar la recuperación de contraseña.");
+  if (!user) throw new UserFacingError("Usuario no encontrado.");
+  if (user.companyId !== admin.companyId) throw new UserFacingError("No autorizado. El usuario pertenece a otra empresa.");
+  if (user.status === "SUSPENDED") throw new UserFacingError("El colaborador está suspendido y ya no puede recibir invitaciones desde esta cuenta.");
+  if (user.password) throw new UserFacingError("El usuario ya completó su enrolamiento. Debe usar la recuperación de contraseña.");
 
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
@@ -184,31 +195,39 @@ export async function resendInvitationFromDashboardAction(userId: string) {
   });
 
   const emailRes = await sendActivationEmail(user, token);
-  if (!emailRes.success) throw new Error(`Fallo en el reenvío de correo: ${emailRes.error}`);
+  if (!emailRes.success) {
+    console.error("[action:users.resendInvitation] no se pudo enviar la invitación", emailRes.error);
+    throw new UserFacingError("No fue posible enviar la invitación. Intenta nuevamente más tarde.");
+  }
 
   await prisma.adminAuditLog.create({
     data: { actorUserId: admin.id, action: "USER_INVITATION_RESENT", entityType: "USER", entityId: user.id, companyId: user.companyId, metadata: JSON.stringify({ email: user.email }) },
   });
-  return { success: true };
+  return {};
 }
 
 // Offboarding only reduces access, so it never depends on TEAM_MANAGEMENT (role, tenant and active company still apply).
+// Server Action: devuelve { ok, error } en vez de lanzar (BUG-E2E-3). Autorización sin cambios (ver *Impl).
 export async function suspendCollaboratorUser(userId: string) {
+  return runAction("users.suspendCollaborator", () => suspendCollaboratorUserImpl(userId));
+}
+
+async function suspendCollaboratorUserImpl(userId: string) {
   const admin = await getCurrentUserContext();
   const isAdmin = admin.role === "SUPERADMIN" || admin.role === "COMPANY_OWNER" || admin.role === "COMPANY_ADMIN";
-  if (!isAdmin) throw new Error("Solo los administradores pueden suspender colaboradores.");
-  if (userId === admin.id) throw new Error("No puedes suspender tu propia cuenta desde esta sección.");
+  if (!isAdmin) throw new UserFacingError("Solo los administradores pueden suspender colaboradores.");
+  if (userId === admin.id) throw new UserFacingError("No puedes suspender tu propia cuenta desde esta sección.");
 
   const userToSuspend = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, companyId: true, role: true, status: true, email: true },
   });
-  if (!userToSuspend) throw new Error("Usuario no encontrado.");
-  if (userToSuspend.companyId !== admin.companyId) throw new Error("No tienes permisos sobre usuarios de otra empresa.");
+  if (!userToSuspend) throw new UserFacingError("Usuario no encontrado.");
+  if (userToSuspend.companyId !== admin.companyId) throw new UserFacingError("No tienes permisos sobre usuarios de otra empresa.");
   if (userToSuspend.role !== "COLLABORATOR") {
-    throw new Error("Los roles administrativos deben gestionarse desde la administración de la empresa, no desde la suspensión de colaboradores.");
+    throw new UserFacingError("Los roles administrativos deben gestionarse desde la administración de la empresa, no desde la suspensión de colaboradores.");
   }
-  if (userToSuspend.status === "SUSPENDED") return { success: true };
+  if (userToSuspend.status === "SUSPENDED") return {};
 
   const cards = await prisma.card.findMany({ where: { userId }, select: { id: true } });
   const cardIds = cards.map(card => card.id);
@@ -259,7 +278,7 @@ export async function suspendCollaboratorUser(userId: string) {
   revalidatePath("/dashboard/users");
   revalidatePath("/dashboard/cards");
   revalidatePath("/dashboard/leads");
-  return { success: true };
+  return {};
 }
 
 // Compatibilidad temporal: ya no elimina datos históricos; suspende al colaborador.

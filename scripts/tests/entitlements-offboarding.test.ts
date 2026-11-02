@@ -18,6 +18,9 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
   const {toggleCardActive,createVirtualCard}=require("../../app/dashboard/cards/actions");
   const {suspendCollaboratorUser,resendInvitationFromDashboardAction,createCollaboratorWithCard,deleteVendorUser}=require("../../app/dashboard/users/actions");
   const {updateCard}=require("../../app/dashboard/editor/[cardId]/actions");
+  // BUG-E2E-3: estas acciones ya no lanzan; devuelven { ok:false, error }. La verificación es la misma:
+  // la acción se rechaza con el mensaje esperado (antes: assert.rejects).
+  const denied=async(p:Promise<{ok:boolean;error?:string}>,re:RegExp)=>{const r=await p;assert.equal(r.ok,false,"la acción debía rechazarse");assert.match(String(r.error),re);};
   const {updateProfileEditPolicyAction}=require("../../app/dashboard/configuracion/perfiles/actions");
   const {getEffectiveProfileEditPolicy}=require("../../lib/profile-edit-policy");
   const suffix=randomUUID().slice(0,8);
@@ -56,11 +59,11 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
     await toggleCardActive(adminCard.id,false);await toggleCardActive(adminCard.id,true);
     await toggleCardActive(card1.id,false);assert.equal(await active(card1.id),false);
     await toggleCardActive(card1.id,true);assert.equal(await active(card1.id),true);
-    const created=await createCollaboratorWithCard("Pending Person",`pending-${suffix}@example.test`);
+    const created=await createCollaboratorWithCard("Pending Person",`pending-${suffix}@example.test`);assert.equal(created.ok,true,created.ok?"":created.error);
     pendingUserId=created.userId;assert.equal((await db.user.findUniqueOrThrow({where:{id:pendingUserId}})).status,"PENDING");
     assert.equal((await resendInvitationFromDashboardAction(pendingUserId)).success,true);
     assert.equal(await db.userActivationToken.count({where:{userId:pendingUserId,usedAt:null,expiresAt:{gt:new Date()}}}),1);
-    await suspendCollaboratorUser(c3.id);
+    assert.equal((await suspendCollaboratorUser(c3.id)).ok,true);
     assert.equal((await db.user.findUniqueOrThrow({where:{id:c3.id}})).status,"SUSPENDED");
     assert.equal(await active(card3.id),false);
     assert.equal((await db.physicalNfcCard.findFirstOrThrow({where:{cardId:card3.id}})).status,"SUSPENDIDA");
@@ -70,11 +73,11 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
   await t.test("Teams active: foreign tenant IDs and non-administrators are rejected",async()=>{
     as(admin);
     await assert.rejects(()=>toggleCardActive(cardB.id,false),/No tienes permisos/);
-    await assert.rejects(()=>suspendCollaboratorUser(collabB.id),/otra empresa/);
+    await denied(suspendCollaboratorUser(collabB.id),/otra empresa/);
     as(c1);
     await assert.rejects(()=>toggleCardActive(card1.id,false),/administradores/);
-    await assert.rejects(()=>suspendCollaboratorUser(c2.id),/administradores/);
-    await assert.rejects(()=>deleteVendorUser(c2.id),/administradores/);
+    await denied(suspendCollaboratorUser(c2.id),/administradores/);
+    await denied(deleteVendorUser(c2.id),/administradores/);
     assert.equal(await active(card1.id),true);assert.equal((await db.user.findUniqueOrThrow({where:{id:c2.id}})).status,"ACTIVE");
   });
 
@@ -91,12 +94,12 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
     await assert.rejects(()=>toggleCardActive(ownerCard.id,true),/plan Teams activo/);
     // Expansion and onboarding stay premium.
     await assert.rejects(()=>createVirtualCard("New identity","new-identity-"+suffix,c1.id),/Capacidad no disponible/);
-    await assert.rejects(()=>createCollaboratorWithCard("Blocked",`blocked-${suffix}@example.test`),/Capacidad no disponible/);
-    await assert.rejects(()=>resendInvitationFromDashboardAction(pendingUserId),/Capacidad no disponible/);
+    await denied(createCollaboratorWithCard("Blocked",`blocked-${suffix}@example.test`),/Capacidad no disponible/);
+    await denied(resendInvitationFromDashboardAction(pendingUserId),/Capacidad no disponible/);
     assert.equal(await db.userActivationToken.count({where:{userId:pendingUserId}}),tokensBefore);
     assert.equal(await db.user.count({where:{companyId:a.id}}),usersBefore);assert.equal(await db.card.count({where:{companyId:a.id}}),cardsBefore);
     // Offboarding a collaborator.
-    await suspendCollaboratorUser(c2.id);
+    assert.equal((await suspendCollaboratorUser(c2.id)).ok,true);
     assert.equal((await db.user.findUniqueOrThrow({where:{id:c2.id}})).status,"SUSPENDED");
     assert.equal(await active(card2.id),false);assert.equal((await db.physicalNfcCard.findFirstOrThrow({where:{cardId:card2.id}})).status,"SUSPENDIDA");
     assert.equal(await db.card.count({where:{id:card2.id}}),1,"history is preserved");
@@ -107,7 +110,7 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
     as(admin);
     await assert.rejects(()=>toggleCardActive(adminCard.id,false),/propia identidad/);
     assert.equal(await active(adminCard.id),true);
-    await assert.rejects(()=>suspendCollaboratorUser(admin.id),/propia cuenta/);
+    await denied(suspendCollaboratorUser(admin.id),/propia cuenta/);
     // The other administrator (owner) is "another identity of the same tenant".
     as(owner2);
     await assert.rejects(()=>toggleCardActive(ownerCard.id,false),/propia identidad|plan Teams/);
@@ -126,17 +129,17 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
     as(admin);
     await assert.rejects(()=>toggleCardActive(cardB.id,false),/No tienes permisos/);
     await assert.rejects(()=>toggleCardActive(cardB.id,true),/No tienes permisos|plan Teams/);
-    await assert.rejects(()=>suspendCollaboratorUser(collabB.id),/otra empresa/);
-    await assert.rejects(()=>resendInvitationFromDashboardAction(collabB.id),/Capacidad no disponible|otra empresa/);
+    await denied(suspendCollaboratorUser(collabB.id),/otra empresa/);
+    await denied(resendInvitationFromDashboardAction(collabB.id),/Capacidad no disponible|otra empresa/);
     assert.equal(await active(cardB.id),true);assert.equal((await db.user.findUniqueOrThrow({where:{id:collabB.id}})).status,"ACTIVE");
     as(c1);
     await assert.rejects(()=>toggleCardActive(card1.id,false),/administradores/);
-    await assert.rejects(()=>suspendCollaboratorUser(c2.id),/administradores|Solo/);
+    await denied(suspendCollaboratorUser(c2.id),/administradores|Solo/);
     assert.equal(await active(card1.id),true);
     // Company B's administrator cannot touch company A either.
     as(adminB);
     await assert.rejects(()=>toggleCardActive(card1.id,false),/No tienes permisos/);
-    await assert.rejects(()=>suspendCollaboratorUser(c1.id),/otra empresa/);
+    await denied(suspendCollaboratorUser(c1.id),/otra empresa/);
     assert.equal(await active(card1.id),true);
   });
 
@@ -147,7 +150,7 @@ test("H-2/H-3: restrictive actions survive Teams expiry, expansion does not, and
       try{
         as(admin);
         await assert.rejects(()=>toggleCardActive(card1.id,false),/No autorizado/);
-        await assert.rejects(()=>suspendCollaboratorUser(c1.id),/No autorizado/);
+        await denied(suspendCollaboratorUser(c1.id),/No autorizado/);
         assert.equal(await active(card1.id),true);assert.equal((await db.user.findUniqueOrThrow({where:{id:c1.id}})).status,"ACTIVE");
       } finally {await db.company.update({where:{id:a.id},data:{isActive:true}});}
     }

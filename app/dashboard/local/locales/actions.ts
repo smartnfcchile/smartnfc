@@ -1,9 +1,17 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { saveLocation } from "../../../../lib/local/locations";
-export async function saveLocationAction(form: FormData) {
-  await saveLocation({ id: String(form.get("id") || "") || undefined, name: String(form.get("name") || ""), address: String(form.get("address") || "") });
-  revalidatePath("/dashboard/local/locales");
+import { runAction, type ActionResult } from "../../../../lib/action-errors";
+
+// BUG-E2E-3: devuelve { ok, error } en vez de lanzar (en producción React oculta el mensaje de un error lanzado).
+// Errores de negocio (p. ej. «Límite de locales alcanzado.») → su mensaje; errores internos → genérico + registro.
+export type LocationFormState = ActionResult<{ locationId: string }> | null;
+export async function saveLocationAction(_state: LocationFormState, form: FormData): Promise<LocationFormState> {
+  return runAction("local.saveLocation", async () => {
+    const locationId = await saveLocation({ id: String(form.get("id") || "") || undefined, name: String(form.get("name") || ""), address: String(form.get("address") || "") });
+    revalidatePath("/dashboard/local/locales");
+    return { locationId };
+  });
 }
 
 export async function moveCampaignLocationAction(form: FormData) {

@@ -1,3 +1,4 @@
+import { UserFacingError } from "../user-facing-error";
 import { redirect } from "next/navigation";
 import { hasCapability } from "../entitlements";
 import { prisma } from "../prisma";
@@ -7,11 +8,11 @@ import { requireProductAccess } from "../product-access";
 export async function requireLocalAdmin(companyId?: string, allowUnavailableRead = false) {
   const actor = await requireCompanyAdmin();
   const target = companyId || actor.companyId;
-  if (target !== actor.companyId && actor.role !== "SUPERADMIN") throw new Error("Acceso denegado.");
+  if (target !== actor.companyId && actor.role !== "SUPERADMIN") throw new UserFacingError("Acceso denegado.");
   const supervising = actor.role === "SUPERADMIN" && allowUnavailableRead;
   if (!supervising) await requireProductAccess(target, "LOCAL");
   const company = await prisma.company.findFirst({ where: { id: target, ...(supervising ? {} : { isActive: true }) } });
-  if (!company) throw new Error("Local no disponible.");
+  if (!company) throw new UserFacingError("Local no disponible.");
   return { actor, company };
 }
 

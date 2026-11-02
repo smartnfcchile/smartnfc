@@ -2,6 +2,7 @@
 import { ZodError } from "zod";
 import { revalidatePath } from "next/cache";
 import { saveLocalPoint } from "../../../../lib/local/point-management";
+import { toActionFailure } from "../../../../lib/action-errors";
 export type PointFormState = { error?: string; success?: string; pointId?: string };
 export async function savePointAction(_state: PointFormState, form: FormData): Promise<PointFormState> {
   try {
@@ -24,6 +25,9 @@ export async function savePointAction(_state: PointFormState, form: FormData): P
     revalidatePath("/dashboard/local/puntos/" + pointId);
     return { success: "Punto guardado. El código físico se conserva.", pointId };
   } catch (error) {
-    return { error: error instanceof ZodError ? error.issues[0]?.message : error instanceof Error ? error.message : "No se pudo guardar el punto." };
+    // BUG-E2E-3: validación (Zod) y errores de negocio → su mensaje; cualquier otro error (p. ej. de base de
+    // datos) se registra en el servidor y el usuario recibe un mensaje genérico con referencia.
+    if (error instanceof ZodError) return { error: error.issues[0]?.message || "Revisa los datos del punto." };
+    return { error: toActionFailure(error, "local.savePoint").error };
   }
 }

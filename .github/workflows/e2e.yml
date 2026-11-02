@@ -1,0 +1,73 @@
+name: SmartNFC E2E (Playwright)
+
+# Fase A del plan E2E: entorno aislado + navegación pública de solo lectura.
+# Este job NO usa secretos: PostgreSQL efímero del runner, sin Resend, sin Blob, sin Vercel.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: smartnfc_e2e
+          POSTGRES_PASSWORD: e2e-ci-only
+          POSTGRES_DB: smartnfc_e2e_disposable
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U smartnfc_e2e -d smartnfc_e2e_disposable"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      # Única base que el lanzador E2E acepta. DATABASE_URL se deriva de esta y se valida.
+      E2E_DATABASE_URL: postgresql://smartnfc_e2e:e2e-ci-only@127.0.0.1:5432/smartnfc_e2e_disposable
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Pruebas del guard E2E (sin red ni base)
+        run: npm run test:e2e-guard
+
+      - name: Validar el entorno E2E
+        run: npm run e2e:check
+
+      - name: Migraciones sobre la base desechable
+        run: npm run e2e:prepare
+
+      - name: Compilar con configuración E2E
+        run: npm run e2e:build
+
+      - name: Instalar Chromium de Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Pruebas E2E
+        run: npm run e2e
+
+      # Solo al fallar y con retención corta: el repo es público y los artifacts también.
+      - name: Subir informe y trazas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

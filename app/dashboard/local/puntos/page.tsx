@@ -13,7 +13,7 @@ export default async function PointsPage({ searchParams }: { searchParams: Promi
 
   const page = Math.max(1, Math.min(10000, Number((await searchParams).page) || 1));
   const points = await prisma.localTouchpoint.findMany({ where: { campaign: { companyId: company.id, status: { not: "ARCHIVED" } } },
-    include: { campaign: { select: { name: true } }, physicalNfcCard: { select: { id: true } } },
+    include: { installation: { select: { id: true } }, campaign: { select: { name: true } }, physicalNfcCard: { select: { id: true } } },
     orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 26, skip: (Math.floor(page) - 1) * 25 });
   return <div className="space-y-6 text-slate-900 dark:text-slate-100">
     <header className="flex flex-wrap justify-between gap-4"><div><h1 className="text-3xl font-bold">Puntos Inteligentes</h1><p className="mt-2 text-slate-500">Un objetivo y un destino actualizable para cada ubicación de tu local.</p></div>
@@ -21,6 +21,7 @@ export default async function PointsPage({ searchParams }: { searchParams: Promi
     {!points.length && <p>Todavía no tienes puntos en campañas disponibles.</p>}
     <div className="grid md:grid-cols-2 gap-4">{points.slice(0, 25).map(point => <article key={point.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
       <h2 className="font-bold text-xl">{point.name}</h2><p>{point.location || "Ubicación por completar"} · {point.campaign.name}</p>
+      <p>{point.installation ? "Ubicación geográfica configurada (privada)" : "Sin ubicación geográfica"}</p>
       <p>{objectiveLabels[point.objective]}{point.objective === "PROMOTION" && ` (${promotionLabels[promotionStatus(readObjectiveConfig(point.objectiveConfig).promotion)]})`} · {mediumLabels[point.medium]} · {effectivePresentationLabel(point.objective, point.presentationMode)} · {point.isActive ? "Activo" : "Pausado"}</p>
       {point.medium !== "QR" && <p className="text-sm">{point.physicalNfcCard ? "Tarjeta NFC vinculada" : "Tarjeta NFC pendiente: SmartNFC realiza la vinculación antes de la entrega"}</p>}
       <div className="flex flex-wrap gap-4 text-blue-600 dark:text-blue-400">

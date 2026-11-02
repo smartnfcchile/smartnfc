@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { hashIp } from "./security";
 
-export type RateLimitAction = "LOCAL_VIEW" | "LOCAL_SUBSCRIBE" | "LOCAL_WHATSAPP_REDIRECT" | "LOCAL_VCF_DOWNLOAD" | "PUBLIC_LEAD_CAPTURE" | "PUBLIC_EVENT_TRACK" | "PASSWORD_RESET" | "LOCAL_BRAND_UPLOAD";
+export type RateLimitAction = "POINT_GEOCODE" | "LOCAL_VIEW" | "LOCAL_SUBSCRIBE" | "LOCAL_WHATSAPP_REDIRECT" | "LOCAL_VCF_DOWNLOAD" | "PUBLIC_LEAD_CAPTURE" | "PUBLIC_EVENT_TRACK" | "PASSWORD_RESET" | "LOCAL_BRAND_UPLOAD";
 
 interface RateLimitConfig {
   limit: number;
@@ -9,6 +9,7 @@ interface RateLimitConfig {
 }
 
 const ACTION_CONFIGS: Record<RateLimitAction, RateLimitConfig> = {
+  POINT_GEOCODE: { limit: 20, windowSeconds: 60 },
   LOCAL_VIEW: { limit: 30, windowSeconds: 60 },            // 30 por minuto
   LOCAL_SUBSCRIBE: { limit: 5, windowSeconds: 600 },        // 5 por 10 minutos (600s)
   LOCAL_WHATSAPP_REDIRECT: { limit: 10, windowSeconds: 600 }, // 10 por 10 minutos (600s)
@@ -89,3 +90,4 @@ export async function checkRateLimit(
       : { allowed: true, remaining: 1 };
   }
 }
+

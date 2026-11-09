@@ -1,1 +1,16 @@
-aW1wb3J0IHR5cGUgeyBNZXRhZGF0YVJvdXRlIH0gZnJvbSAibmV4dCI7CmltcG9ydCB7IHBvc3RzIH0gZnJvbSAiLi4vbGliL2Jsb2ciOwppbXBvcnQgeyBFTVBSRVNBU19QVUJMSVNIRUQgfSBmcm9tICIuLi9jb250ZW50L2VtcHJlc2FzL2xhdW5jaCI7CgpleHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBzaXRlbWFwKCk6IE1ldGFkYXRhUm91dGUuU2l0ZW1hcCB7CiAgY29uc3QgYmFzZVVybCA9ICJodHRwczovL3d3dy5zbWFydG5mYy5jbCI7CiAgcmV0dXJuIFsKICAgIHsgdXJsOiBgJHtiYXNlVXJsfS9gLCBjaGFuZ2VGcmVxdWVuY3k6ICJ3ZWVrbHkiLCBwcmlvcml0eTogMSB9LAogICAgLy8gL2VtcHJlc2FzIGVzdMOhIGVuIGVsIHNpdGVtYXAgbWllbnRyYXMgRU1QUkVTQVNfUFVCTElTSEVEIHNlYSB0cnVlIChjb250ZW50L2VtcHJlc2FzL2xhdW5jaC50cykuCiAgICAuLi4oRU1QUkVTQVNfUFVCTElTSEVEID8gW3sgdXJsOiBgJHtiYXNlVXJsfS9lbXByZXNhc2AsIGNoYW5nZUZyZXF1ZW5jeTogIm1vbnRobHkiIGFzIGNvbnN0LCBwcmlvcml0eTogMC45IH1dIDogW10pLAogICAgeyB1cmw6IGAke2Jhc2VVcmx9L2xvY2FsYCwgY2hhbmdlRnJlcXVlbmN5OiAibW9udGhseSIsIHByaW9yaXR5OiAwLjggfSwKICAgIHsgdXJsOiBgJHtiYXNlVXJsfS9wZXJzb25hc2AsIGNoYW5nZUZyZXF1ZW5jeTogIm1vbnRobHkiLCBwcmlvcml0eTogMC44IH0sCiAgICB7IHVybDogYCR7YmFzZVVybH0vYmxvZ2AsIGNoYW5nZUZyZXF1ZW5jeTogIndlZWtseSIsIHByaW9yaXR5OiAwLjggfSwKICAgIC4uLnBvc3RzLm1hcCgocG9zdCkgPT4gKHsgdXJsOiBgJHtiYXNlVXJsfS9ibG9nLyR7cG9zdC5zbHVnfWAsIGxhc3RNb2RpZmllZDogbmV3IERhdGUocG9zdC5wdWJsaXNoZWQpLCBjaGFuZ2VGcmVxdWVuY3k6ICJtb250aGx5IiBhcyBjb25zdCwgcHJpb3JpdHk6IDAuNyB9KSksCiAgXTsKfQo=
+import type { MetadataRoute } from "next";
+import { posts } from "../lib/blog";
+import { EMPRESAS_PUBLISHED } from "../content/empresas/launch";
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const baseUrl = "https://www.smartnfc.cl";
+  return [
+    { url: `${baseUrl}/`, changeFrequency: "weekly", priority: 1 },
+    // /empresas está en el sitemap mientras EMPRESAS_PUBLISHED sea true (content/empresas/launch.ts).
+    ...(EMPRESAS_PUBLISHED ? [{ url: `${baseUrl}/empresas`, changeFrequency: "monthly" as const, priority: 0.9 }] : []),
+    { url: `${baseUrl}/local`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${baseUrl}/personas`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${baseUrl}/blog`, changeFrequency: "weekly", priority: 0.8 },
+    ...posts.map((post) => ({ url: `${baseUrl}/blog/${post.slug}`, lastModified: new Date(post.published), changeFrequency: "monthly" as const, priority: 0.7 })),
+  ];
+}

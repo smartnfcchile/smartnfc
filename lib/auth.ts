@@ -4,6 +4,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 
 const INVALID_PASSWORD_HASH = "$2b$12$s4Q7twpmn.CVd1mJvzSqbuzLdAcA4rMqyt0HE34ANuUwLgiv0G2Pa";
 
@@ -62,6 +63,7 @@ export const authOptions: NextAuthOptions = {
     // Primero creamos un token interno...
     async jwt({ token, user }) {
       if (user) {
+        token.loginId = randomUUID();
         token.id = user.id;
         token.role = (user as any).role;
         token.companyId = (user as any).companyId;

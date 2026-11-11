@@ -6,6 +6,8 @@ export const NOINDEX_PATHS = ["/c/:path*", "/l/:path*", "/p/:path*", "/q/:path*"
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
+  // Keep the original Flight request visible to the panel session guard.
+  skipProxyUrlNormalize: true,
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

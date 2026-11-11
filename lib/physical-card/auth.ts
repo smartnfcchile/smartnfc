@@ -1,20 +1,11 @@
 import "server-only";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../auth";
 import { redirect } from "next/navigation";
 import { hasCapability } from "../entitlements";
 import { prisma } from "../prisma";
+import { getCurrentUserContext } from "../permissions";
 
 export async function requirePhysicalDesignUser() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("No autorizado.");
-  const identity = session.user as { id?: string; companyId?: string; role?: string };
-  if (!identity.id || !identity.companyId || !identity.role) throw new Error("Sesión inválida.");
-  const user = await prisma.user.findFirst({
-    where: { id: identity.id, companyId: identity.companyId, isActive: true, company: { isActive: true } },
-    select: { id: true, companyId: true, role: true },
-  });
-  if (!user) throw new Error("No autorizado.");
+  const user = await getCurrentUserContext();
   // Diseños físicos forma parte del producto de perfiles (Empresas): misma regla que el menú y el inicio.
   if (user.role !== "SUPERADMIN" && !(await hasCapability(user.companyId, "PROFILE"))) throw new Error("No autorizado.");
   return user;

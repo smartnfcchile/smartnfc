@@ -35,5 +35,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Panel session regression
+        run: npm run test:panel-session
+
       - name: Lint
         run: npm run lint

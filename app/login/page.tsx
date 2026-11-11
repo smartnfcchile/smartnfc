@@ -1,13 +1,11 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import SmartNFCLogo from "../../components/brand/SmartNFCLogo";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -47,11 +45,16 @@ export default function LoginPage() {
       redirect: false,
     });
 
-    if (res?.error) {
+    if (!res?.ok || res.error) {
       setError("Credenciales incorrectas. Revisa tu correo y contraseña.");
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      try {
+        localStorage.setItem("smartnfc:session-change", crypto.randomUUID());
+      } catch {
+        // Other panels also check their session when they regain focus.
+      }
+      window.location.replace("/dashboard");
     }
   };
 

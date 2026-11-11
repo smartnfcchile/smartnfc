@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (isAdmin ? card.companyId !== user.companyId : card.userId !== user.id) {
+    if (card.companyId !== user.companyId || (!isAdmin && card.userId !== user.id)) {
       return NextResponse.json(
         { error: "No tiene permisos para ver estos prospectos." },
         { status: 403 }
@@ -50,15 +50,17 @@ export async function GET(request: NextRequest) {
     }
 
     leads = await prisma.lead.findMany({
-      where: { cardId },
+      where: { cardId, companyId: user.companyId },
       orderBy: { createdAt: "desc" },
     });
   } else {
     // 2. Si no viene cardId, exportamos todos los leads de todas las tarjetas del usuario
     leads = await prisma.lead.findMany({
       where: {
+        companyId: user.companyId,
         card: {
-          ...(isAdmin ? { companyId: user.companyId } : { userId: user.id }),
+          companyId: user.companyId,
+          ...(!isAdmin && { userId: user.id }),
         },
       },
       orderBy: { createdAt: "desc" },

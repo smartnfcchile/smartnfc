@@ -15,11 +15,17 @@ function sendBrandImage(locationId: string, kind: BrandImageKind, file: File, on
     form.append("locationId", locationId); form.append("kind", kind); form.append("file", file);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/local/brand-upload");
+    const session = document.documentElement.dataset.panelSession;
+    if (session) xhr.setRequestHeader("x-smartnfc-panel-session", session);
     xhr.responseType = "json";
     xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
     xhr.onerror = () => resolve({ ok: false, message: BRAND_UPLOAD_ERRORS.NETWORK });
     xhr.ontimeout = () => resolve({ ok: false, message: BRAND_UPLOAD_ERRORS.NETWORK });
     xhr.onload = () => {
+      if (xhr.status === 409 && xhr.getResponseHeader("x-smartnfc-session-changed")) {
+        window.location.reload();
+        return resolve({ ok: false, message: "La sesión del panel cambió." });
+      }
       const body = xhr.response as { url?: string; error?: { code?: string } } | null;
       if (xhr.status >= 200 && xhr.status < 300 && typeof body?.url === "string") return resolve({ ok: true, url: body.url });
       if (xhr.status === 401 || xhr.status === 403) return resolve({ ok: false, message: brandUploadErrorMessage(body?.error?.code ?? "FORBIDDEN") });

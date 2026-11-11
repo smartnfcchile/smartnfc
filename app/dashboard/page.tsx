@@ -1,17 +1,13 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../../lib/prisma";
 import Link from "next/link";
-import { getCurrentCompanyEntitlements } from "../../lib/entitlements";
+import { getCompanyEntitlements } from "../../lib/entitlements";
+import { getCurrentUserContext } from "../../lib/permissions";
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ profile?: string; acceso?: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
-
-  const user = session.user as any;
+  const user = await getCurrentUserContext().catch(() => redirect("/login"));
   const { profile, acceso } = await searchParams;
-  const e = await getCurrentCompanyEntitlements();
+  const e = await getCompanyEntitlements(user.companyId);
   const isAdmin = user.role === "SUPERADMIN" || user.role === "COMPANY_OWNER" || user.role === "COMPANY_ADMIN";
   // Local es exclusivo de administradores: un colaborador nunca es enviado a /dashboard/local.
   if (isAdmin && !e.capabilities.includes("PROFILE") && e.localOperational) redirect("/dashboard/local");
@@ -26,7 +22,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const canPhysicalDesigns = user.role === "SUPERADMIN" || hasProfileProduct;
   const canLocal = isAdmin && e.localOperational;
   const cards = await prisma.card.findMany({
-    where: isAdmin ? { companyId: user.companyId } : { userId: user.id },
+    where: { companyId: user.companyId, ...(!isAdmin && { userId: user.id }) },
     select: { id: true, name: true, slug: true, isActive: true },
   });
   const myCard = user.role === "SUPERADMIN" ? null : await prisma.card.findFirst({
@@ -36,7 +32,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   });
   const profileComplete = Boolean(myCard?.profileName && myCard?.role && (myCard?.phone || myCard?.email));
   const usersCount = canTeamPages ? await prisma.user.count({ where: { companyId: user.companyId } }) : 1;
-  const leadsCount = canCRM ? await prisma.lead.count({ where: isAdmin ? { card: { companyId: user.companyId } } : { card: { userId: user.id } } }) : null;
+  const leadsCount = canCRM ? await prisma.lead.count({ where: { card: { companyId: user.companyId, ...(!isAdmin && { userId: user.id }) } } }) : null;
 
   return <div className="space-y-8">
     <div className="bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-slate-500/10 dark:from-blue-900/40 dark:via-indigo-900/20 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl">

@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
+import PanelSessionGuard from "../../components/PanelSessionGuard";
 import { prisma } from "../../lib/prisma";
 
 export const metadata: Metadata = { title: "Dashboard", robots: { index: false, follow: false, noarchive: true, nosnippet: true } };
@@ -42,7 +43,8 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#07101F] text-slate-900 dark:text-white flex flex-col lg:flex-row transition-colors duration-200">
       {/* Barra lateral de navegación con control de roles y productos */}
-      <Sidebar user={session.user as any} activeProducts={activeProducts} capabilities={entitlements.capabilities} />
+      <PanelSessionGuard />
+      <Sidebar user={{ name: dbUser.name, role: dbUser.role }} activeProducts={activeProducts} capabilities={entitlements.capabilities} />
       
       {/* Contenedor principal de contenido */}
       <div className="flex-1 lg:pl-64 min-w-0 flex flex-col">

@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tipo de métrica no soportado" }, { status: 400 });
   }
 
-  const cardCondition = isAdmin ? { companyId: user.companyId } : { userId: user.id };
+  const cardCondition = { companyId: user.companyId, ...(!isAdmin && { userId: user.id }) };
 
   try {
     // 1. Obtenemos los últimos 50 eventos de ese tipo
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 
     // 2. Obtenemos todos los leads de la empresa/usuario para cruzarlos
     const leads = await hasCapability(user.companyId, "CRM") ? await prisma.lead.findMany({
-      where: { card: cardCondition },
+      where: { companyId: user.companyId, card: cardCondition },
       select: {
         name: true,
         email: true,

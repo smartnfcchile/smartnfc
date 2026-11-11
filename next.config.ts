@@ -51,8 +51,13 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
-      { source: "/dashboard/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
-      { source: "/superadmin/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
+      ...["/dashboard/:path*", "/superadmin/:path*"].map(source => ({
+        source,
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      })),
       // Fuera de buscadores: perfiles de clientes, enlaces NFC/QR y autenticación (23-10-2026).
       ...NOINDEX_PATHS.map(source => ({ source, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] })),
     ];

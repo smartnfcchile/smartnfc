@@ -19,7 +19,8 @@ export const authOptions: NextAuthOptions = {
       name: "Credenciales",
       credentials: {
         email: { label: "Correo", type: "email", placeholder: "tu@empresa.com" },
-        password: { label: "Contraseña", type: "password" }
+        password: { label: "Contraseña", type: "password" },
+        tabLoginAttempt: { label: "Intento de inicio", type: "hidden" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -49,6 +50,7 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             role: user.role,
             companyId: user.companyId,
+            tabLoginAttempt: /^[a-f0-9-]{36}$/.test(credentials.tabLoginAttempt ?? "") ? credentials.tabLoginAttempt : null,
           };
 
         } catch {
@@ -64,6 +66,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.loginId = randomUUID();
+        token.tabLoginAttempt = (user as { tabLoginAttempt?: string }).tabLoginAttempt;
         token.id = user.id;
         token.role = (user as any).role;
         token.companyId = (user as any).companyId;

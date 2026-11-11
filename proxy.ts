@@ -4,6 +4,7 @@ import {
   PANEL_CONTEXT_HEADER, PANEL_SESSION_CHANGED, PANEL_SESSION_CHECK, PANEL_SESSION_HEADER,
   panelSessionContext,
 } from "./lib/panel-session";
+import { panelBootstrap, PANEL_TAB_BLOCKED, PANEL_TAB_QUERY } from "./lib/panel-tab";
 
 const noStore = { "Cache-Control": "private, no-store, max-age=0" };
 
@@ -55,6 +56,19 @@ export async function proxy(request: NextRequest) {
   }
 
   if (check) return new NextResponse(null, { status: 204, headers: noStore });
+  if (panel && !needsBinding && (request.method === "GET" || request.method === "HEAD")) {
+    const documentContext = request.nextUrl.searchParams.get(PANEL_TAB_QUERY);
+    if (documentContext !== null && (!context || documentContext !== context)) {
+      const response = NextResponse.redirect(new URL(PANEL_TAB_BLOCKED, request.url));
+      response.headers.set("Cache-Control", noStore["Cache-Control"]);
+      return response;
+    }
+    if (context && documentContext === null) {
+      return new NextResponse(panelBootstrap(context, token?.tabLoginAttempt), {
+        headers: { ...noStore, "Content-Type": "text/html; charset=utf-8", "Referrer-Policy": "no-referrer" },
+      });
+    }
+  }
   if (panel && context) headers.set(PANEL_CONTEXT_HEADER, context);
   return NextResponse.next({ request: { headers } });
 }

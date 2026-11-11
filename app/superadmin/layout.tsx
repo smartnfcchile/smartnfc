@@ -1,9 +1,8 @@
 import React from "react";
 import type { Metadata } from "next";
-import { requireSuperAdmin } from "../../lib/permissions";
 import SuperadminSidebar from "./SuperadminSidebar";
 import PanelSessionGuard from "../../components/PanelSessionGuard";
-import { redirect } from "next/navigation";
+import { requireSuperadminPage } from "./access";
 
 export const metadata: Metadata = { title: "Administración", robots: { index: false, follow: false, noarchive: true, nosnippet: true } };
 
@@ -12,15 +11,10 @@ export default async function SuperadminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Validar en servidor que sea SUPER_ADMIN (Requisito 2 y 3)
-  try {
-    await requireSuperAdmin();
-  } catch {
-    redirect("/dashboard");
-  }
+  await requireSuperadminPage();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#07101F] text-slate-900 dark:text-white flex flex-col lg:flex-row transition-colors duration-200">
+    <div data-panel-content className="min-h-screen bg-slate-50 dark:bg-[#07101F] text-slate-900 dark:text-white flex flex-col lg:flex-row transition-colors duration-200">
       {/* Barra lateral de Superadministración */}
       <PanelSessionGuard />
       <SuperadminSidebar />

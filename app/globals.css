@@ -239,3 +239,7 @@ html { scroll-behavior: smooth; }
 .smartnfc-social{transition:background .15s}
 .smartnfc-social:hover{background:#08111f12}
 .smartnfc-social:focus-visible{outline:3px solid #246bfd;outline-offset:2px}
+/* Keep the panel hidden until its tab binding has been checked. */
+html:not([data-panel-session]) [data-panel-content] {
+  display: none !important;
+}

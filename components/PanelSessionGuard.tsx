@@ -3,11 +3,26 @@ import {
   PANEL_CONTEXT_HEADER, PANEL_SESSION_CHANGED, PANEL_SESSION_CHECK,
   PANEL_SESSION_EVENT, PANEL_SESSION_HEADER,
 } from "../lib/panel-session";
+import { PANEL_TAB_BLOCKED, PANEL_TAB_KEY, PANEL_TAB_QUERY } from "../lib/panel-tab";
 
 // Install before hydration, so even an early submission is bound to the panel.
-function installPanelSession(context: string, header: string, changed: string, checkPath: string, eventKey: string) {
+function installPanelSession(context: string, header: string, changed: string, checkPath: string, eventKey: string, tabKey: string, tabQuery: string, blocked: string) {
   const root = document.documentElement;
   if (root.dataset.panelSession === context) return;
+  try {
+    if (sessionStorage.getItem(tabKey) !== context) {
+      window.location.replace(blocked);
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (url.searchParams.has(tabQuery)) {
+      url.searchParams.delete(tabQuery);
+      window.history.replaceState(window.history.state, "", url);
+    }
+  } catch {
+    window.location.replace(blocked);
+    return;
+  }
   root.dataset.panelSession = context;
 
   const fetchRequest = window.fetch.bind(window);
@@ -15,11 +30,11 @@ function installPanelSession(context: string, header: string, changed: string, c
   const inPanel = () => panelPath.test(window.location.pathname);
   let reloading = false;
 
-  function reloadPanel() {
+  function lockPanel() {
     if (reloading || !inPanel()) return;
     reloading = true;
     root.style.visibility = "hidden";
-    window.location.reload();
+    window.location.replace(blocked);
   }
 
   window.fetch = async (input, init) => {
@@ -32,7 +47,7 @@ function installPanelSession(context: string, header: string, changed: string, c
     requestHeaders.set(header, context);
     const response = await fetchRequest(input, { ...init, headers: requestHeaders });
     if (response.status === 409 && response.headers.has(changed)) {
-      reloadPanel();
+      lockPanel();
       throw new Error("La sesión del panel cambió.");
     }
     return response;
@@ -49,7 +64,7 @@ function installPanelSession(context: string, header: string, changed: string, c
     if (!inPanel() || reloading || document.visibilityState !== "visible") return;
     try {
       const response = await fetchRequest(checkPath, { headers: { [header]: context }, cache: "no-store" });
-      if (response.status === 409 && response.headers.has(changed)) reloadPanel();
+      if (response.status === 409 && response.headers.has(changed)) lockPanel();
     } catch {
       // An offline tab will check again when it regains connectivity or focus.
     }
@@ -70,6 +85,6 @@ function installPanelSession(context: string, header: string, changed: string, c
 export default async function PanelSessionGuard() {
   const context = (await headers()).get(PANEL_CONTEXT_HEADER);
   if (!context || !/^[a-f0-9]{64}$/.test(context)) return null;
-  const args = [context, PANEL_SESSION_HEADER, PANEL_SESSION_CHANGED, PANEL_SESSION_CHECK, PANEL_SESSION_EVENT];
+  const args = [context, PANEL_SESSION_HEADER, PANEL_SESSION_CHANGED, PANEL_SESSION_CHECK, PANEL_SESSION_EVENT, PANEL_TAB_KEY, PANEL_TAB_QUERY, PANEL_TAB_BLOCKED];
   return <script dangerouslySetInnerHTML={{ __html: `(${installPanelSession.toString()})(...${JSON.stringify(args)})` }} />;
 }

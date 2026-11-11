@@ -1,3 +1,4 @@
+import { requireSuperadminPage } from "../access";
 import Link from "next/link";
 import { prisma } from "../../../lib/prisma";
 
@@ -9,6 +10,7 @@ const planLabels: Record<string, string> = { LOCAL_IMPULSA: "Impulsa", LOCAL_FUN
 const statusLabels: Record<string, string> = { PENDING: "Pendiente", ACTIVE: "Activo", SUSPENDED: "Suspendido", EXPIRED: "Vencido", CANCELLED: "Cancelado" };
 
 export default async function LocalesPage({ searchParams }: PageProps) {
+  await requireSuperadminPage();
   const params = await searchParams;
   const q = params.q?.trim() || "";
   const status = params.status || "";

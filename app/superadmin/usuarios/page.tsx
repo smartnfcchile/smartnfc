@@ -1,3 +1,4 @@
+import { requireSuperadminPage } from "../access";
 import React from "react";
 import { prisma } from "../../../lib/prisma";
 import UsuariosListClient from "./UsuariosListClient";
@@ -5,6 +6,7 @@ import UsuariosListClient from "./UsuariosListClient";
 export const dynamic = "force-dynamic";
 
 export default async function SuperadminUsuariosPage() {
+  await requireSuperadminPage();
   // Consultar usuarios y empresas en servidor (Requisito 7 y 10)
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },

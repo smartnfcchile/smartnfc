@@ -41,7 +41,7 @@ export default async function DashboardLayout({
   const activeProducts = [ ...(entitlements.capabilities.includes("PROFILE") ? ["EMPRESAS"] : []), ...(entitlements.localOperational ? ["LOCAL"] : []) ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#07101F] text-slate-900 dark:text-white flex flex-col lg:flex-row transition-colors duration-200">
+    <div data-panel-content className="min-h-screen bg-slate-50 dark:bg-[#07101F] text-slate-900 dark:text-white flex flex-col lg:flex-row transition-colors duration-200">
       {/* Barra lateral de navegación con control de roles y productos */}
       <PanelSessionGuard />
       <Sidebar user={{ name: dbUser.name, role: dbUser.role }} activeProducts={activeProducts} capabilities={entitlements.capabilities} />

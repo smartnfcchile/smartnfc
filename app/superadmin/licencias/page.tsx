@@ -1,3 +1,4 @@
+import { requireSuperadminPage } from "../access";
 import React from "react";
 import { prisma } from "../../../lib/prisma";
 import Link from "next/link";
@@ -5,6 +6,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function SuperadminLicenciasPage() {
+  await requireSuperadminPage();
   // Consultar todas las empresas con conteo de identidades creadas (Requisito 9)
   const companies = await prisma.company.findMany({
     orderBy: { name: "asc" },

@@ -2,10 +2,12 @@ import React from "react";
 import { prisma } from "../../lib/prisma";
 import { UserRole } from "@prisma/client";
 import Link from "next/link";
+import { requireSuperadminPage } from "./access";
 
 export const dynamic = "force-dynamic";
 
 export default async function SuperadminDashboard() {
+  await requireSuperadminPage();
   // 1. Obtener métricas globales de la BD (Requisito 5)
   const totalCompanies = await prisma.company.count();
   const activeCompanies = await prisma.company.count({ where: { isActive: true } });

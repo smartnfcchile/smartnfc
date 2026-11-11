@@ -1,3 +1,4 @@
+import { requireSuperadminPage } from "../access";
 import React from "react";
 import { prisma } from "../../../lib/prisma";
 import Link from "next/link";
@@ -12,6 +13,7 @@ interface PageProps {
 }
 
 export default async function EmpresasListPage({ searchParams }: PageProps) {
+  await requireSuperadminPage();
   const params = await searchParams;
   const q = params.q || "";
   const statusFilter = params.status || "";

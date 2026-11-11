@@ -1,3 +1,4 @@
+import { requireSuperadminPage } from "../../access";
 import React from "react";
 import { prisma } from "../../../../lib/prisma";
 import CompanyDetailClient from "./CompanyDetailClient";
@@ -12,6 +13,7 @@ interface PageProps {
 }
 
 export default async function EmpresaDetailPage({ params }: PageProps) {
+  await requireSuperadminPage();
   const resolvedParams = await params;
   const companyId = resolvedParams.companyId;
 

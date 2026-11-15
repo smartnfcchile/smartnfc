@@ -1,3 +1,4 @@
+import { UserFacingError } from "../user-facing-error";
 import { Prisma, type ProfileRightOrigin } from "@prisma/client";
 import { prisma } from "../prisma";
 import { getCurrentUserContext } from "../permissions";
@@ -24,12 +25,12 @@ export async function getEntitlementLimit(companyId: string, limit: Limit, db: E
   return (await getCompanyEntitlements(companyId, db)).limits[limit];
 }
 export async function requireCapability(companyId: string, capability: Capability, db: EntitlementDb = prisma) {
-  if (!(await hasCapability(companyId, capability, db))) throw new Error("Capacidad no disponible.");
+  if (!(await hasCapability(companyId, capability, db))) throw new UserFacingError("Capacidad no disponible.");
 }
 // Exposed callers must derive tenant from the revalidated session, never from request data.
 export async function getCurrentCompanyEntitlements(requestedCompanyId?: string) {
   const actor = await getCurrentUserContext();
-  if (requestedCompanyId && requestedCompanyId !== actor.companyId) throw new Error("Acceso denegado.");
+  if (requestedCompanyId && requestedCompanyId !== actor.companyId) throw new UserFacingError("Acceso denegado.");
   return getCompanyEntitlements(actor.companyId);
 }
 export async function hasCardProfileRight(cardId: string, companyId: string, db: EntitlementDb = prisma) {

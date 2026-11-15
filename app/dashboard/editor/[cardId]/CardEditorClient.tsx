@@ -24,6 +24,7 @@ import ProfileImageSpecHint from "../../../../components/ProfileImageSpecHint";
 import { BannerCropPreview, HeroCropPreview } from "../../../../components/ImageCropPreview";
 import { PROFILE_IMAGE_ACCEPT, PROFILE_IMAGE_FORMATS_LABEL, PROFILE_IMAGE_MAX_SIZE_LABEL } from "../../../../lib/profile-image-specs";
 import CardProfileView from "../../../../components/card-profile/CardProfileView";
+import type { ActionResult } from "../../../../lib/action-errors";
 import { CardProfileData } from "../../../../components/card-profile/CardProfileView";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 
@@ -61,8 +62,8 @@ type CardEditorProps = {
     links: CardLink[];
   };
   updateCardAction: (formData: FormData) => Promise<any>;
-  addLinkAction: (formData: FormData) => Promise<void>;
-  deleteLinkAction: (formData: FormData) => Promise<void>;
+  addLinkAction: (formData: FormData) => Promise<ActionResult>;
+  deleteLinkAction: (formData: FormData) => Promise<ActionResult>;
 };
 
 export default function CardEditorClient({
@@ -741,7 +742,8 @@ export default function CardEditorClient({
                                 const fd = new FormData();
                                 fd.append("linkId", link.id);
                                 fd.append("cardId", card.id);
-                                await deleteLinkAction(fd);
+                                const result = await deleteLinkAction(fd);
+                                if (!result.ok) alert(`❌ ${result.error}`);
                               }
                             }}
                             className="flex items-center justify-center p-2 rounded-lg bg-red-600/10 text-red-400 hover:bg-red-600 hover:text-white transition cursor-pointer"
@@ -766,7 +768,8 @@ export default function CardEditorClient({
                   e.preventDefault();
                   const form = e.currentTarget;
                   const fd = new FormData(form);
-                  await addLinkAction(fd);
+                  const result = await addLinkAction(fd);
+                  if (!result.ok) { alert(`❌ ${result.error}`); return; }
                   form.reset();
                 }}
                 className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4"

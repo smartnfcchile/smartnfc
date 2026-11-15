@@ -1,3 +1,4 @@
+import { UserFacingError } from "./user-facing-error";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
@@ -7,7 +8,7 @@ export async function getCurrentUserContext() {
   const session = await getServerSession(authOptions);
   const sessionUser = session?.user as { id?: string; companyId?: string } | undefined;
   if (!sessionUser?.id || !sessionUser.companyId) {
-    throw new Error("No autorizado");
+    throw new UserFacingError("No autorizado");
   }
 
   // Nunca confiar solamente en el rol/empresa guardados dentro del JWT. Se
@@ -24,7 +25,7 @@ export async function getCurrentUserContext() {
     select: { id: true, email: true, name: true, role: true, companyId: true },
   });
 
-  if (!user) throw new Error("No autorizado");
+  if (!user) throw new UserFacingError("No autorizado");
   return user;
 }
 
@@ -35,7 +36,7 @@ export async function requireCompanyAdmin() {
     user.role === "COMPANY_OWNER" ||
     user.role === "COMPANY_ADMIN";
   if (!isAdmin) {
-    throw new Error("Permisos insuficientes. Se requiere rol de administrador.");
+    throw new UserFacingError("Permisos insuficientes. Se requiere rol de administrador.");
   }
   return user;
 }

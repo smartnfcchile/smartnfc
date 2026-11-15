@@ -29,23 +29,28 @@ export default function UsersClient({ initialUsers, currentUserId, canManage }: 
     startTransition(async () => {
       try {
         const result = await createCollaboratorWithCard(name, email);
-        if (!result.success) return;
+        if (!result.ok) { setError(result.error); return; }
         setSuccessMsg("Colaborador y tarjeta creados. Enviamos la invitación de activación y la solicitud de producción a SmartNFC.");
         if (result.emailWarning) setWarningMsg(result.emailWarning);
         setName(""); setEmail(""); router.refresh();
-      } catch (err: unknown) { setError(err instanceof Error ? err.message : "No fue posible crear el colaborador."); }
+      } catch { setError("No fue posible crear el colaborador. Revisa tu conexión e intenta nuevamente."); }
     });
   };
 
   const handleResend = (userId: string, userEmail: string) => startTransition(async () => {
-    try { await resendInvitationFromDashboardAction(userId); alert(`Invitación reenviada a ${userEmail}`); }
-    catch (err: unknown) { alert(err instanceof Error ? err.message : "No fue posible reenviar la invitación."); }
+    try {
+      const result = await resendInvitationFromDashboardAction(userId);
+      alert(result.ok ? `Invitación reenviada a ${userEmail}` : result.error);
+    } catch { alert("No fue posible reenviar la invitación. Revisa tu conexión e intenta nuevamente."); }
   });
 
   const handleSuspend = async (userId: string, userName: string) => {
     if (!window.confirm(`¿Suspender al colaborador "${userName}"?\n\nPerderá el acceso y sus tarjetas dejarán de estar activas. Su historial y sus prospectos del CRM se conservarán.`)) return;
-    try { await suspendCollaboratorUser(userId); router.refresh(); }
-    catch (err: unknown) { alert(err instanceof Error ? err.message : "No fue posible suspender al colaborador."); }
+    try {
+      const result = await suspendCollaboratorUser(userId);
+      if (!result.ok) { alert(result.error); return; }
+      router.refresh();
+    } catch { alert("No fue posible suspender al colaborador. Revisa tu conexión e intenta nuevamente."); }
   };
 
   return <div className="space-y-6">

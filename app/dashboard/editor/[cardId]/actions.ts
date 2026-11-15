@@ -10,6 +10,7 @@ import { put } from "@vercel/blob";
 import fs from "fs";
 import path from "path";
 import { getCurrentUserContext } from "../../../../lib/permissions";
+import { runAction, toActionFailure, UserFacingError } from "../../../../lib/action-errors";
 import { normalizeTemplate, normalizePhotoStyle, normalizeBannerStyle } from "../../../../lib/templates";
 import { getAuthorizedBlobHosts, resolveCardImageUpdate } from "../../../../lib/card-images";
 import {
@@ -27,7 +28,7 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
 function validateImageFile(file: File): string {
   const extension = IMAGE_EXTENSIONS[file.type];
   if (!extension || file.size <= 0 || file.size > 2_000_000) {
-    throw new Error("Las imágenes deben ser JPG, PNG o WebP y pesar hasta 2 MB.");
+    throw new UserFacingError("Las imágenes deben ser JPG, PNG o WebP y pesar hasta 2 MB.");
   }
   return extension;
 }
@@ -71,7 +72,7 @@ async function requireCardEditor(cardId: string): Promise<{
       heroImageUrl: true,
     },
   });
-  if (!card) throw new Error("Tarjeta no encontrada.");
+  if (!card) throw new UserFacingError("Tarjeta no encontrada.");
 
   const policy = await getEffectiveProfileEditPolicy(card.companyId);
   const scope = resolveProfileEditScope({
@@ -83,13 +84,13 @@ async function requireCardEditor(cardId: string): Promise<{
     policy,
   });
 
-  if (scope !== "NONE" && !(await hasCardProfileRight(cardId, card.companyId))) throw new Error("Perfil no disponible.");
+  if (scope !== "NONE" && !(await hasCardProfileRight(cardId, card.companyId))) throw new UserFacingError("Perfil no disponible.");
 
   if (scope === "NONE") {
     if (policy === "ADMIN_ONLY" && card.userId === user.id) {
-      throw new Error("La empresa ha definido que esta tarjeta sea configurada exclusivamente por sus administradores.");
+      throw new UserFacingError("La empresa ha definido que esta tarjeta sea configurada exclusivamente por sus administradores.");
     }
-    throw new Error("No tienes permisos para editar esta tarjeta.");
+    throw new UserFacingError("No tienes permisos para editar esta tarjeta.");
   }
 
   return { scope, card };
@@ -240,7 +241,7 @@ export async function updateCard(formData: FormData) {
       }
     } catch (err: any) {
       if (err instanceof z.ZodError) {
-        throw new Error(err.issues.map((e: any) => e.message).join(" | "));
+        throw new UserFacingError(err.issues.map((e: any) => e.message).join(" | "));
       }
       throw err;
     }
@@ -397,15 +398,21 @@ export async function updateCard(formData: FormData) {
 
     revalidatePath(`/dashboard/editor/${cardId}`);
     revalidatePath("/dashboard/mi-tarjeta");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error al actualizar la tarjeta:", error);
-    return { success: false, error: error.message || "Error interno del servidor" };
+    return { ok: true as const, success: true as const };
+  } catch (error: unknown) {
+    // BUG-E2E-3: solo los errores esperados (UserFacingError) llegan con su texto; los inesperados se
+    // registran en el servidor y el usuario recibe un mensaje genérico con referencia.
+    return toActionFailure(error, "editor.updateCard");
   }
 }
 
 // Acción para eliminar un enlace personalizado
+// Server Action: devuelve { ok, error } en vez de lanzar (BUG-E2E-3). Autorización sin cambios (ver *Impl).
 export async function deleteLink(formData: FormData) {
+  return runAction("editor.deleteLink", () => deleteLinkImpl(formData));
+}
+
+async function deleteLinkImpl(formData: FormData) {
   const linkId = formData.get("linkId") as string;
   const cardId = formData.get("cardId") as string;
 
@@ -415,28 +422,34 @@ export async function deleteLink(formData: FormData) {
     where: { id: linkId, cardId },
     select: { id: true },
   });
-  if (!ownedLink) throw new Error("Enlace no encontrado.");
+  if (!ownedLink) throw new UserFacingError("Enlace no encontrado.");
 
   await prisma.cardLink.delete({ where: { id: ownedLink.id } });
 
   if (cardId) revalidatePath(`/dashboard/editor/${cardId}`);
+  return {};
 }
 
 // Acción para agregar un nuevo enlace personalizado
+// Server Action: devuelve { ok, error } en vez de lanzar (BUG-E2E-3). Autorización sin cambios (ver *Impl).
 export async function addLink(formData: FormData) {
+  return runAction("editor.addLink", () => addLinkImpl(formData));
+}
+
+async function addLinkImpl(formData: FormData) {
   const title = String(formData.get("title") || "").trim();
   const url = String(formData.get("url") || "").trim();
   const cardId = formData.get("cardId") as string;
 
-  if (!title || title.length > 80 || !url || url.length > 500 || !cardId) return;
+  if (!title || title.length > 80 || !url || url.length > 500 || !cardId) throw new UserFacingError("Completa el título (hasta 80 caracteres) y un enlace válido.");
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(url);
   } catch {
-    throw new Error("El enlace no es válido.");
+    throw new UserFacingError("El enlace no es válido.");
   }
   if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-    throw new Error("Solo se permiten enlaces HTTP o HTTPS.");
+    throw new UserFacingError("Solo se permiten enlaces HTTP o HTTPS.");
   }
 
   await requireCardEditor(cardId);
@@ -448,4 +461,5 @@ export async function addLink(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/editor/${cardId}`);
+  return {};
 }

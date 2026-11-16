@@ -30,6 +30,7 @@ export default function Sidebar({ user, activeProducts = ["EMPRESAS"], capabilit
   const hasLocal = isAdmin && (isSuper || activeProducts.includes("LOCAL"));
   const menuItems: Array<{ title: string; href: string; icon: React.ReactNode; show: boolean; soon?: boolean }> = [
     { title: "Inicio", href: "/dashboard", icon: "🏠", show: true },
+    { title: "Instalaciones NFC", href: "/dashboard/cards/installations", icon: "📌", show: isAdmin },
     { title: "Mi Tarjeta", href: "/dashboard/mi-tarjeta", icon: "👤", show: hasEmpresas },
     { title: "Métricas y Analíticas", href: "/dashboard/metrics", icon: "📊", show: can("ANALYTICS") },
     { title: "Prospectos (CRM)", href: "/dashboard/leads", icon: "💰", show: can("CRM") },

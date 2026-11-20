@@ -21,10 +21,13 @@ test("Especificaciones aprobadas por imagen", () => {
   );
 });
 
-test("Formatos: el navegador y el servidor aceptan exactamente JPG, PNG y WebP", () => {
-  assert.equal(PROFILE_IMAGE_ACCEPT, "image/jpeg,image/png,image/webp");
+test("Formatos: entrada incluye HEIC/HEIF pero Blob solo recibe JPG, PNG y WebP", () => {
+  assert.ok(PROFILE_IMAGE_ACCEPT.includes("image/heic"));
+  assert.ok(PROFILE_IMAGE_ACCEPT.includes(".heif"));
   for (const type of PROFILE_IMAGE_MIME_TYPES) assert.equal(isAcceptedProfileImageType(type), true, type);
-  for (const type of ["image/heic", "image/svg+xml", "image/gif", "image/*", "", "text/html"]) assert.equal(isAcceptedProfileImageType(type), false, type);
+  for (const type of ["image/heic", "image/heif"]) assert.equal(isAcceptedProfileImageType(type), true, type);
+  assert.equal(isAcceptedProfileImageType("", "foto.HEIC"), true);
+  for (const type of ["image/svg+xml", "image/gif", "image/*", "", "text/html"]) assert.equal(isAcceptedProfileImageType(type), false, type);
   const route = readFileSync("app/api/blob/upload/route.ts", "utf8");
   assert.match(route, /allowedContentTypes: \[\.\.\.PROFILE_IMAGE_MIME_TYPES\]/, "la ruta de carga usa la misma lista");
   const maxServer = Number(/maximumSizeInBytes: ([\d_]+)/.exec(route)?.[1].replace(/_/g, ""));
@@ -61,7 +64,7 @@ test("Advertencias informativas de proporción y resolución", () => {
 test("La ayuda del editor muestra dimensiones, proporción, formatos, peso y zona segura", () => {
   const html = (kind: "avatar" | "logo" | "cover" | "hero") => renderToStaticMarkup(React.createElement(ProfileImageSpecHint, { kind }));
   const cover = html("cover");
-  for (const text of ["1344 × 576 px", "7:3", "JPG, PNG o WebP", "15 MB", "zona segura central de 864 × 360 px"]) assert.ok(cover.includes(text), text);
+  for (const text of ["1344 × 576 px", "7:3", "JPG, PNG, WebP, HEIC o HEIF", "15 MB", "zona segura central de 864 × 360 px"]) assert.ok(cover.includes(text), text);
   const logo = html("logo");
   for (const text of ["Horizontal 900 × 300 px", "Cuadrado 600 × 600 px", "3:1 o 1:1", "Zona segura"]) assert.ok(logo.includes(text), text);
   assert.ok(html("avatar").includes("800 × 800 px"));

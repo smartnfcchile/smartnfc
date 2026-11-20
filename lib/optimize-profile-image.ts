@@ -49,7 +49,7 @@ export async function optimizeProfileImage(file: File, kind: ProfileImageKind): 
     try {
       const { heicTo } = await import("heic-to/csp");
       const jpeg = await heicTo({ blob: file, type: "image/jpeg", quality: 0.94 });
-      source = new File([jpeg], file.name.replace(/\\.hei[cf]$/i, ".jpg"), { type: "image/jpeg" });
+      source = new File([jpeg], file.name.replace(/\.hei[cf]$/i, ".jpg"), { type: "image/jpeg" });
     } catch {
       throw new Error("No fue posible convertir esta foto HEIC/HEIF. Prueba otra fotografía.");
     }

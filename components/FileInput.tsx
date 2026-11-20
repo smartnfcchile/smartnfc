@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { upload } from "@vercel/blob/client";
+import { optimizeProfileImage } from "../lib/optimize-profile-image";
 import {
   getProfileImageWarnings,
   isAcceptedProfileImageType,
@@ -79,7 +80,7 @@ export default function FileInput({
     // Validación client-side de límite de tamaño
     if (file.size > PROFILE_IMAGE_MAX_BYTES) {
       setError(
-        `La imagen pesa ${(file.size / (1024 * 1024)).toFixed(2)} MB. El máximo es ${PROFILE_IMAGE_MAX_SIZE_LABEL}: comprímela o usa una más liviana.`
+        `La imagen pesa ${(file.size / (1024 * 1024)).toFixed(2)} MB. El máximo es ${PROFILE_IMAGE_MAX_SIZE_LABEL}: elige una imagen más pequeña.`
       );
       e.target.value = "";
       return;
@@ -95,8 +96,10 @@ export default function FileInput({
     try {
       setUploading(true);
 
-      // Subida directa al Vercel Blob Store (Bypasseando el servidor Next.js para evitar el error 413)
-      const newBlob = await upload(file.name, file, {
+      // Optimización local: el archivo original nunca se envía al servidor.
+      const optimized = await optimizeProfileImage(file, type);
+      // Subida directa al Vercel Blob Store; el token limita el resultado a 5 MB.
+      const newBlob = await upload(optimized.name, optimized, {
         access: "public",
         handleUploadUrl: "/api/blob/upload",
       });
@@ -111,7 +114,7 @@ export default function FileInput({
       setError(`Error al subir imagen: ${errorMessage}`);
       setDimensions(null);
       setWarnings([]);
-      alert(`Hubo un error al subir la imagen: ${errorMessage}\n\nAsegúrate de tener Vercel Blob configurado.`);
+
       e.target.value = ""; // Resetea el input
     } finally {
       setUploading(false);
@@ -126,7 +129,7 @@ export default function FileInput({
           type === "avatar" ? "w-16 h-16 rounded-full" :
           type === "logo" ? "h-16 w-28" : "h-20 w-full sm:w-44"
         }`}>
-          Subiendo...
+          Optimizando / subiendo...
         </div>
       );
     }

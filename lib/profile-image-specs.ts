@@ -18,9 +18,9 @@ export const PROFILE_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"
 export const PROFILE_IMAGE_ACCEPT = PROFILE_IMAGE_MIME_TYPES.join(",");
 export const PROFILE_IMAGE_FORMATS_LABEL = "JPG, PNG o WebP";
 
-/** Límite efectivo: el editor corta en 4 MB (el token de Blob admite hasta 5 MB). */
-export const PROFILE_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
-export const PROFILE_IMAGE_MAX_SIZE_LABEL = "4 MB";
+/** Tamaño original admitido; el navegador optimiza antes de subir a Blob (máximo 5 MB). */
+export const PROFILE_IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+export const PROFILE_IMAGE_MAX_SIZE_LABEL = "15 MB";
 
 export interface ImageSize {
   width: number;

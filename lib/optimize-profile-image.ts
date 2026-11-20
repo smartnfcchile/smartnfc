@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProfileImageKind } from "./profile-image-specs";
+import { isHeicProfileImage } from "./profile-image-specs";
 
 /**
  * Optimiza una imagen ANTES de subirla a Blob. No recorta: el editor conserva
@@ -42,7 +43,18 @@ async function decodeImage(file: File): Promise<{ image: CanvasImageSource; widt
 }
 
 export async function optimizeProfileImage(file: File, kind: ProfileImageKind): Promise<File> {
-  const input = await decodeImage(file);
+  // Importación diferida: el conversor HEIC solo se descarga cuando hace falta.
+  let source = file;
+  if (isHeicProfileImage(file.type, file.name)) {
+    try {
+      const { heicTo } = await import("heic-to/csp");
+      const jpeg = await heicTo({ blob: file, type: "image/jpeg", quality: 0.94 });
+      source = new File([jpeg], file.name.replace(/\\.hei[cf]$/i, ".jpg"), { type: "image/jpeg" });
+    } catch {
+      throw new Error("No fue posible convertir esta foto HEIC/HEIF. Prueba otra fotografía.");
+    }
+  }
+  const input = await decodeImage(source);
   try {
     if (!input.width || !input.height || input.width * input.height > 100_000_000) {
       throw new Error("Las dimensiones de la imagen no son compatibles.");

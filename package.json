@@ -48,6 +48,7 @@
     "@vercel/blob": "^2.4.1",
     "bcryptjs": "^3.0.3",
     "framer-motion": "^12.42.2",
+    "heic-to": "1.6.7",
     "lucide-react": "^1.23.0",
     "next": "^16.2.11",
     "next-auth": "^4.24.15",

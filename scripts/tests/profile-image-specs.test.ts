@@ -28,7 +28,8 @@ test("Formatos: el navegador y el servidor aceptan exactamente JPG, PNG y WebP",
   const route = readFileSync("app/api/blob/upload/route.ts", "utf8");
   assert.match(route, /allowedContentTypes: \[\.\.\.PROFILE_IMAGE_MIME_TYPES\]/, "la ruta de carga usa la misma lista");
   const maxServer = Number(/maximumSizeInBytes: ([\d_]+)/.exec(route)?.[1].replace(/_/g, ""));
-  assert.ok(PROFILE_IMAGE_MAX_BYTES <= maxServer, "el límite del editor nunca supera al del servidor");
+  assert.equal(PROFILE_IMAGE_MAX_BYTES, 15 * 1024 * 1024, "se admiten fotos originales de hasta 15 MB");
+  assert.equal(maxServer, 5_000_000, "el servidor recibe solamente la imagen ya optimizada");
 });
 
 test("Las dimensiones recomendadas no generan advertencias", () => {
@@ -60,7 +61,7 @@ test("Advertencias informativas de proporción y resolución", () => {
 test("La ayuda del editor muestra dimensiones, proporción, formatos, peso y zona segura", () => {
   const html = (kind: "avatar" | "logo" | "cover" | "hero") => renderToStaticMarkup(React.createElement(ProfileImageSpecHint, { kind }));
   const cover = html("cover");
-  for (const text of ["1344 × 576 px", "7:3", "JPG, PNG o WebP", "4 MB", "zona segura central de 864 × 360 px"]) assert.ok(cover.includes(text), text);
+  for (const text of ["1344 × 576 px", "7:3", "JPG, PNG o WebP", "15 MB", "zona segura central de 864 × 360 px"]) assert.ok(cover.includes(text), text);
   const logo = html("logo");
   for (const text of ["Horizontal 900 × 300 px", "Cuadrado 600 × 600 px", "3:1 o 1:1", "Zona segura"]) assert.ok(logo.includes(text), text);
   assert.ok(html("avatar").includes("800 × 800 px"));

@@ -49,13 +49,18 @@ async function readRemote(url: string, hosts: readonly string[]): Promise<Buffer
     if (announced > MAX_DOWNLOAD_BYTES) throw new Error("Archivo remoto demasiado grande.");
     const chunks: Uint8Array[] = [];
     let total = 0;
-    for await (const chunk of response.body) {
-      total += chunk.length;
-      if (total > MAX_DOWNLOAD_BYTES) {
-        await response.body.cancel().catch(() => {});
-        throw new Error("Archivo remoto demasiado grande.");
+    const reader = response.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_DOWNLOAD_BYTES) throw new Error("Archivo remoto demasiado grande.");
+        chunks.push(value);
       }
-      chunks.push(chunk);
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
     return Buffer.concat(chunks, total);
   } finally {

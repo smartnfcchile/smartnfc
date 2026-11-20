@@ -57,3 +57,10 @@ Incorporar un cuarto producto **Soluciones NFC**, distinto de Empresas (identida
 - `importSolutionRecords` permite prevalidar y aplicar lotes de hasta 500 filas por transacción (upsert por código externo). No está conectado a un lector Excel ni a un botón de importación.
 - Falta auditoría de cambios, control de concurrencia por edición, exportación Excel y experiencia de usuario para importar.
 - Nada de lo anterior se considera activado en clientes. Las migraciones no deben aplicarse a producción antes de la revisión y CI.
+
+## Corte de trabajo: importador y ficha pública
+- `lib/soluciones/csv.ts` permite leer CSV UTF-8 (exportado desde Excel), hasta 500 filas, con comillas y delimitador coma/punto y coma. **Aún no acepta .xlsx nativo.**
+- `/superadmin/soluciones/[projectId]` presenta la descarga de plantilla, previsualización de CSV e importación de registros en proyectos ASSETS en borrador. Solo SUPERADMIN; no existe acceso comercial general.
+- `/s/[token]` está implementada como ficha pública *inactiva por defecto*. Solo resuelve etiquetas ACTIVE de proyectos ACTIVE, registros ACTIVE y empresas vigentes, y muestra únicamente campos marcados públicos. No existe todavía publicación/activación de etiquetas en el panel.
+- Se incluyeron pruebas unitarias de CSV y se corrigió la carga obligatoria del guard de base de datos en suites nuevas.
+- **Pendiente**: lector .xlsx nativo, activación controlada, NFC/QR y etiquetas desde el panel, auditoría por cambio, permisos por sede, pruebas de integración con base descartable, validación de migración, rendimiento y ensayo end-to-end.

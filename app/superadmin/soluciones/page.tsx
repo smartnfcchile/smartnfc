@@ -58,7 +58,7 @@ export default async function SolucionesAdminPage({ searchParams }: {
         <h2 className="text-xl font-bold">Proyectos ({projects.length})</h2>
         {projects.length === 0 ? <p className="text-slate-500">Esta empresa todavía no tiene proyectos.</p> :
           <div className="grid gap-3">{projects.map(p => <div key={p.id} className="rounded-xl border p-4 flex flex-wrap justify-between gap-3">
-            <div><b>{p.name}</b><p className="text-xs text-slate-500">{p.mode === "ASSETS" ? "Activos" : "Campaña"} · {p.status}</p></div>
+            <div><Link href={`/superadmin/soluciones/${p.id}`} className="text-blue-600 underline font-semibold">{p.name}</Link><p className="text-xs text-slate-500">{p.mode === "ASSETS" ? "Activos" : "Campaña"} · {p.status}</p></div>
             <div className="text-sm text-slate-500">{p._count.records} fichas · {p._count.tags} etiquetas · {p._count.batches} lotes</div>
           </div>)}</div>}
       </section>

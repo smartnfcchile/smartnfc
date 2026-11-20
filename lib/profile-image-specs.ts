@@ -82,11 +82,11 @@ export const PROFILE_IMAGE_SPECS: Record<ProfileImageKind, ProfileImageSpec> = {
 
 export function isAcceptedProfileImageType(mimeType: string, filename = ""): boolean {
   if ((PROFILE_IMAGE_INPUT_MIME_TYPES as readonly string[]).includes(mimeType.toLowerCase())) return true;
-  return (!mimeType || mimeType === "application/octet-stream") && /\\.hei[cf]$/i.test(filename);
+  return (!mimeType || mimeType === "application/octet-stream") && /\.hei[cf]$/i.test(filename);
 }
 
 export function isHeicProfileImage(mimeType: string, filename: string): boolean {
-  return mimeType === "image/heic" || mimeType === "image/heif" || /\\.hei[cf]$/i.test(filename);
+  return mimeType === "image/heic" || mimeType === "image/heif" || /\.hei[cf]$/i.test(filename);
 }
 
 const formatRatio = (ratio: number) => `${ratio.toFixed(2).replace(".", ",")}:1`;

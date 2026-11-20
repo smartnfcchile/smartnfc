@@ -70,8 +70,8 @@ export default function FileInput({
     setDimensions(null);
     setWarnings([]);
 
-    // Mismos formatos que acepta /api/blob/upload (HEIC, SVG o GIF serían rechazados)
-    if (!isAcceptedProfileImageType(file.type)) {
+    // HEIC/HEIF se convierten localmente; el servidor solo recibe JPG/PNG/WebP.
+    if (!isAcceptedProfileImageType(file.type, file.name)) {
       setError(`Formato no admitido. Usa una imagen ${PROFILE_IMAGE_FORMATS_LABEL}.`);
       e.target.value = "";
       return;
@@ -86,18 +86,17 @@ export default function FileInput({
       return;
     }
 
-    // Dimensiones y proporción: solo advertencias informativas, nunca bloquean la carga
-    const size = await readImageSize(file);
-    if (size) {
-      setDimensions(size);
-      setWarnings(getProfileImageWarnings(type, size));
-    }
-
     try {
       setUploading(true);
 
       // Optimización local: el archivo original nunca se envía al servidor.
       const optimized = await optimizeProfileImage(file, type);
+      // Dimensiones y recomendaciones sobre la imagen ya convertida, también en iPhone.
+      const size = await readImageSize(optimized);
+      if (size) {
+        setDimensions(size);
+        setWarnings(getProfileImageWarnings(type, size));
+      }
       // Subida directa al Vercel Blob Store; el token limita el resultado a 5 MB.
       const newBlob = await upload(optimized.name, optimized, {
         access: "public",

@@ -49,3 +49,11 @@ Incorporar un cuarto producto **Soluciones NFC**, distinto de Empresas (identida
 - Productos anteriores mantienen su comportamiento, precios y permisos.
 
 > Estado: diseño y utilidades iniciales. NO es un módulo habilitado para clientes ni para producción.
+
+## Avance de desarrollo — 20 de noviembre de 2026
+- Se añadió un esquema Prisma aditivo (`SolutionProject`, `SolutionTemplate`, `SolutionRecord`, `SolutionBatch`, `SolutionTag`) y la migración `20261120090000_solution_core`.
+- Las relaciones compuestas `companyId + projectId` impiden que las fichas, plantillas y etiquetas pertenezcan a proyectos de otra organización.
+- Existe una pantalla interna para crear proyectos y plantillas en borrador en `/superadmin/soluciones`, deliberadamente restringida a SUPERADMIN.
+- `importSolutionRecords` permite prevalidar y aplicar lotes de hasta 500 filas por transacción (upsert por código externo). No está conectado a un lector Excel ni a un botón de importación.
+- Falta auditoría de cambios, control de concurrencia por edición, exportación Excel y experiencia de usuario para importar.
+- Nada de lo anterior se considera activado en clientes. Las migraciones no deben aplicarse a producción antes de la revisión y CI.

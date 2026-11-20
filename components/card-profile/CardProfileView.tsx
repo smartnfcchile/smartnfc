@@ -445,6 +445,9 @@ export default function CardProfileView({ card, isPreview = false, contactSource
                 <img
                   src={card.coverUrl || undefined}
                   alt="Portada de perfil"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-cover block"
                 />
               ) : (
@@ -497,6 +500,9 @@ export default function CardProfileView({ card, isPreview = false, contactSource
               <img
                 src={card.coverUrl || undefined}
                 alt="Portada de perfil"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                 className="w-full h-full object-cover block"
               />
             ) : (
@@ -542,6 +548,9 @@ export default function CardProfileView({ card, isPreview = false, contactSource
                   <img
                     src={card.avatarUrl || undefined}
                     alt={card.profileName ?? card.name}
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -610,6 +619,9 @@ export default function CardProfileView({ card, isPreview = false, contactSource
               <img
                 src={card.avatarUrl || undefined}
                 alt={card.profileName ?? card.name}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 className={`h-12 w-12 rounded-full object-cover border ${
                   isLightTemplate ? "border-slate-300" : "border-slate-700"
                 }`}

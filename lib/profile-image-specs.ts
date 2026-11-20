@@ -15,12 +15,13 @@ export type ProfileImageKind = "avatar" | "logo" | "cover" | "hero";
 
 /** Formatos aceptados por el navegador y por /api/blob/upload. */
 export const PROFILE_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-export const PROFILE_IMAGE_ACCEPT = PROFILE_IMAGE_MIME_TYPES.join(",");
-export const PROFILE_IMAGE_FORMATS_LABEL = "JPG, PNG o WebP";
+export const PROFILE_IMAGE_INPUT_MIME_TYPES = [...PROFILE_IMAGE_MIME_TYPES, "image/heic", "image/heif"] as const;
+export const PROFILE_IMAGE_ACCEPT = [...PROFILE_IMAGE_INPUT_MIME_TYPES, ".heic", ".heif"].join(",");
+export const PROFILE_IMAGE_FORMATS_LABEL = "JPG, PNG, WebP, HEIC o HEIF";
 
-/** Límite efectivo: el editor corta en 4 MB (el token de Blob admite hasta 5 MB). */
-export const PROFILE_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
-export const PROFILE_IMAGE_MAX_SIZE_LABEL = "4 MB";
+/** Tamaño original admitido; el navegador optimiza antes de subir a Blob (máximo 5 MB). */
+export const PROFILE_IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+export const PROFILE_IMAGE_MAX_SIZE_LABEL = "15 MB";
 
 export interface ImageSize {
   width: number;
@@ -79,8 +80,13 @@ export const PROFILE_IMAGE_SPECS: Record<ProfileImageKind, ProfileImageSpec> = {
   },
 };
 
-export function isAcceptedProfileImageType(mimeType: string): boolean {
-  return (PROFILE_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType);
+export function isAcceptedProfileImageType(mimeType: string, filename = ""): boolean {
+  if ((PROFILE_IMAGE_INPUT_MIME_TYPES as readonly string[]).includes(mimeType.toLowerCase())) return true;
+  return (!mimeType || mimeType === "application/octet-stream") && /\.hei[cf]$/i.test(filename);
+}
+
+export function isHeicProfileImage(mimeType: string, filename: string): boolean {
+  return mimeType === "image/heic" || mimeType === "image/heif" || /\.hei[cf]$/i.test(filename);
 }
 
 const formatRatio = (ratio: number) => `${ratio.toFixed(2).replace(".", ",")}:1`;

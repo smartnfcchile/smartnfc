@@ -34,7 +34,8 @@
     "test:migration-history": "tsx --test scripts/tests/migration-history-protection.test.ts",
     "test:local-location-backfill-idempotency": "tsx --test scripts/tests/local-location-backfill-idempotency.test.ts",
     "test:db-isolation": "tsx --test scripts/tests/test-database-isolation.test.ts",
-    "ci:assert-block2-db": "tsx scripts/ci/assert-block2-test-database.ts"
+    "ci:assert-block2-db": "tsx scripts/ci/assert-block2-test-database.ts",
+    "audit:card-images": "tsx scripts/maintenance/optimize-card-images.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -57,7 +58,8 @@
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "resend": "^6.17.2"
+    "resend": "^6.17.2",
+    "sharp": "0.35.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireSolutionsOperator } from "../../../../lib/soluciones/access";
 import { parseSolutionCsv } from "../../../../lib/soluciones/csv";
 import { importSolutionRecords } from "../../../../lib/soluciones/import-records";
 
@@ -17,6 +18,7 @@ export async function submitSolutionCsv(
   const blank = { message: "", accepted: 0, errors: [] as string[], applied: false };
   try {
     const companyId = String(form.get("companyId") ?? "");
+    await requireSolutionsOperator(companyId);
     const projectId = String(form.get("projectId") ?? "");
     const templateId = String(form.get("templateId") ?? "");
     const apply = form.get("operation") === "apply";
@@ -39,6 +41,6 @@ export async function submitSolutionCsv(
       applied
     };
   } catch(e) {
-    return { ...blank, message: e instanceof Error ? e.message : "Error en el archivo" };
+    return { ...blank, message: e instanceof Error && !("code" in e) && e.message.length < 125 ? e.message : "Error en el archivo" };
   }
 }

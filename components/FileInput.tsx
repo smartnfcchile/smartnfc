@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { upload } from "@vercel/blob/client";
+import { optimizeProfileImage } from "../lib/optimize-profile-image";
 import {
   getProfileImageWarnings,
   isAcceptedProfileImageType,
@@ -69,8 +70,8 @@ export default function FileInput({
     setDimensions(null);
     setWarnings([]);
 
-    // Mismos formatos que acepta /api/blob/upload (HEIC, SVG o GIF serían rechazados)
-    if (!isAcceptedProfileImageType(file.type)) {
+    // HEIC/HEIF se convierten localmente; el servidor solo recibe JPG/PNG/WebP.
+    if (!isAcceptedProfileImageType(file.type, file.name)) {
       setError(`Formato no admitido. Usa una imagen ${PROFILE_IMAGE_FORMATS_LABEL}.`);
       e.target.value = "";
       return;
@@ -79,24 +80,25 @@ export default function FileInput({
     // Validación client-side de límite de tamaño
     if (file.size > PROFILE_IMAGE_MAX_BYTES) {
       setError(
-        `La imagen pesa ${(file.size / (1024 * 1024)).toFixed(2)} MB. El máximo es ${PROFILE_IMAGE_MAX_SIZE_LABEL}: comprímela o usa una más liviana.`
+        `La imagen pesa ${(file.size / (1024 * 1024)).toFixed(2)} MB. El máximo es ${PROFILE_IMAGE_MAX_SIZE_LABEL}: elige una imagen más pequeña.`
       );
       e.target.value = "";
       return;
     }
 
-    // Dimensiones y proporción: solo advertencias informativas, nunca bloquean la carga
-    const size = await readImageSize(file);
-    if (size) {
-      setDimensions(size);
-      setWarnings(getProfileImageWarnings(type, size));
-    }
-
     try {
       setUploading(true);
 
-      // Subida directa al Vercel Blob Store (Bypasseando el servidor Next.js para evitar el error 413)
-      const newBlob = await upload(file.name, file, {
+      // Optimización local: el archivo original nunca se envía al servidor.
+      const optimized = await optimizeProfileImage(file, type);
+      // Dimensiones y recomendaciones sobre la imagen ya convertida, también en iPhone.
+      const size = await readImageSize(optimized);
+      if (size) {
+        setDimensions(size);
+        setWarnings(getProfileImageWarnings(type, size));
+      }
+      // Subida directa al Vercel Blob Store; el token limita el resultado a 5 MB.
+      const newBlob = await upload(optimized.name, optimized, {
         access: "public",
         handleUploadUrl: "/api/blob/upload",
       });
@@ -111,7 +113,7 @@ export default function FileInput({
       setError(`Error al subir imagen: ${errorMessage}`);
       setDimensions(null);
       setWarnings([]);
-      alert(`Hubo un error al subir la imagen: ${errorMessage}\n\nAsegúrate de tener Vercel Blob configurado.`);
+
       e.target.value = ""; // Resetea el input
     } finally {
       setUploading(false);
@@ -126,7 +128,7 @@ export default function FileInput({
           type === "avatar" ? "w-16 h-16 rounded-full" :
           type === "logo" ? "h-16 w-28" : "h-20 w-full sm:w-44"
         }`}>
-          Subiendo...
+          Optimizando / subiendo...
         </div>
       );
     }

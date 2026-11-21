@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { resolvePublicSolutionTag } from "../../../lib/soluciones/public-record";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ export default async function PublicSolutionPage({ params }: {
   const { token } = await params;
   const record = await resolvePublicSolutionTag(token);
   if (!record) notFound();
+  if (record.kind === "campaign") redirect(record.destination);
   return <main className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8">
     <article className="mx-auto max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
       <header className="bg-blue-700 text-white p-6 space-y-2">

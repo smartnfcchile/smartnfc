@@ -1013,6 +1013,9 @@ model SolutionProject {
   name        String
   mode        SolutionMode
   status      String       @default("DRAFT")
+  destinationUrl String?
+  revision    Int @default(0)
+  operations SolutionOperation[]
   templates   SolutionTemplate[]
   records     SolutionRecord[]
   tags        SolutionTag[]
@@ -1049,6 +1052,7 @@ model SolutionRecord {
   templateId  String
   template    SolutionTemplate     @relation(fields: [templateId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
   externalCode String
+  location    String?
   status      SolutionRecordStatus @default(DRAFT)
   data        Json
   tags        SolutionTag[]
@@ -1091,4 +1095,17 @@ model SolutionTag {
   @@index([companyId, projectId, status])
   @@index([recordId])
   @@index([batchId])
+}
+
+model SolutionOperation {
+  id String @id
+  companyId String
+  projectId String
+  project SolutionProject @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  actorId String
+  kind String
+  targetId String?
+  createdAt DateTime @default(now())
+
+  @@index([projectId, companyId, createdAt])
 }

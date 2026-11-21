@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { requireSolutionsOperator } from "./access";
@@ -16,13 +17,13 @@ export async function importSolutionRecords(input: {
   rows: ImportRow[];
   apply: boolean;
 }): Promise<ImportPreview> {
-  await requireSolutionsOperator(input.companyId);
+  const { actor } = await requireSolutionsOperator(input.companyId);
   if (!Array.isArray(input.rows) || input.rows.length < 1 || input.rows.length > 500) {
     throw new Error("Se admiten de 1 a 500 filas por lote");
   }
   const project = await prisma.solutionProject.findFirst({
     where: { id: input.projectId, companyId: input.companyId, mode: "ASSETS", status: "DRAFT" },
-    select: { id: true },
+    select: { id: true, revision: true },
   });
   if (!project) throw new Error("Proyecto no disponible o no editable");
   const dbTemplate = await prisma.solutionTemplate.findFirst({
@@ -49,13 +50,25 @@ export async function importSolutionRecords(input: {
   // A single transaction preserves all-or-nothing batch behavior. Uniqueness
   // on (projectId, externalCode) makes the operation repeatable.
   await prisma.$transaction(async tx => {
-    const checked = await tx.solutionProject.findFirst({
-      where: { id: input.projectId, companyId: input.companyId, status: "DRAFT", mode: "ASSETS" },
-      select: { id: true },
+    const scope = { companyId: input.companyId, projectId: input.projectId };
+    const checked = await tx.solutionProject.updateMany({
+      where: { id: input.projectId, companyId: input.companyId, status: "DRAFT",
+        mode: "ASSETS", revision: project.revision, company: { isActive: true } },
+      data: { revision: { increment: 1 } },
     });
-    if (!checked) throw new Error("El proyecto cambió de estado");
+    if (!checked.count) throw new Error("El proyecto cambió. Vuelve a revisar el archivo.");
+    await tx.solutionOperation.create({
+      data: { ...scope, id: randomUUID(), actorId: actor.id, kind: "import", targetId: input.templateId },
+    });
     for (const item of prepared.accepted) {
       const jsonData = JSON.parse(JSON.stringify(item.values)) as Prisma.InputJsonValue;
+      const existing = await tx.solutionRecord.findFirst({
+        where: { ...scope, externalCode: item.externalId },
+        select: { status: true },
+      });
+      if (existing && existing.status !== "DRAFT") {
+        throw new Error("El archivo incluye fichas fuera de borrador.");
+      }
       await tx.solutionRecord.upsert({
         where: { projectId_externalCode: { projectId: input.projectId, externalCode: item.externalId } },
         create: {

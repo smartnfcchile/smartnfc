@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
@@ -15,10 +16,13 @@ export async function createSolutionProject(formData: FormData) {
   if (mode !== "ASSETS" && mode !== "CAMPAIGN") throw new Error("Modalidad inválida");
   const template = BUILT_IN_TEMPLATES.find(t => t.code === code && t.mode === mode);
   if (!template || validateTemplate(template).length) throw new Error("Plantilla inválida");
-  await requireSolutionsOperator(companyId);
+  const { actor } = await requireSolutionsOperator(companyId);
   await prisma.$transaction(async tx => {
     const project = await tx.solutionProject.create({
       data: { companyId, name, mode, status: "DRAFT" }
+    });
+    await tx.solutionOperation.create({
+      data: { id: randomUUID(), companyId, projectId: project.id, actorId: actor.id, kind: "project-create" },
     });
     await tx.solutionTemplate.create({
       data: { companyId, projectId: project.id, code: template.code,

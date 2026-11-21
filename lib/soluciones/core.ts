@@ -30,8 +30,20 @@ export function validateTemplate(template: SolutionTemplate): string[] {
   const issues: string[] = [];
   if (!KEY.test(template.code)) issues.push("Código de plantilla inválido");
   const seen = new Set<string>();
+  if (!Array.isArray(template.fields) || template.fields.length < 1 || template.fields.length > 50) {
+    return [...issues, "Una plantilla admite entre 1 y 50 campos"];
+  }
   for (const field of template.fields) {
-    if (!KEY.test(field.key)) issues.push(`Campo inválido: ${field.key}`);
+    if (!field || typeof field.key !== "string" || typeof field.label !== "string" ||
+        field.label.length > 100 || !["text", "number", "date", "boolean", "url", "select"].includes(field.kind) ||
+        (field.options !== undefined && (!Array.isArray(field.options) || field.options.length > 100 ||
+          field.options.some(option => typeof option !== "string" || option.length > 100))) ||
+        (field.public !== undefined && typeof field.public !== "boolean") ||
+        (field.required !== undefined && typeof field.required !== "boolean")) {
+      issues.push("Definición de campo inválida");
+      continue;
+    }
+    if (!KEY.test(field.key) || ["codigo", "constructor", "prototype"].includes(field.key)) issues.push(`Campo inválido: ${field.key}`);
     if (seen.has(field.key)) issues.push(`Campo duplicado: ${field.key}`);
     seen.add(field.key);
     if (!field.label.trim()) issues.push(`Campo sin etiqueta: ${field.key}`);
@@ -43,6 +55,7 @@ export function validateTemplate(template: SolutionTemplate): string[] {
 }
 function normalize(value: unknown, field: FieldDefinition): unknown {
   if (value === undefined || value === null || String(value).trim() === "") return null;
+  if (String(value).length > 2000) throw new Error("Valor supera los 2000 caracteres");
   if (field.kind === "text" || field.kind === "select") return String(value).trim();
   if (field.kind === "url") {
     const url = new URL(String(value));
@@ -81,7 +94,7 @@ export function prepareImport(rows: ImportRow[], template: SolutionTemplate): Pr
   rows.forEach((source, index) => {
     const row = index + 2; // Header is Excel row 1.
     const externalId = String(source.codigo ?? "").trim();
-    if (!externalId) { rejected.push({ row, field: "codigo", message: "Código obligatorio" }); return; }
+    if (!externalId || externalId.length > 100) { rejected.push({ row, field: "codigo", message: "Código obligatorio" }); return; }
     if (seen.has(externalId)) { duplicates.push(externalId); rejected.push({ row, field: "codigo", message: "Código duplicado en archivo" }); return; }
     seen.add(externalId);
     const values: ImportRow = {};

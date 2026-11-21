@@ -11,22 +11,26 @@ export function parseSolutionCsv(source: string, maxRows = 500): ImportRow[] {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
   const delimiter = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
   const rows: string[][] = [];
-  let row: string[] = [], field = "", quoted = false;
+  let row: string[] = [], field = "", quoted = false, closedQuote = false;
   for (let i=0;i<text.length;i++) {
     const c=text[i];
     if (c === '"') {
       if (quoted && text[i+1] === '"') { field += '"'; i++; }
-      else if (quoted || field.length === 0) quoted = !quoted;
+      else if (quoted) { quoted = false; closedQuote = true; }
+      else if (!closedQuote && field.length === 0) quoted = true;
       else throw new Error("Comillas inválidas en CSV");
     } else if (c === delimiter && !quoted) {
-      row.push(field); field="";
+      row.push(field); field=""; closedQuote = false;
     } else if ((c==="\n" || c==="\r") && !quoted) {
       if (c==="\r" && text[i+1]==="\n") i++;
-      row.push(field); field="";
+      row.push(field); field=""; closedQuote = false;
       if (row.some(v=>v.trim()!=="")) rows.push(row);
       row=[];
       if(rows.length > maxRows+1) throw new Error("Máximo de 500 filas por lote");
-    } else field+=c;
+    } else {
+      if (closedQuote) throw new Error("Contenido después del cierre de comillas en CSV");
+      field+=c;
+    }
   }
   if(quoted) throw new Error("Comillas sin cerrar");
   row.push(field);

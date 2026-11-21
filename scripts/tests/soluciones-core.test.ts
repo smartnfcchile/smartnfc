@@ -17,7 +17,7 @@ test("Excel: previsualización reconoce errores, duplicados y no escribe datos",
   assert.equal(p.accepted.length,1);
   assert.equal(p.accepted[0].values.capacidad_kg,6.5);
   assert.deepEqual(p.duplicates,["EXT-001"]);
-  assert.equal(p.rejected.length,3);
+  assert.deepEqual(p.rejected.map(({ row, field }) => [row, field]), [[3, "codigo"], [4, "ubicacion"], [4, "capacidad_kg"], [5, "proxima_mantencion"]]);
 });
 test("ficha pública no filtra notas internas",()=>{
   const t=BUILT_IN_TEMPLATES[0];

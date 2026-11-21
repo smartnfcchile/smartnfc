@@ -9,6 +9,42 @@ import type { ReactNode } from "react";
 import { updateSolution } from "../project-actions";
 import CsvImportForm from "./CsvImportForm";
 
+  function Editor({ project, operation, targetId, children }: {
+    project: { id: string; companyId: string; revision: number };
+    operation: string;
+    targetId?: string;
+    children: ReactNode;
+  }) {
+    return <form action={updateSolution} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="companyId" value={project.companyId}/>
+      <input type="hidden" name="projectId" value={project.id}/>
+      <input type="hidden" name="revision" value={project.revision}/>
+      <input type="hidden" name="operation" value={operation}/>
+      <input type="hidden" name="targetId" value={targetId}/>
+      {children}
+    </form>;
+  }
+  const button = "rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white";
+  const fieldClass = "rounded border bg-transparent px-2 py-1.5 text-sm";
+
+  function AssetFields({ record, templates, templateId, fields }: {
+    record?: { externalCode: string; location: string | null; templateId: string; data: unknown };
+    templates: { id: string; name: string; version: number }[];
+    templateId?: string;
+    fields: string[];
+  }) {
+    return <>
+      <input aria-label="Código" name="code" required maxLength={100} defaultValue={record?.externalCode} placeholder="Código del activo" className={fieldClass}/>
+      <input aria-label="Ubicación" name="location" maxLength={120} defaultValue={record?.location ?? ""} placeholder="Sede o ubicación" className={fieldClass}/>
+      <select aria-label="Plantilla" name="templateId" defaultValue={record?.templateId ?? templateId} className={fieldClass}>
+        {templates.map(item => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}
+      </select>
+      <textarea aria-label="Valores de la ficha en JSON" name="fields" required className={fieldClass}
+        defaultValue={JSON.stringify(record?.data ?? Object.fromEntries(fields.map(key => [key, ""])), null, 2)}/>
+      <button className={button}>{record ? "Guardar ficha" : "Crear ficha"}</button>
+    </>;
+  }
+
 export const dynamic = "force-dynamic";
 export default async function SolutionProjectAdmin({ params, searchParams }: {
   params: Promise<{ projectId: string }>;
@@ -39,31 +75,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
       ? `http://${requestHost}` : "https://www.smartnfc.cl";
   const qrUrl = qrTag ? `${origin}/s/${qrTag.publicToken}` : null;
   const qrImage = qrUrl ? await QRCode.toDataURL(qrUrl, { width: 320, margin: 4 }) : null;
-  function Editor({ operation, targetId, children }: { operation: string; targetId?: string; children: ReactNode }) {
-    return <form action={updateSolution} className="flex flex-wrap items-center gap-2">
-      <input type="hidden" name="companyId" value={project?.companyId}/>
-      <input type="hidden" name="projectId" value={projectId}/>
-      <input type="hidden" name="revision" value={project?.revision}/>
-      <input type="hidden" name="operation" value={operation}/>
-      <input type="hidden" name="targetId" value={targetId}/>
-      {children}
-    </form>;
-  }
-  const button = "rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white";
-  const fieldClass = "rounded border bg-transparent px-2 py-1.5 text-sm";
   const template = project.templates.find(item => item.id === filters.template) ?? project.templates[0];
-  function AssetFields({ record }: { record?: (NonNullable<typeof project>["records"])[number] }) {
-    return <>
-      <input aria-label="Código" name="code" required maxLength={100} defaultValue={record?.externalCode} placeholder="Código del activo" className={fieldClass}/>
-      <input aria-label="Ubicación" name="location" maxLength={120} defaultValue={record?.location ?? ""} placeholder="Sede o ubicación" className={fieldClass}/>
-      <select aria-label="Plantilla" name="templateId" defaultValue={record?.templateId ?? template?.id} className={fieldClass}>
-        {project?.templates.map(item => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}
-      </select>
-      <textarea aria-label="Valores de la ficha en JSON" name="fields" required className={fieldClass}
-        defaultValue={JSON.stringify(record?.data ?? Object.fromEntries(fields.map(key => [key, ""])), null, 2)}/>
-      <button className={button}>{record ? "Guardar ficha" : "Crear ficha"}</button>
-    </>;
-  }
   const fields = Array.isArray(template?.fields)
     ? template.fields.filter((f): f is { key: string } =>
       !!f && typeof f==="object" && !Array.isArray(f) &&
@@ -82,7 +94,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
     {error && <p role="alert" className="rounded border border-red-500 p-3">{error}</p>}
     <section className="space-y-3 rounded-lg border p-4">
       <h2 className="font-bold">Configuración del proyecto</h2>
-      <Editor operation="settings">
+      <Editor project={project} operation="settings">
         <input aria-label="Nombre" name="name" required maxLength={120} defaultValue={project.name} className={fieldClass}/>
         <select aria-label="Estado del proyecto" name="status" defaultValue={project.status} className={fieldClass}>
           <option value="DRAFT">Borrador</option><option value="ACTIVE">Activo</option><option value="INACTIVE">Suspendido</option>
@@ -93,12 +105,12 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
     </section>
     {project.mode === "CAMPAIGN" && <section className="space-y-3 rounded-lg border p-4">
       <h2 className="font-bold">Lotes de campaña</h2>
-      <Editor operation="batch">
+      <Editor project={project} operation="batch">
         <input aria-label="Nombre del lote" name="name" placeholder="Nombre del lote" required maxLength={120} className={fieldClass}/>
         <input aria-label="Cantidad de etiquetas" name="quantity" type="number" min={1} max={200} required className={fieldClass}/>
         <button className={button}>Generar lote</button>
       </Editor>
-      {project.batches.map(batch => <Editor key={batch.id} operation="batch-state" targetId={batch.id}>
+      {project.batches.map(batch => <Editor project={project} key={batch.id} operation="batch-state" targetId={batch.id}>
         <span>{batch.name} · {batch.quantity} soportes</span>
         <button className={button} name="activate" value="yes">Activar lote</button>
         <button className={button} name="activate" value="no">Suspender lote</button>
@@ -113,7 +125,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
         <p className="break-all font-mono text-sm">{qrUrl}</p>
         <a href={qrImage} download="smartnfc-qr.png" className="text-blue-600 underline">Descargar QR</a>
       </div>}
-      {project.tags.map(tag => <Editor key={tag.id} operation="tag" targetId={tag.id}>
+      {project.tags.map(tag => <Editor project={project} key={tag.id} operation="tag" targetId={tag.id}>
         <a className="text-blue-600 underline" href={`/s/${tag.publicToken}`} target="_blank" rel="noreferrer">{tag.publicToken.slice(0, 10)} · Abrir enlace</a>
         <Link href={`?qr=${encodeURIComponent(tag.id)}`} className="text-blue-600 underline">Ver QR y URL NFC</Link>
         {tag.record && <span>{tag.record.externalCode}</span>}
@@ -136,7 +148,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
         <button className={button}>Aplicar filtros</button>
       </form>
       <details><summary>Crear versión de plantilla</summary>
-        <Editor operation="template">
+        <Editor project={project} operation="template">
           <input aria-label="Código de plantilla" name="code" required placeholder="codigo_plantilla" className={fieldClass}/>
           <input aria-label="Nombre de plantilla" name="name" required placeholder="Nombre" className={fieldClass}/>
           <textarea aria-label="Definición de campos en JSON" name="fields" required className={fieldClass}
@@ -144,7 +156,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
           <button className={button}>Guardar nueva versión</button>
         </Editor>
       </details>
-      {template && <details><summary>Crear activo individual</summary><Editor operation="asset-save"><AssetFields/></Editor></details>}
+      {template && <details><summary>Crear activo individual</summary><Editor project={project} operation="asset-save"><AssetFields templates={project.templates} templateId={template?.id} fields={fields}/></Editor></details>}
     </section>}
     {project.mode==="ASSETS" && template && project.status==="DRAFT" && <>
       <section className="space-y-3">
@@ -162,13 +174,13 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
             <span className="font-mono text-sm">{record.externalCode}</span>
             <span className="text-xs text-slate-500">{record.status}</span>
             {record.status !== "ARCHIVED" && <>
-              <details><summary>Editar ficha</summary><Editor operation="asset-save" targetId={record.id}><AssetFields record={record}/></Editor></details>
-              <Editor operation="asset-state" targetId={record.id}>
+              <details><summary>Editar ficha</summary><Editor project={project} operation="asset-save" targetId={record.id}><AssetFields templates={project.templates} templateId={template?.id} fields={fields} record={record}/></Editor></details>
+              <Editor project={project} operation="asset-state" targetId={record.id}>
                 <button className={button} name="status" value="ACTIVE">Activar</button>
                 <button className={button} name="status" value="INACTIVE">Suspender</button>
                 <button className={button} name="status" value="ARCHIVED">Dar de baja</button>
               </Editor>
-              <Editor operation="asset-tag" targetId={record.id}><button className={button}>Generar etiqueta</button></Editor>
+              <Editor project={project} operation="asset-tag" targetId={record.id}><button className={button}>Generar etiqueta</button></Editor>
             </>}
           </div>)}
       </div>

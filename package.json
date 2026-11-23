@@ -35,6 +35,7 @@
     "test:local-location-backfill-idempotency": "tsx --test scripts/tests/local-location-backfill-idempotency.test.ts",
     "test:db-isolation": "tsx --test scripts/tests/test-database-isolation.test.ts",
     "ci:assert-block2-db": "tsx scripts/ci/assert-block2-test-database.ts",
+    "prebuild": "node scripts/ci/verify-soluciones-preview.mjs",
     "audit:card-images": "tsx scripts/maintenance/optimize-card-images.ts"
   },
   "prisma": {
@@ -58,6 +59,7 @@
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "read-excel-file": "9.3.20",
     "resend": "^6.17.2",
     "sharp": "0.35.3"
   },

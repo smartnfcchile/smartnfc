@@ -44,6 +44,7 @@ enum EventType {
 }
 
 model Company {
+  solutionProjects    SolutionProject[]
   profileRights       CardProfileRight[]
   locations           LocalLocation[]
   capabilityOverrides CompanyCapabilityOverride[]
@@ -979,4 +980,132 @@ model CompanyLimitOverride {
   createdAt       DateTime  @default(now())
 
   @@index([companyId, limit, startsAt])
+}
+
+/**
+ * SmartNFC Soluciones (separate from Empresas and Local).
+ * Company and project composite keys enforce organization boundaries in SQL.
+ * Project templates are versioned; existing records retain their template version.
+ */
+enum SolutionMode {
+  ASSETS
+  CAMPAIGN
+}
+
+enum SolutionRecordStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum SolutionTagStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+  REPLACED
+}
+
+model SolutionProject {
+  id          String       @id @default(cuid())
+  companyId   String
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name        String
+  mode        SolutionMode
+  status      String       @default("DRAFT")
+  destinationUrl String?
+  revision    Int @default(0)
+  operations SolutionOperation[]
+  templates   SolutionTemplate[]
+  records     SolutionRecord[]
+  tags        SolutionTag[]
+  batches     SolutionBatch[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([id, companyId])
+  @@index([companyId, status])
+}
+
+model SolutionTemplate {
+  id          String          @id @default(cuid())
+  companyId   String
+  projectId   String
+  project     SolutionProject @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  code        String
+  version     Int             @default(1)
+  name        String
+  fields      Json
+  records     SolutionRecord[]
+  createdAt   DateTime        @default(now())
+
+  @@unique([projectId, code, version])
+  @@unique([id, projectId, companyId])
+  @@index([companyId, projectId])
+}
+
+model SolutionRecord {
+  id          String               @id @default(cuid())
+  companyId   String
+  projectId   String
+  project     SolutionProject      @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  templateId  String
+  template    SolutionTemplate     @relation(fields: [templateId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  externalCode String
+  location    String?
+  status      SolutionRecordStatus @default(DRAFT)
+  data        Json
+  tags        SolutionTag[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([projectId, externalCode])
+  @@unique([id, projectId, companyId])
+  @@index([companyId, projectId, status])
+}
+
+model SolutionBatch {
+  id          String          @id @default(cuid())
+  companyId   String
+  projectId   String
+  project     SolutionProject @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  name        String
+  quantity    Int             @default(0)
+  tags        SolutionTag[]
+  createdAt   DateTime        @default(now())
+
+  @@unique([id, projectId, companyId])
+  @@index([companyId, projectId])
+}
+
+model SolutionTag {
+  id          String            @id @default(cuid())
+  companyId   String
+  projectId   String
+  project     SolutionProject   @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  recordId    String?
+  record      SolutionRecord?   @relation(fields: [recordId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  batchId     String?
+  batch       SolutionBatch?    @relation(fields: [batchId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  publicToken String            @unique
+  status      SolutionTagStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([companyId, projectId, status])
+  @@index([recordId])
+  @@index([batchId])
+}
+
+model SolutionOperation {
+  id String @id
+  companyId String
+  projectId String
+  project SolutionProject @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  actorId String
+  kind String
+  targetId String?
+  createdAt DateTime @default(now())
+
+  @@index([projectId, companyId, createdAt])
 }

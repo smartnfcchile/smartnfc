@@ -2,6 +2,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { prepareImport, validateTemplate, type FieldDefinition } from "../../../lib/soluciones/core";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../../../lib/prisma";
@@ -125,7 +126,10 @@ export async function updateSolution(form: FormData) {
   } catch (error) {
     const message = error instanceof Error && !("code" in error) && error.message.length < 125
       ? error.message : "No se pudo guardar la operación.";
+    revalidatePath(path);
     redirect(path + "?error=" + encodeURIComponent(message));
   }
+  revalidatePath(path);
+  revalidatePath("/superadmin/soluciones");
   redirect(path);
 }

@@ -59,7 +59,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
     select: {
       id:true, name:true, companyId:true, mode:true, status:true, revision:true, destinationUrl:true,
       batches: { orderBy:{createdAt:"desc"}, take:50 },
-      tags: { select:{ id:true, publicToken:true, status:true, batchId:true, record:{ select:{ externalCode:true } } }, orderBy:{createdAt:"desc"}, take:500 },
+      tags: { select:{ id:true, publicToken:true, status:true, batchId:true, record:{ select:{ externalCode:true } } }, orderBy:[{createdAt:"desc"}, {id:"asc"}], take:500 },
       templates: { select: { id:true, code:true, name:true, version:true, fields:true }, orderBy:{ createdAt:"desc" }, take:50 },
       records: { where: location ? { location } : undefined, select: { id:true, externalCode:true, status:true, location:true, templateId:true, data:true }, orderBy:{createdAt:"desc"}, take:50 },
       _count:{ select: { records:true, tags:true }}

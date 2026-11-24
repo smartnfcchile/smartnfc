@@ -27,6 +27,11 @@ export default function SuperadminSidebar() {
       icon: "📍",
     },
     {
+      title: "Soluciones NFC",
+      href: "/superadmin/soluciones",
+      icon: "🧩",
+    },
+    {
       title: "Usuarios",
       href: "/superadmin/usuarios",
       icon: "👥",

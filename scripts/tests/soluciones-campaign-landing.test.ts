@@ -66,6 +66,8 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
     await service.saveCampaignDraft({ ...scope, revision: 0, content: draft });
     await assert.rejects(service.saveCampaignDraft({ ...scope, revision: 0, content: draft }), /cambió/);
     const first = await service.approveCampaignDraft({ ...scope, revision: 1 });
+    await assert.rejects(service.approveCampaignDraft({ ...scope, revision: 1 }), /ya está aprobada/);
+    assert.equal(await prisma.campaignLandingVersion.count({ where: scope }), 1);
     assert.equal((await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id } })).publishedVersionId, null);
     await assert.rejects(service.rollbackCampaignVersion({ ...scope, revision: 1, versionId: first.id }), /publicada anteriormente/);
     await service.saveCampaignDraft({ ...otherScope, revision: 0, content });

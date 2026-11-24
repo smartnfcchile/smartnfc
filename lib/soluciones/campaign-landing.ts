@@ -78,6 +78,11 @@ export function approveCampaignDraft(input: Scope & { revision: number }) {
   return campaignOperation(input, "landing-approve", async (tx, scope, actorId) => {
     const landing = await tx.campaignLanding.findFirst({ where: { ...scope, revision: input.revision } });
     if (!landing) throw new Error("Borrador no disponible o desactualizado");
+    const approved = await tx.campaignLandingVersion.findFirst({
+      where: { ...scope, revision: landing.revision },
+      select: { id: true },
+    });
+    if (approved) throw new Error("Esta revisión ya está aprobada. Puedes publicar la versión aprobada.");
     const version = await tx.campaignLandingVersion.create({
       data: {
         ...scope, revision: landing.revision, content: validateCampaignContent(landing.draft),

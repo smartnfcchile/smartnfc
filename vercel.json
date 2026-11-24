@@ -1,4 +1,3 @@
 {
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"feat/local-intelligent-points\" ] || { [ \"$VERCEL_GIT_COMMIT_REF\" = \"feature/campaign-landing-stage-1\" ] && [ \"$VERCEL_ENV\" != \"preview\" ]; }; then exit 0; else exit 1; fi",
-  "buildCommand": "node scripts/ci/campaign-preview-diagnostic.mjs"
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"feat/local-intelligent-points\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"feature/campaign-landing-stage-1\" ]; then exit 0; else exit 1; fi"
 }

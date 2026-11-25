@@ -1,4 +1,4 @@
-if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feature/campaign-landing-stage-1") {
+if (process.env.VERCEL_ENV === "preview" && ["feature/campaign-landing-stage-1", "feature/campaign-landing-editor-v1"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "")) {
   await import("./verify-campaign-preview.mjs");
 }
 import { PrismaClient } from "@prisma/client";

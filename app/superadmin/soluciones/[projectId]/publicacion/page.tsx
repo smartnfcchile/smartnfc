@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { prisma } from "../../../../../lib/prisma";
 import { requireSuperAdmin } from "../../../../../lib/permissions";
 import { validateCampaignContent } from "../../../../../lib/soluciones/campaign-content";
+import { isPublicationExpired } from "../../../../../lib/soluciones/publication-expiry";
 import { Operation, PointUrl } from "./Controls";
 
-const lifecycle = ["landing-approve", "landing-publish", "landing-rollback", "landing-unpublish", "landing-site-tag", "landing-tag-site"];
+const lifecycle = ["landing-approve", "landing-publish", "landing-rollback", "landing-unpublish", "landing-tag-site"];
 const labels: Record<string, string> = {
   "landing-approve": "Aprobación", "landing-publish": "Publicación", "landing-rollback": "Restauración",
   "landing-unpublish": "Retirada", "landing-tag-site": "Asignación de sede",
@@ -55,7 +56,7 @@ export default async function CampaignOperations({ params, searchParams }: {
   ]);
   const prior = new Set(everPublished.map(x => x.targetId));
   const approved = recentVersions.find(v => v.revision === landing?.revision);
-  const expired = !!landing?.expiresAt && landing.expiresAt.getTime() <= Date.now();
+  const expired = isPublicationExpired(landing?.expiresAt);
   let variants = new Set<string>();
   let validPublished = false;
   if (landing?.publishedVersion) {

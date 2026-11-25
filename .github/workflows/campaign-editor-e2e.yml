@@ -34,7 +34,6 @@ jobs:
       BLOB_READ_WRITE_TOKEN: ''
       BLOB_STORE_ID: ''
       E2E_ARTIFACTS: ${{ github.workspace }}/playwright-evidence
-      E2E_RAW_TRACE: ${{ runner.temp }}/campaign-editor-raw.zip
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -53,9 +52,13 @@ jobs:
       - name: Seed fictional organization and users
         run: node --import tsx scripts/tests/e2e/campaign-fixtures.ts
       - name: Run Chromium with real NextAuth
+        env:
+          E2E_RAW_TRACE: ${{ runner.temp }}/campaign-editor-raw.zip
         run: npx --no-install playwright test --config scripts/tests/e2e/playwright.config.ts
       - name: Keep only the UI trace and screenshots
         if: always()
+        env:
+          E2E_RAW_TRACE: ${{ runner.temp }}/campaign-editor-raw.zip
         run: |
           python3 - <<'PY'
           import os, re, zipfile

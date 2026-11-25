@@ -1,3 +1,6 @@
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feature/campaign-landing-stage-1") {
+  await import("./verify-campaign-preview.mjs");
+}
 import { PrismaClient } from "@prisma/client";
 
 const previewBranch = "feature/soluciones-nfc-v1";

@@ -1016,6 +1016,8 @@ model SolutionProject {
   destinationUrl String?
   revision    Int @default(0)
   operations SolutionOperation[]
+  campaignLanding CampaignLanding?
+  campaignSites CampaignLandingSite[]
   templates   SolutionTemplate[]
   records     SolutionRecord[]
   tags        SolutionTag[]
@@ -1087,6 +1089,8 @@ model SolutionTag {
   record      SolutionRecord?   @relation(fields: [recordId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
   batchId     String?
   batch       SolutionBatch?    @relation(fields: [batchId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  campaignSiteId String?
+  campaignSite CampaignLandingSite? @relation(fields: [campaignSiteId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
   publicToken String            @unique
   status      SolutionTagStatus @default(PENDING)
   createdAt   DateTime          @default(now())
@@ -1108,4 +1112,44 @@ model SolutionOperation {
   createdAt DateTime @default(now())
 
   @@index([projectId, companyId, createdAt])
+}
+
+model CampaignLanding {
+  projectId          String                   @id
+  companyId          String
+  project            SolutionProject          @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  draft              Json
+  revision           Int                      @default(0)
+  publishedVersionId String?
+  publishedVersion   CampaignLandingVersion?  @relation("PublishedLanding", fields: [publishedVersionId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
+  versions           CampaignLandingVersion[] @relation("LandingVersions")
+
+  @@unique([projectId, companyId])
+}
+
+model CampaignLandingVersion {
+  id           String            @id @default(cuid())
+  projectId    String
+  companyId    String
+  landing      CampaignLanding   @relation("LandingVersions", fields: [projectId, companyId], references: [projectId, companyId], onDelete: Restrict)
+  publishedBy  CampaignLanding[] @relation("PublishedLanding")
+  revision     Int
+  content      Json
+  approvedById String
+  approvedAt   DateTime          @default(now())
+
+  @@unique([id, projectId, companyId])
+  @@unique([projectId, revision])
+}
+
+model CampaignLandingSite {
+  id        String          @id @default(cuid())
+  projectId String
+  companyId String
+  name      String
+  project   SolutionProject @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  tags      SolutionTag[]
+
+  @@unique([id, projectId, companyId])
+  @@unique([projectId, name])
 }

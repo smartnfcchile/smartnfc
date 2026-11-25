@@ -6,6 +6,9 @@ import { getCurrentUserContext } from "../../../../lib/permissions";
 import { PROFILE_IMAGE_MIME_TYPES } from "../../../../lib/profile-image-specs";
 
 export async function POST(request: Request): Promise<NextResponse> {
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feature/campaign-landing-stage-1") {
+    return NextResponse.json({ error: "Las cargas están deshabilitadas en este Preview." }, { status: 403 });
+  }
   const body = (await request.json()) as HandleUploadBody;
 
   try {

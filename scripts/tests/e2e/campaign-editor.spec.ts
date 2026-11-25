@@ -106,7 +106,8 @@ test("SUPERADMIN edits six blocks, site identity, and drafts across desktop and 
     ];
     for (const [index, item] of cases.entries()) {
       await library.getByRole("button", { name: "+ " + item.name, exact: true }).click();
-      await settings.getByLabel(item.field, { exact: true }).fill(item.text);
+      const input = item.name === "Hero" || item.name === "Texto" ? settings.locator("textarea") : settings.getByLabel(item.field, { exact: true });
+      await input.fill(item.text);
       if (item.name === "Imagen") await settings.getByLabel("Texto alternativo").fill("Viñeta UV ficticia");
       if (item.name === "Botón HTTPS") await settings.getByLabel("Destino HTTPS").fill("https://example.com/medidas");
       const rendered = item.name === "Imagen" ? preview.getByAltText("Viñeta UV ficticia") : preview.getByText(item.text, { exact: true });
@@ -144,7 +145,7 @@ test("SUPERADMIN edits six blocks, site identity, and drafts across desktop and 
     await expect(settings.getByText(/solo puede editarse en la plantilla/)).toBeVisible();
     await expect(settings.getByLabel("Título", { exact: true })).toHaveCount(0);
     await library.getByRole("button", { name: "2. Texto", exact: true }).click();
-    await settings.getByLabel("Texto", { exact: true }).fill("Punto de sombra junto al acceso ficticio");
+    await settings.locator("textarea").fill("Punto de sombra junto al acceso ficticio");
     await expect(preview.getByText("Punto de sombra junto al acceso ficticio")).toBeVisible();
     await expect(preview.getByRole("heading", { name: cases[0].text })).toBeVisible();
     await expect(preview.locator("header")).toHaveCSS("border-top-color", "rgb(4, 120, 87)");
@@ -161,7 +162,7 @@ test("SUPERADMIN edits six blocks, site identity, and drafts across desktop and 
     expect(tinyBoxes[1]!.y).toBeLessThan(tinyBoxes[2]!.y);
     expect(await phone.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(mobile.width);
     await tinyLibrary.getByRole("button", { name: "+ Hero", exact: true }).click();
-    await tinySettings.getByLabel("Título").fill("Edición de la segunda sesión");
+    await tinySettings.locator("textarea").fill("Edición de la segunda sesión");
     await phone.getByRole("button", { name: "Guardar borrador" }).click();
     await expect(phone.getByRole("alert").filter({ hasText: /Otra sesión guardó/ })).toBeVisible();
     await expect(tinyPreview.getByText("Edición de la segunda sesión")).toBeVisible();

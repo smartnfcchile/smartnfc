@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
@@ -8,10 +9,11 @@ export default defineConfig({
   timeout: 120000,
   expect: { timeout: 12000 },
   outputDir: "../../../playwright-results",
-  reporter: [["line"], ["html", { outputFolder: "playwright-report", open: "never" }]],
+  reporter: [["line"], ["html", { outputFolder: resolve("playwright-report"), open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:3000",
     browserName: "chromium",
+    actionTimeout: 12000,
     trace: "off",
     screenshot: "off",
     video: "off",

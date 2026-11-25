@@ -25,6 +25,12 @@ test("SUPERADMIN publishes, assigns a site, withdraws and restores from the oper
     variants: [{ siteId, blocks: [{ id: "text", type: "hero", hidden: false, text: "Protección UV Norte" }] }],
   } } });
   await prisma.solutionTag.create({ data: { ...scope, publicToken: token.split("/").at(-1)!, status: "ACTIVE" } });
+  const source = await prisma.solutionProject.create({
+    data: { companyId, mode: "CAMPAIGN", name: "Campaña de origen", status: "ACTIVE", destinationUrl: "https://example.com/source" },
+  });
+  const transferred = await prisma.solutionTag.create({
+    data: { companyId, projectId: source.id, publicToken: "cp3-transfer-fictitious-0000000000000022", status: "DISABLED" },
+  });
   const publicStatus = async () => (await request.get(token, { maxRedirects: 0 })).status();
   expect(await publicStatus()).toBe(307);
   const context = await browser.newContext({ baseURL: "http://127.0.0.1:3000", viewport: { width: 1440, height: 1000 } });
@@ -61,6 +67,17 @@ test("SUPERADMIN publishes, assigns a site, withdraws and restores from the oper
     await expect(page.getByText("Variante · Norte ficticia")).toBeVisible();
     expect(await (await request.get(token)).text()).toContain("Protección UV Norte");
     await expect(page.getByRole("link", { name: "http://127.0.0.1:3000" + token })).toHaveAttribute("href", "http://127.0.0.1:3000" + token);
+
+    const association = page.getByRole("region", { name: "Asociar punto existente" });
+    await association.getByLabel("Punto de origen").selectOption({ value: `${transferred.id}:${source.id}:${source.revision}` });
+    await association.getByLabel("Sede de destino").selectOption({ label: "Norte ficticia" });
+    await operate("Asociar punto existente");
+    await expect(association.getByText("No hay puntos elegibles para esta búsqueda.")).toBeVisible();
+    const movedUrl = "/s/" + transferred.publicToken;
+    await expect(page.getByRole("link", { name: "http://127.0.0.1:3000" + movedUrl })).toHaveAttribute("href", "http://127.0.0.1:3000" + movedUrl);
+    expect((await request.get(movedUrl)).status()).toBe(404);
+    const moved = await prisma.solutionTag.findUniqueOrThrow({ where: { id: transferred.id } });
+    expect([moved.projectId, moved.campaignSiteId, moved.status]).toEqual([projectId, siteId, "DISABLED"]);
 
     const evidence = process.env.E2E_ARTIFACTS;
     if (!evidence) throw new Error("Missing evidence folder");

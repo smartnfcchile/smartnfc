@@ -153,6 +153,41 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
     const publicAsset = await resolvePublicSolutionTag(assetTag.publicToken);
     assert.equal(publicAsset?.kind, "asset");
     assert.deepEqual(publicAsset.fields.map(field => field.key), ["area"]);
+
+    const source = await prisma.solutionProject.create({
+      data: { companyId: company.id, name: "Origen", mode: "CAMPAIGN", status: "ACTIVE", destinationUrl: "https://example.com/source" },
+    });
+    const sourceScope = { companyId: company.id, projectId: source.id };
+    const sourceSite = await service.createCampaignSite({ ...sourceScope, name: "Sede origen" });
+    const batch = await prisma.solutionBatch.create({ data: { ...sourceScope, name: "Lote origen", quantity: 2 } });
+    const mobile = await prisma.solutionTag.create({
+      data: { ...sourceScope, status: "DISABLED", publicToken: generateSolutionToken(), batchId: batch.id, campaignSiteId: sourceSite.id },
+    });
+    const active = await prisma.solutionTag.create({
+      data: { ...sourceScope, status: "ACTIVE", publicToken: generateSolutionToken(), batchId: batch.id },
+    });
+    const transfer = {
+      ...scope, tagId: mobile.id, sourceId: source.id, sourceRevision: source.revision + 1, siteId: site.id,
+      revision: (await prisma.solutionProject.findUniqueOrThrow({ where: { id: project.id } })).revision,
+    };
+    await assert.rejects(service.transferCampaignTag({ ...transfer, siteId: otherSite.id }), /Sede/);
+    await assert.rejects(service.transferCampaignTag({ ...transfer, companyId: foreign.id, projectId: other.id }), /Punto/);
+    await assert.rejects(service.transferCampaignTag({ ...transfer, sourceId: asset.id, tagId: assetTag.id }), /Punto/);
+    await assert.rejects(service.transferCampaignTag({ ...transfer, tagId: active.id }), /Punto/);
+    await assert.rejects(service.transferCampaignTag({ ...transfer, sourceRevision: source.revision }), /asignación cambió/);
+    assert.deepEqual(await resolvePublicSolutionTag(active.publicToken), { kind: "campaign", destination: "https://example.com/source" });
+    const results = await Promise.allSettled([service.transferCampaignTag(transfer), service.transferCampaignTag(transfer)]);
+    assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+    const moved = await prisma.solutionTag.findUniqueOrThrow({ where: { id: mobile.id } });
+    assert.deepEqual(
+      [moved.projectId, moved.campaignSiteId, moved.publicToken, moved.status, moved.batchId],
+      [project.id, site.id, mobile.publicToken, "DISABLED", null],
+    );
+    assert.equal(await resolvePublicSolutionTag(mobile.publicToken), null);
+    const transfers = await prisma.solutionOperation.findMany({ where: { companyId: company.id, targetId: mobile.id }, orderBy: { kind: "asc" } });
+    assert.deepEqual(transfers.map(entry => [entry.kind, entry.projectId, entry.actorId]), [
+      ["landing-tag-transfer-in", project.id, user.id], ["landing-tag-transfer-out", source.id, user.id],
+    ]);
   } finally {
     await prisma.$disconnect();
   }

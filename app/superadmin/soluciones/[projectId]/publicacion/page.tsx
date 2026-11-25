@@ -2,14 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "../../../../../lib/prisma";
 import { requireSuperAdmin } from "../../../../../lib/permissions";
+import { transferableCampaignTag } from "../../../../../lib/soluciones/campaign-landing";
 import { validateCampaignContent } from "../../../../../lib/soluciones/campaign-content";
 import { isPublicationExpired } from "../../../../../lib/soluciones/publication-expiry";
 import { Operation, PointUrl } from "./Controls";
 
-const lifecycle = ["landing-approve", "landing-publish", "landing-rollback", "landing-unpublish", "landing-tag-site"];
+const lifecycle = ["landing-approve", "landing-publish", "landing-rollback", "landing-unpublish", "landing-tag-site", "landing-tag-transfer-in", "landing-tag-transfer-out"];
 const labels: Record<string, string> = {
   "landing-approve": "Aprobación", "landing-publish": "Publicación", "landing-rollback": "Restauración",
   "landing-unpublish": "Retirada", "landing-tag-site": "Asignación de sede",
+  "landing-tag-transfer-in": "Punto recibido", "landing-tag-transfer-out": "Punto trasladado",
 };
 const utc = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 const formatDate = (date: Date | null | undefined) => date ? utc.format(date) + " UTC" : "—";
@@ -17,11 +19,12 @@ const card = "min-w-0 rounded-xl border border-slate-200 p-4 dark:border-slate-7
 const link = "text-sm font-semibold text-blue-700 underline dark:text-blue-300";
 
 export default async function CampaignOperations({ params, searchParams }: {
-  params: Promise<{ projectId: string }>; searchParams: Promise<{ page?: string }>;
+  params: Promise<{ projectId: string }>; searchParams: Promise<{ page?: string; punto?: string }>;
 }) {
   await requireSuperAdmin();
   const { projectId } = await params;
-  const { page: rawPage } = await searchParams;
+  const { page: rawPage, punto } = await searchParams;
+  const query = typeof punto === "string" ? punto.trim().slice(0, 120) : "";
   const page = typeof rawPage === "string" && /^[1-9]\d{0,4}$/.test(rawPage) ? Number(rawPage) : 1;
   const pageSize = 20;
   const project = await prisma.solutionProject.findFirst({
@@ -47,12 +50,27 @@ export default async function CampaignOperations({ params, searchParams }: {
   const landing = project.campaignLanding;
   const publishedId = landing?.publishedVersionId;
   const recentVersions = landing?.versions ?? [];
-  const [history, everPublished, publication] = await Promise.all([
+  const [history, everPublished, publication, candidates] = await Promise.all([
     prisma.solutionOperation.findMany({ where: { ...scope, kind: { in: lifecycle } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 30 }),
     prisma.solutionOperation.findMany({ where: { ...scope, kind: "landing-publish", targetId: { in: recentVersions.map(v => v.id) } }, select: { targetId: true }, distinct: ["targetId"] }),
     publishedId ? prisma.solutionOperation.findFirst({
       where: { ...scope, targetId: publishedId, kind: { in: ["landing-publish", "landing-rollback"] } }, orderBy: { createdAt: "desc" }, select: { createdAt: true },
     }) : null,
+    prisma.solutionTag.findMany({
+      where: {
+        ...transferableCampaignTag, companyId: project.companyId, projectId: { not: projectId },
+        ...(query ? { OR: [
+          { publicToken: { endsWith: query } },
+          { project: { name: { contains: query, mode: "insensitive" } } },
+          { batch: { name: { contains: query, mode: "insensitive" } } },
+        ] } : {}),
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 51,
+      select: {
+        id: true, publicToken: true, status: true, project: { select: { id: true, name: true, revision: true } },
+        batch: { select: { name: true } }, campaignSite: { select: { name: true } },
+      },
+    }),
   ]);
   const prior = new Set(everPublished.map(x => x.targetId));
   const approved = recentVersions.find(v => v.revision === landing?.revision);
@@ -112,6 +130,34 @@ export default async function CampaignOperations({ params, searchParams }: {
       </div>)}</div>
       <h3 className="mt-4 font-semibold">Actividad reciente</h3>
       {history.length ? <ul className="mt-2 space-y-1 text-sm">{history.map(event => <li key={event.id}>{formatDate(event.createdAt)} · {labels[event.kind] ?? event.kind}</li>)}</ul> : <p className="text-sm text-slate-500">Sin operaciones registradas.</p>}
+    </section>
+    <section className={card} aria-label="Asociar punto existente">
+      <h2 className="text-lg font-semibold">Asociar punto existente</h2>
+      <p className="mt-1 text-sm">Campaña de destino: {project.name}. Puedes trasladar puntos pendientes o deshabilitados de otras campañas de esta organización.</p>
+      <form action={href + "/publicacion"} className="my-3 flex flex-wrap items-end gap-2">
+        <label className="min-w-0 text-sm">Buscar por proyecto, lote o final del token
+          <input name="punto" defaultValue={query} maxLength={120} className="mt-1 block w-full rounded border bg-transparent p-2" />
+        </label>
+        <button className="rounded border px-3 py-2 text-sm">Buscar puntos</button>
+      </form>
+      {candidates.length > 50 && <p className="mb-2 text-sm">Se muestran 50 puntos. Usa la búsqueda para afinar los resultados.</p>}
+      {candidates.length ? <Operation scope={scope} revision={project.revision} action="transfer" label="Asociar punto existente">
+        <label className="block text-sm">Punto de origen
+          <select name="point" required defaultValue="" className="mt-1 block w-full rounded border bg-transparent p-2">
+            <option value="" disabled>Seleccionar punto</option>
+            {candidates.slice(0, 50).map(tag => <option key={tag.id} value={`${tag.id}:${tag.project.id}:${tag.project.revision}`}>
+              {tag.project.name} · …{tag.publicToken.slice(-8)} · {tag.status === "PENDING" ? "Pendiente" : "Deshabilitado"} · {tag.campaignSite?.name ?? "Sin sede"} · {tag.batch?.name ?? "Sin lote"}
+            </option>)}
+          </select>
+        </label>
+        <label className="block text-sm">Sede de destino
+          <select name="site" className="mt-1 block w-full rounded border bg-transparent p-2">
+            <option value="">Plantilla corporativa</option>
+            {project.campaignSites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
+          </select>
+        </label>
+        <p className="text-sm">El punto saldrá de su campaña, sede y lote anteriores. Conservará su URL y su estado. El conteo original del lote corresponde a los soportes generados.</p>
+      </Operation> : <p className="text-sm text-slate-500">No hay puntos elegibles para esta búsqueda.</p>}
     </section>
     <section className={card} aria-label="Puntos de la campaña">
       <h2 className="text-lg font-semibold">Puntos de la campaña</h2>

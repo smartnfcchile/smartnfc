@@ -50,6 +50,10 @@ const nextConfig: NextConfig = {
     ];
     return [
       { source: "/:path*", headers: securityHeaders },
+      { source: "/s/:path*", headers: [
+        { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        { key: "Referrer-Policy", value: "no-referrer" },
+      ] },
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
       ...["/dashboard/:path*", "/superadmin/:path*"].map(source => ({
         source,

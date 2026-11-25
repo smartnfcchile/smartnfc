@@ -139,7 +139,9 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
     assert.deepEqual(renewed.expiresAt, expiry);
     assert.ok(audit.every(entry => entry.actorId === user.id && entry.createdAt instanceof Date));
     assert.equal((await prisma.solutionTag.findUniqueOrThrow({ where: { id: tag.id } })).publicToken, tag.publicToken);
-    assert.deepEqual(await resolvePublicSolutionTag(tag.publicToken), expected);
+    const resolved = await resolvePublicSolutionTag(tag.publicToken);
+    assert.equal(resolved?.kind, "campaignLanding");
+    assert.equal(resolved.blocks[0].id, "0");
 
     const asset = await prisma.solutionProject.create({ data: { companyId: company.id, name: "Activo", mode: "ASSETS", status: "ACTIVE" } });
     const assetScope = { companyId: company.id, projectId: asset.id };

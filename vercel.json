@@ -1,3 +1,3 @@
 {
-  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in feat/local-intelligent-points|feature/campaign-publication-v1) exit 0;; esac; s=$(sed -n 's/^# skip-vercel: //p' .github/workflows/neon-production-pr38.yml) && [ -n \"$s\" ] && sh -c \"$s\""
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in feat/local-intelligent-points|feature/campaign-publication-v1) exit 0;; esac; for n in 38 41;do s=$(sed -n 's/^# skip-vercel: //p' .github/workflows/neon-production-pr$n.yml);[ -n \"$s\" ]&&sh -c \"$s\"&&exit 0;done;exit 1"
 }

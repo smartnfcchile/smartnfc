@@ -33,6 +33,7 @@ export type CampaignContent = {
   schemaVersion: 1;
   design: CampaignDesign;
   blocks: CampaignBlock[];
+  protectedBlockIds?: string[];
   variants: { siteId: string; color?: string; blocks: CampaignBlock[] }[];
 };
 
@@ -67,7 +68,7 @@ function validBlocks(value: unknown): value is CampaignBlock[] {
 }
 
 export function validateCampaignContent(value: unknown): CampaignContent {
-  if (!object(value) || !exact(value, ["schemaVersion", "design", "blocks", "variants"]) ||
+  if (!object(value) || !exact(value, ["schemaVersion", "design", "blocks", "variants", "protectedBlockIds"]) ||
       value.schemaVersion !== 1 || !validBlocks(value.blocks) || !Array.isArray(value.variants) ||
       value.variants.length > 50) throw new Error("Contenido de campaña inválido");
 
@@ -79,12 +80,19 @@ export function validateCampaignContent(value: unknown): CampaignContent {
       ("logo" in design && !https(design.logo))) throw new Error("Identidad de campaña inválida");
 
   const base = new Map(blocks.map(block => [block.id, block.type]));
+  const protectedIds = value.protectedBlockIds;
+  if (protectedIds !== undefined && (!Array.isArray(protectedIds) ||
+      protectedIds.length > blocks.length || new Set(protectedIds).size !== protectedIds.length ||
+      protectedIds.some(id => !blockId(id) || !base.has(id)))) {
+    throw new Error("Bloques corporativos inválidos");
+  }
+  const protectedBlocks = new Set(protectedIds);
   const sites = new Set<string>();
   for (const variant of variants) {
     if (!object(variant) || !exact(variant, ["siteId", "color", "blocks"]) ||
         !blockId(variant.siteId) || sites.has(variant.siteId) ||
         ("color" in variant && !color(variant.color)) || !validBlocks(variant.blocks) ||
-        variant.blocks.some(block => base.get(block.id) !== block.type)) {
+        variant.blocks.some(block => base.get(block.id) !== block.type || protectedBlocks.has(block.id))) {
       throw new Error("Variante de sede inválida");
     }
     sites.add(variant.siteId);

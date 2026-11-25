@@ -51,6 +51,12 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
 
     const other = await prisma.solutionProject.create({ data: { companyId: foreign.id, name: "Otra", mode: "CAMPAIGN" } });
     const otherScope = { companyId: foreign.id, projectId: other.id };
+    const { saveLanding } = require("../../app/superadmin/soluciones/[projectId]/landing/actions") as typeof import("../../app/superadmin/soluciones/[projectId]/landing/actions");
+    const invalid = await saveLanding(scope, 0, { ...content, protectedBlockIds: ["missing"] });
+    assert.ok("error" in invalid);
+    assert.deepEqual(await saveLanding(otherScope, 0, content), { revision: 1 });
+    const conflict = await saveLanding(otherScope, 0, content);
+    assert.ok("conflict" in conflict && conflict.conflict);
     const site = await service.createCampaignSite({ ...scope, name: "Sede uno" });
     const otherSite = await service.createCampaignSite({ ...otherScope, name: "Sede otra" });
     const tag = await prisma.solutionTag.create({ data: { ...scope, publicToken: generateSolutionToken(), status: "ACTIVE" } });
@@ -76,7 +82,6 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
     }), /Campaign landing versions are immutable/);
     assert.equal((await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id } })).publishedVersionId, null);
     await assert.rejects(service.rollbackCampaignVersion({ ...scope, revision: 1, versionId: first.id }), /publicada anteriormente/);
-    await service.saveCampaignDraft({ ...otherScope, revision: 0, content });
     await assert.rejects(service.publishCampaignVersion({ ...otherScope, revision: 1, versionId: first.id }), /Versión/);
     await service.publishCampaignVersion({ ...scope, revision: 1, versionId: first.id });
     await service.saveCampaignDraft({ ...scope, revision: 2, content: { ...draft, design: { ...draft.design, name: "Versión dos" } } });

@@ -53,6 +53,12 @@ export function assignCampaignTagSite(input: Scope & { tagId: string; siteId: st
   });
 }
 
+export class CampaignDraftConflict extends Error {
+  constructor() {
+    super("El borrador cambió. Recarga antes de guardar.");
+  }
+}
+
 export function saveCampaignDraft(input: DraftChange) {
   return campaignOperation(input, "landing-draft-save", async (tx, scope) => {
     const content = validateCampaignContent(input.content);
@@ -62,7 +68,7 @@ export function saveCampaignDraft(input: DraftChange) {
     if (sites !== content.variants.length) throw new Error("Sede no disponible");
     const landing = await tx.campaignLanding.findFirst({ where: scope });
     if (!Number.isSafeInteger(input.revision) || (landing?.revision ?? 0) !== input.revision) {
-      throw new Error("El borrador cambió. Recarga antes de guardar.");
+      throw new CampaignDraftConflict();
     }
     const revision = input.revision + 1;
     const saved = await tx.campaignLanding.upsert({

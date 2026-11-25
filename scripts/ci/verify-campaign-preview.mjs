@@ -1,4 +1,9 @@
-const branch = "feature/campaign-landing-stage-1";
+const branch = process.env.VERCEL_GIT_COMMIT_REF;
+const origins = new Map([
+  ["feature/campaign-landing-stage-1", "https://smartnfc-git-feature-campaign-la-eae2ec-smartnfcchiles-projects.vercel.app"],
+  ["feature/campaign-landing-editor-v1", "https://smartnfc-git-feature-campaign-la-993022-smartnfcchiles-projects.vercel.app"],
+]);
+const origin = origins.get(branch);
 const db = "smartnfc_laboratorio";
 const hosts = {
   DATABASE_URL: "ep-square-king-bflga6pu-pooler.c-5.us-west-2.aws.neon.tech",
@@ -6,7 +11,7 @@ const hosts = {
 };
 
 async function diagnose() {
-  if (process.env.VERCEL_ENV !== "preview" || process.env.VERCEL_GIT_COMMIT_REF !== branch) {
+  if (process.env.VERCEL_ENV !== "preview" || !origin) {
     console.log("LAB_DIAGNOSTIC scope-rejected");
     return false;
   }
@@ -57,7 +62,7 @@ const disabled = ["RESEND_API_KEY", "EMAIL_FROM", "BLOB_READ_WRITE_TOKEN", "BLOB
 if (disabled.some(key => process.env[key] !== "") ||
     process.env.LOCAL_REPORT_EMAIL_MODE !== "disabled" ||
     !/^[A-Za-z0-9_-]{64}$/.test(process.env.NEXTAUTH_SECRET ?? "") ||
-    process.env.NEXTAUTH_URL !== "https://smartnfc-git-feature-campaign-la-eae2ec-smartnfcchiles-projects.vercel.app" ||
+    !origin || process.env.NEXTAUTH_URL !== origin ||
     process.env.NEXT_PUBLIC_APP_URL !== process.env.NEXTAUTH_URL) {
   throw new Error("Campaign Preview: auxiliary isolation verification failed");
 }

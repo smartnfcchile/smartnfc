@@ -1,0 +1,83 @@
+name: SmartNFC Campaign Editor E2E
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  campaign-editor:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/campaign-landing-editor-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: campaign_e2e
+          POSTGRES_PASSWORD: ci-loopback-only
+          POSTGRES_DB: campaign_e2e_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U campaign_e2e -d campaign_e2e_disposable"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://campaign_e2e:ci-loopback-only@127.0.0.1:5432/campaign_e2e_disposable
+      E2E_DATABASE_URL: postgresql://campaign_e2e:ci-loopback-only@127.0.0.1:5432/campaign_e2e_disposable
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: '1'
+      LOCAL_REPORT_EMAIL_MODE: disabled
+      RESEND_API_KEY: ''
+      BLOB_READ_WRITE_TOKEN: ''
+      BLOB_STORE_ID: ''
+      E2E_ARTIFACTS: ${{ github.workspace }}/playwright-evidence
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - name: Apply schema only to disposable PostgreSQL and build
+        run: |
+          test "$DATABASE_URL" = 'postgresql://campaign_e2e:ci-loopback-only@127.0.0.1:5432/campaign_e2e_disposable'
+          npm run db:migrate
+          NEXTAUTH_SECRET="$(openssl rand -hex 32)" npm run build
+      - name: Seed fictional organization and users
+        run: node --import tsx scripts/tests/e2e/campaign-fixtures.ts
+      - name: Run Chromium with real NextAuth
+        env:
+          E2E_RAW_TRACE: ${{ runner.temp }}/campaign-editor-raw.zip
+        run: npx --no-install playwright test --config scripts/tests/e2e/playwright.config.ts
+      - name: Keep only the UI trace and screenshots
+        if: always()
+        env:
+          E2E_RAW_TRACE: ${{ runner.temp }}/campaign-editor-raw.zip
+        run: |
+          python3 - <<'PY'
+          import os, re, zipfile
+          from pathlib import Path
+          raw = Path(os.environ["E2E_RAW_TRACE"])
+          if raw.is_file():
+              dest = Path(os.environ["E2E_ARTIFACTS"]) / "editor-ui-only.zip"
+              with zipfile.ZipFile(raw) as source, zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as target:
+                  for name in source.namelist():
+                      if re.fullmatch(r"(?:\d+-)?trace\.trace|resources/[^/]+\.jpeg", name):
+                          target.writestr(name, source.read(name))
+              raw.unlink()
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: campaign-editor-e2e
+          path: |
+            playwright-report
+            playwright-evidence
+          if-no-files-found: ignore
+          retention-days: 7

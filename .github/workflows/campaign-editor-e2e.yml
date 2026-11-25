@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   campaign-editor:
-    if: github.event.pull_request.head.repo.full_name == github.repository && (github.head_ref == 'feature/campaign-landing-editor-v1' || github.head_ref == 'cp2')
+    if: github.event.pull_request.head.repo.full_name == github.repository && (github.head_ref == 'feature/campaign-landing-editor-v1' || github.head_ref == 'cp2' || github.head_ref == 'cp3')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:

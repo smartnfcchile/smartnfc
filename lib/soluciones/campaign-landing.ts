@@ -12,13 +12,14 @@ async function campaignOperation<T>(
   { companyId, projectId }: Scope,
   kind: string,
   run: (tx: Prisma.TransactionClient, scope: Scope, actorId: string) => Promise<{ id: string; value: T }>,
+  expectedProjectRevision?: number,
 ) {
   const { actor } = await requireSolutionsOperator(companyId);
   const scope = { companyId, projectId };
   return prisma.$transaction(async tx => {
     // Serialize writes for this campaign, including the first draft and site assignments.
     const result = await tx.solutionProject.updateMany({
-      where: { id: projectId, companyId, mode: "CAMPAIGN", company: { isActive: true } },
+      where: { id: projectId, companyId, mode: "CAMPAIGN", company: { isActive: true }, revision: expectedProjectRevision },
       data: { revision: { increment: 1 } },
     });
     if (result.count !== 1) throw new Error("Campaña no disponible");
@@ -39,17 +40,65 @@ export function createCampaignSite(input: Scope & { name: string }) {
   });
 }
 
-export function assignCampaignTagSite(input: Scope & { tagId: string; siteId: string | null }) {
+export function assignCampaignTagSite(input: Scope & { tagId: string; siteId: string | null; expectedProjectRevision?: number }) {
   return campaignOperation(input, "landing-tag-site", async (tx, scope) => {
     if (input.siteId && !await tx.campaignLandingSite.findFirst({
       where: { ...scope, id: input.siteId }, select: { id: true },
     })) throw new Error("Sede no disponible");
     const result = await tx.solutionTag.updateMany({
-      where: { ...scope, id: input.tagId, recordId: null },
+      where: { ...scope, id: input.tagId, recordId: null, status: { not: "REPLACED" } },
       data: { campaignSiteId: input.siteId },
     });
     if (result.count !== 1) throw new Error("Etiqueta no disponible");
     return { id: input.tagId, value: undefined };
+  }, input.expectedProjectRevision);
+}
+
+export const transferableCampaignTag = {
+  recordId: null,
+  status: { in: ["PENDING", "DISABLED"] },
+  project: { mode: "CAMPAIGN" },
+} satisfies Prisma.SolutionTagWhereInput;
+
+export async function transferCampaignTag(input: Scope & {
+  tagId: string; siteId: string | null; revision: number; sourceId: string; sourceRevision: number;
+}) {
+  const { companyId, projectId } = input;
+  const { actor } = await requireSolutionsOperator(companyId);
+  if (input.sourceId === projectId) throw new Error("Selecciona otro proyecto de origen.");
+  const scope = { companyId, projectId };
+  return prisma.$transaction(async tx => {
+    const eligible = {
+      ...transferableCampaignTag, id: input.tagId, companyId, projectId: input.sourceId,
+    };
+    const tag = await tx.solutionTag.findFirst({ where: eligible, select: { projectId: true, updatedAt: true } });
+    if (!tag) throw new Error("Punto no disponible para traslado.");
+
+    // Take both project locks in a stable order, including the source's revision from the selection.
+    for (const id of [projectId, tag.projectId].sort()) {
+      const result = await tx.solutionProject.updateMany({
+        where: {
+          id, companyId, mode: "CAMPAIGN", company: { isActive: true },
+          revision: id === projectId ? input.revision : input.sourceRevision,
+        },
+        data: { revision: { increment: 1 } },
+      });
+      if (!result.count) throw new Error("La asignación cambió. Recarga antes de continuar.");
+    }
+    if (input.siteId && !await tx.campaignLandingSite.findFirst({
+      where: { ...scope, id: input.siteId }, select: { id: true },
+    })) throw new Error("Sede no disponible.");
+
+    const moved = await tx.solutionTag.updateMany({
+      where: { ...eligible, projectId: tag.projectId, updatedAt: tag.updatedAt },
+      data: { projectId, campaignSiteId: input.siteId, batchId: null },
+    });
+    if (!moved.count) throw new Error("El punto cambió. Recarga antes de continuar.");
+    await tx.solutionOperation.createMany({ data: [
+      { ...scope, id: randomUUID(), actorId: actor.id, kind: "landing-tag-transfer-in", targetId: input.tagId },
+      { companyId, projectId: tag.projectId, id: randomUUID(), actorId: actor.id, kind: "landing-tag-transfer-out", targetId: input.tagId },
+    ] });
+    return tag.projectId;
   });
 }
 

@@ -104,8 +104,18 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
     assert.equal(audit.length, 5);
     await assert.rejects(service.unpublishCampaignVersion({ ...scope, revision: 4 }), /cambi/);
     await assert.rejects(service.unpublishCampaignVersion({ ...otherScope, revision: 1 }), /No hay/);
-    const hidden = await service.unpublishCampaignVersion({ ...scope, revision: 5 });
-    assert.equal(hidden.revision, 6);
+    await assert.rejects(service.unpublishCampaignVersion({
+      projectId: project.id, companyId: foreign.id, revision: 5,
+    }), /Campaña no disponible/);
+    const withdrawals = await Promise.allSettled([
+      service.unpublishCampaignVersion({ ...scope, revision: 5 }),
+      service.unpublishCampaignVersion({ ...scope, revision: 5 }),
+    ]);
+    const hidden = withdrawals.find(result => result.status === "fulfilled");
+    const rejected = withdrawals.find(result => result.status === "rejected");
+    assert.ok(hidden && rejected);
+    assert.ok(rejected.reason instanceof service.CampaignDraftConflict);
+    assert.equal(hidden.value.revision, 6);
     const withdrawn = await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id } });
     assert.equal(withdrawn.publishedVersionId, null);
     assert.equal(withdrawn.destination, "LANDING");

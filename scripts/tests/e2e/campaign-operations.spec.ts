@@ -30,14 +30,16 @@ test("SUPERADMIN publishes, assigns a site, withdraws and restores from the oper
   const context = await browser.newContext({ baseURL: "http://127.0.0.1:3000", viewport: { width: 1440, height: 1000 } });
   try {
     const page = await context.newPage();
+    page.setDefaultTimeout(10000);
     await page.goto(route);
     await expect(page).toHaveURL(/\/login\?error=superadminRequired/);
     if (!process.env.E2E_ADMIN_PASSWORD) throw new Error("Missing disposable credentials");
     try {
+      await page.goto("/login");
       await page.locator('input[type="email"]').fill("campaign-admin@example.test");
       await page.locator('input[type="password"]').fill(process.env.E2E_ADMIN_PASSWORD);
       await page.getByRole("button", { name: "Entrar al Sistema" }).click();
-      await page.waitForURL(url => !url.pathname.startsWith("/login"));
+      await page.waitForURL(url => !url.pathname.startsWith("/login"), { timeout: 10000 });
     } catch { throw new Error("Could not start the disposable SUPERADMIN session"); }
     await page.goto(route);
     await expect(page.getByRole("heading", { name: "Publicación y puntos NFC/QR" })).toBeVisible();
@@ -78,6 +80,6 @@ test("SUPERADMIN publishes, assigns a site, withdraws and restores from the oper
       await expect(page.getByRole("listitem").filter({ hasText: new RegExp("· " + label + "$") })).toBeVisible();
     }
   } finally {
-    await context.close();
+    await context.close().catch(() => {});
   }
 });

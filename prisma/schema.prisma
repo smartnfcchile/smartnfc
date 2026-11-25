@@ -1114,12 +1114,19 @@ model SolutionOperation {
   @@index([projectId, companyId, createdAt])
 }
 
+enum CampaignLandingDestination {
+  REDIRECT
+  LANDING
+}
+
 model CampaignLanding {
   projectId          String                   @id
   companyId          String
   project            SolutionProject          @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
   draft              Json
   revision           Int                      @default(0)
+  destination        CampaignLandingDestination @default(REDIRECT)
+  expiresAt          DateTime? @db.Timestamptz(3)
   publishedVersionId String?
   publishedVersion   CampaignLandingVersion?  @relation("PublishedLanding", fields: [publishedVersionId, projectId, companyId], references: [id, projectId, companyId], onDelete: Restrict)
   versions           CampaignLandingVersion[] @relation("LandingVersions")

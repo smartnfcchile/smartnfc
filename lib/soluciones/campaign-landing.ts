@@ -6,7 +6,7 @@ import { validateCampaignContent } from "./campaign-content";
 
 type Scope = { companyId: string; projectId: string };
 type DraftChange = Scope & { revision: number; content: unknown };
-type VersionChange = Scope & { revision: number; versionId: string };
+type VersionChange = Scope & { revision: number; versionId: string; expiresAt?: Date | null };
 
 async function campaignOperation<T>(
   { companyId, projectId }: Scope,
@@ -118,9 +118,21 @@ function changePublishedVersion(input: VersionChange, action: "landing-publish" 
       throw new Error("Solo se puede restaurar una versión publicada anteriormente");
     }
 
+    const now = Date.now();
+    const expiresAt = action === "landing-rollback" && input.expiresAt === undefined
+      ? landing.expiresAt : input.expiresAt ?? null;
+    if (expiresAt !== null && (!(expiresAt instanceof Date) ||
+        !Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= now)) {
+      throw new Error("Indica una fecha de caducidad futura.");
+    }
+    if (action === "landing-rollback" && landing.expiresAt &&
+        landing.expiresAt.getTime() <= now && expiresAt === null) {
+      throw new Error("La restauración de una landing caducada requiere una nueva vigencia.");
+    }
+
     await tx.campaignLanding.update({
       where: { projectId_companyId: scope },
-      data: { publishedVersionId: version.id, revision: { increment: 1 } },
+      data: { publishedVersionId: version.id, destination: "LANDING", expiresAt, revision: { increment: 1 } },
     });
     return { id: version.id, value: version };
   });
@@ -128,3 +140,18 @@ function changePublishedVersion(input: VersionChange, action: "landing-publish" 
 
 export const publishCampaignVersion = (input: VersionChange) => changePublishedVersion(input, "landing-publish");
 export const rollbackCampaignVersion = (input: VersionChange) => changePublishedVersion(input, "landing-rollback");
+
+export function unpublishCampaignVersion(input: Scope & { revision: number }) {
+  return campaignOperation(input, "landing-unpublish", async (tx, scope) => {
+    const landing = await tx.campaignLanding.findFirst({ where: scope });
+    if (!landing || landing.revision !== input.revision) throw new CampaignDraftConflict();
+    if (landing.destination !== "LANDING" || !landing.publishedVersionId) {
+      throw new Error("No hay una landing publicada.");
+    }
+    const updated = await tx.campaignLanding.update({
+      where: { projectId_companyId: scope },
+      data: { publishedVersionId: null, revision: { increment: 1 } },
+    });
+    return { id: landing.publishedVersionId, value: { revision: updated.revision } };
+  });
+}

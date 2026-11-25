@@ -83,16 +83,50 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
     assert.equal((await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id } })).publishedVersionId, null);
     await assert.rejects(service.rollbackCampaignVersion({ ...scope, revision: 1, versionId: first.id }), /publicada anteriormente/);
     await assert.rejects(service.publishCampaignVersion({ ...otherScope, revision: 1, versionId: first.id }), /Versión/);
+    const existing = await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id } });
+    assert.equal(existing.destination, "REDIRECT");
+    assert.equal(existing.expiresAt, null);
+    await assert.rejects(service.publishCampaignVersion({
+      ...scope, revision: 1, versionId: first.id, expiresAt: new Date(0),
+    }), /caducidad futura/);
     await service.publishCampaignVersion({ ...scope, revision: 1, versionId: first.id });
     await service.saveCampaignDraft({ ...scope, revision: 2, content: { ...draft, design: { ...draft.design, name: "Versión dos" } } });
     const second = await service.approveCampaignDraft({ ...scope, revision: 3 });
-    await service.publishCampaignVersion({ ...scope, revision: 3, versionId: second.id });
+    const expiry = new Date(Date.now() + 3600000);
+    await service.publishCampaignVersion({ ...scope, revision: 3, versionId: second.id, expiresAt: expiry });
     await service.rollbackCampaignVersion({ ...scope, revision: 4, versionId: first.id });
     const landing = await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id }, include: { publishedVersion: true } });
     assert.equal(landing.publishedVersionId, first.id);
     assert.deepEqual(landing.publishedVersion?.content, draft);
+    assert.equal(landing.destination, "LANDING");
+    assert.deepEqual(landing.expiresAt, expiry);
     const audit = await prisma.solutionOperation.findMany({ where: { ...scope, kind: { in: ["landing-approve", "landing-publish", "landing-rollback"] } } });
     assert.equal(audit.length, 5);
+    await assert.rejects(service.unpublishCampaignVersion({ ...scope, revision: 4 }), /cambi/);
+    await assert.rejects(service.unpublishCampaignVersion({ ...otherScope, revision: 1 }), /No hay/);
+    const hidden = await service.unpublishCampaignVersion({ ...scope, revision: 5 });
+    assert.equal(hidden.revision, 6);
+    const withdrawn = await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id } });
+    assert.equal(withdrawn.publishedVersionId, null);
+    assert.equal(withdrawn.destination, "LANDING");
+    assert.deepEqual(withdrawn.expiresAt, expiry);
+    const withdrawalAudit = await prisma.solutionOperation.findFirstOrThrow({
+      where: { ...scope, kind: "landing-unpublish" },
+    });
+    assert.equal(withdrawalAudit.targetId, first.id);
+    assert.equal(withdrawalAudit.actorId, user.id);
+
+    // Simulate the clock passing the deadline without waiting or mutating shared data.
+    await prisma.campaignLanding.update({
+      where: { projectId: project.id }, data: { expiresAt: new Date(0) },
+    });
+    await assert.rejects(service.rollbackCampaignVersion({ ...scope, revision: 6, versionId: first.id }), /caducidad/);
+    await assert.rejects(service.rollbackCampaignVersion({ ...scope, revision: 6, versionId: first.id, expiresAt: null }), /nueva vigencia/);
+    await service.rollbackCampaignVersion({ ...scope, revision: 6, versionId: first.id, expiresAt: expiry });
+    const renewed = await prisma.campaignLanding.findUniqueOrThrow({ where: { projectId: project.id } });
+    assert.equal(renewed.revision, 7);
+    assert.equal(renewed.publishedVersionId, first.id);
+    assert.deepEqual(renewed.expiresAt, expiry);
     assert.ok(audit.every(entry => entry.actorId === user.id && entry.createdAt instanceof Date));
     assert.equal((await prisma.solutionTag.findUniqueOrThrow({ where: { id: tag.id } })).publicToken, tag.publicToken);
     assert.deepEqual(await resolvePublicSolutionTag(tag.publicToken), expected);

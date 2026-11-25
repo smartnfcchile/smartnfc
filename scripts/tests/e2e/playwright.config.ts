@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "campaign-editor.spec.ts",
+  testMatch: ["campaign-editor.spec.ts", "campaign-public.spec.ts"],
   workers: 1,
   retries: 0,
   timeout: 120000,

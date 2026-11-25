@@ -1,3 +1,5 @@
+import { validateCampaignContent } from "./campaign-content";
+import { campaignForSite } from "./campaign-editor";
 import { campaignDestination } from "./destination";
 import { prisma } from "../prisma";
 import { publicFields, validateTemplate, type SolutionTemplate, type FieldDefinition } from "./core";
@@ -14,9 +16,11 @@ export async function resolvePublicSolutionTag(token: string) {
   const tag = await prisma.solutionTag.findUnique({
     where: { publicToken: token },
     select: {
-      status: true, recordId: true,
+      status: true, recordId: true, campaignSiteId: true,
       project: { select: {
-        name: true, mode: true, status: true, destinationUrl: true, company: { select: { name: true, isActive: true } }
+        name: true, mode: true, status: true, destinationUrl: true,
+        campaignLanding: { select: { destination: true, expiresAt: true, publishedVersion: { select: { content: true } } } },
+        company: { select: { name: true, isActive: true } }
       }},
       record: { select: {
         externalCode: true, status: true, data: true,
@@ -27,7 +31,21 @@ export async function resolvePublicSolutionTag(token: string) {
   if (!tag || tag.status !== "ACTIVE" || !tag.project.company.isActive ||
       tag.project.status !== "ACTIVE") return null;
   if (tag.project.mode === "CAMPAIGN") {
-    if (tag.recordId || !tag.project.destinationUrl) return null;
+    if (tag.recordId) return null;
+    const landing = tag.project.campaignLanding;
+    if (landing?.destination === "LANDING") {
+      if (!landing.publishedVersion || (landing.expiresAt && landing.expiresAt.getTime() <= Date.now())) return null;
+      try {
+        const approved = validateCampaignContent(landing.publishedVersion.content);
+        const { design, blocks } = campaignForSite(approved, tag.campaignSiteId ?? "");
+        const visible = blocks.filter(block => !block.hidden)
+          .map((block, index) => ({ ...block, id: String(index) }));
+        return { kind: "campaignLanding" as const, design, blocks: visible };
+      } catch {
+        return null;
+      }
+    }
+    if (!tag.project.destinationUrl) return null;
     try {
       return { kind: "campaign" as const, destination: campaignDestination(tag.project.destinationUrl) };
     } catch {

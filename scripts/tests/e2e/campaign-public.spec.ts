@@ -43,7 +43,7 @@ test.afterAll(async () => prisma.$disconnect());
 
 test("anonymous public landing, stable token, isolated payload, revocation and legacy regressions", async ({ browser, request }) => {
   await prisma.company.create({ data: { id: companyId, name: "Organización ficticia" } });
-  await prisma.solutionProject.create({ data: { ...scope, id: projectId, name: "Proyecto interno", mode: "CAMPAIGN", status: "ACTIVE", destinationUrl: "https://example.com/legacy" } });
+  await prisma.solutionProject.create({ data: { companyId, id: projectId, name: "Proyecto interno", mode: "CAMPAIGN", status: "ACTIVE", destinationUrl: "https://example.com/legacy" } });
   await prisma.campaignLandingSite.createMany({ data: [{ ...scope, id: a, name: "Norte" }, { ...scope, id: b, name: "Sur" }] });
   await prisma.campaignLanding.create({ data: { ...scope, destination: "LANDING", draft: content("DRAFT_SECRET_CP2") } });
   await prisma.campaignLandingVersion.createMany({ data: [

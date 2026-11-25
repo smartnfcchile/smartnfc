@@ -12,13 +12,14 @@ async function campaignOperation<T>(
   { companyId, projectId }: Scope,
   kind: string,
   run: (tx: Prisma.TransactionClient, scope: Scope, actorId: string) => Promise<{ id: string; value: T }>,
+  expectedProjectRevision?: number,
 ) {
   const { actor } = await requireSolutionsOperator(companyId);
   const scope = { companyId, projectId };
   return prisma.$transaction(async tx => {
     // Serialize writes for this campaign, including the first draft and site assignments.
     const result = await tx.solutionProject.updateMany({
-      where: { id: projectId, companyId, mode: "CAMPAIGN", company: { isActive: true } },
+      where: { id: projectId, companyId, mode: "CAMPAIGN", company: { isActive: true }, revision: expectedProjectRevision },
       data: { revision: { increment: 1 } },
     });
     if (result.count !== 1) throw new Error("Campaña no disponible");
@@ -39,18 +40,18 @@ export function createCampaignSite(input: Scope & { name: string }) {
   });
 }
 
-export function assignCampaignTagSite(input: Scope & { tagId: string; siteId: string | null }) {
+export function assignCampaignTagSite(input: Scope & { tagId: string; siteId: string | null; expectedProjectRevision?: number }) {
   return campaignOperation(input, "landing-tag-site", async (tx, scope) => {
     if (input.siteId && !await tx.campaignLandingSite.findFirst({
       where: { ...scope, id: input.siteId }, select: { id: true },
     })) throw new Error("Sede no disponible");
     const result = await tx.solutionTag.updateMany({
-      where: { ...scope, id: input.tagId, recordId: null },
+      where: { ...scope, id: input.tagId, recordId: null, status: { not: "REPLACED" } },
       data: { campaignSiteId: input.siteId },
     });
     if (result.count !== 1) throw new Error("Etiqueta no disponible");
     return { id: input.tagId, value: undefined };
-  });
+  }, input.expectedProjectRevision);
 }
 
 export class CampaignDraftConflict extends Error {

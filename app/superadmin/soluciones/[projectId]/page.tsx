@@ -107,6 +107,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-bold">Lotes de campaña</h2>
         <Link className={button} href={`/superadmin/soluciones/${project.id}/landing`}>Editar landing</Link>
+        <Link className={button} href={`/superadmin/soluciones/${project.id}/publicacion`}>Publicación y puntos</Link>
       </div>
       <Editor project={project} operation="batch">
         <input aria-label="Nombre del lote" name="name" placeholder="Nombre del lote" required maxLength={120} className={fieldClass}/>

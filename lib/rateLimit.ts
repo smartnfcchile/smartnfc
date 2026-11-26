@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { hashIp } from "./security";
 
-export type RateLimitAction = "LOCAL_VIEW" | "LOCAL_SUBSCRIBE" | "LOCAL_WHATSAPP_REDIRECT" | "LOCAL_VCF_DOWNLOAD" | "PUBLIC_LEAD_CAPTURE" | "PUBLIC_EVENT_TRACK" | "PASSWORD_RESET" | "LOCAL_BRAND_UPLOAD";
+export type RateLimitAction = "LOCAL_VIEW" | "LOCAL_SUBSCRIBE" | "LOCAL_WHATSAPP_REDIRECT" | "LOCAL_VCF_DOWNLOAD" | "PUBLIC_LEAD_CAPTURE" | "PUBLIC_EVENT_TRACK" | "PASSWORD_RESET" | "LOCAL_BRAND_UPLOAD" | "CAMPAIGN_IMAGE_UPLOAD";
 
 interface RateLimitConfig {
   limit: number;
@@ -16,6 +16,7 @@ const ACTION_CONFIGS: Record<RateLimitAction, RateLimitConfig> = {
   PUBLIC_LEAD_CAPTURE: { limit: 5, windowSeconds: 600 },     // 5 por 10 minutos (600s)
   PUBLIC_EVENT_TRACK: { limit: 120, windowSeconds: 60 },     // analítica pública, evita inundación
   PASSWORD_RESET: { limit: 3, windowSeconds: 900 },          // 3 solicitudes por 15 minutos
+  CAMPAIGN_IMAGE_UPLOAD: { limit: 20, windowSeconds: 600 },
   LOCAL_BRAND_UPLOAD: { limit: 30, windowSeconds: 600 }      // 30 imágenes por 10 minutos por usuario (logo, portada, promociones)
 };
 

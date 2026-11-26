@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { requireSolutionsOperator } from "./access";
+import { belongsToCampaignImageScope } from "./campaign-image-path";
 import { validateCampaignContent } from "./campaign-content";
 
 type Scope = { companyId: string; projectId: string };
@@ -111,6 +112,11 @@ export class CampaignDraftConflict extends Error {
 export function saveCampaignDraft(input: DraftChange) {
   return campaignOperation(input, "landing-draft-save", async (tx, scope) => {
     const content = validateCampaignContent(input.content);
+    const media = [...content.blocks, ...content.variants.flatMap(variant => variant.blocks)]
+      .flatMap(block => block.type === "image" ? [block.src] : []);
+    if (content.design.logo) media.push(content.design.logo);
+    if (media.some(url => !belongsToCampaignImageScope(url, scope))) throw new Error("Imagen de otra campaña.");
+
     const sites = await tx.campaignLandingSite.count({
       where: { ...scope, id: { in: content.variants.map(variant => variant.siteId) } },
     });

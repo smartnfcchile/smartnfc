@@ -5,6 +5,7 @@ import type { CampaignBlock, CampaignContent, CampaignDesign } from "../../../..
 import { blockNames, campaignForSite, newCampaignBlock, removeBlockOverrides, updateSiteVariant } from "../../../../../lib/soluciones/campaign-editor";
 import { addLandingSite, saveLanding } from "./actions";
 import CampaignPreview from "./CampaignPreview";
+import CampaignImageInput from "./CampaignImageInput";
 
 type Site = { id: string; name: string };
 const inputClass = "mt-1 w-full rounded-md border border-slate-300 bg-transparent p-2 text-sm dark:border-slate-600";
@@ -12,14 +13,14 @@ const labelClass = "block text-sm font-medium";
 const actionClass = "rounded-md border px-2 py-1 text-sm hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800";
 const panelClass = "min-w-0 rounded-xl border border-slate-200 p-4 dark:border-slate-700";
 
-function BlockFields({ block, change }: { block: CampaignBlock; change: (block: CampaignBlock) => void }) {
+function BlockFields({ scope, block, change }: { scope: { companyId: string; projectId: string }; block: CampaignBlock; change: (block: CampaignBlock) => void }) {
   switch (block.type) {
     case "hero":
     case "text":
       return <label className={labelClass}>{block.type === "hero" ? "Título" : "Texto"}<textarea className={inputClass} rows={4} maxLength={4000} value={block.text} onChange={e => change({ ...block, text: e.target.value })} /></label>;
     case "image":
       return <>
-        <label className={labelClass}>URL HTTPS de la imagen<input className={inputClass} maxLength={2048} type="url" value={block.src} onChange={e => change({ ...block, src: e.target.value })} /></label>
+        <CampaignImageInput scope={scope} kind="image" value={block.src} label="URL HTTPS de la imagen" onChange={src => change({ ...block, src })} />
         <label className={labelClass}>Texto alternativo<input className={inputClass} maxLength={240} value={block.alt} onChange={e => change({ ...block, alt: e.target.value })} /></label>
       </>;
     case "button":
@@ -158,7 +159,7 @@ export default function LandingEditor({ scope, sites: initialSites, initial, ini
         {block ? <>
           <h2 className="text-sm font-semibold">{blockNames[block.type]}</h2>
           {siteId && isProtected ? <p className="text-sm text-slate-500">Este bloque corporativo se hereda y solo puede editarse en la plantilla.</p> : <>
-            <BlockFields block={block} change={change} />
+            <BlockFields key={siteId + ":" + block.id} scope={scope} block={block} change={change} />
             <label className={labelClass}><input type="checkbox" className="mr-2" checked={block.hidden} onChange={e => change({ ...block, hidden: e.target.checked })} />Ocultar bloque</label>
             {siteId && isOverride && <button type="button" className={actionClass} onClick={() => update(updateSiteVariant(content, siteId, current => ({ ...current, blocks: current.blocks.filter(item => item.id !== block.id) })))}>Restablecer bloque corporativo</button>}
           </>}
@@ -192,12 +193,12 @@ export default function LandingEditor({ scope, sites: initialSites, initial, ini
             {variant?.color && <button type="button" className={actionClass} onClick={() => update(updateSiteVariant(content, siteId, current => ({ siteId, blocks: current.blocks })))}>Heredar color corporativo</button>}
           </> : <>
             <label className={labelClass}>Nombre visible<input className={inputClass} maxLength={120} value={content.design.name} onChange={e => changeDesign({ name: e.target.value })} /></label>
-            <label className={labelClass}>Logo (URL HTTPS)<input className={inputClass} type="url" maxLength={2048} value={content.design.logo ?? ""} onChange={e => {
+            <CampaignImageInput scope={scope} kind="logo" value={content.design.logo ?? ""} label="Logo (URL HTTPS)" onChange={url => {
               const design = { ...content.design };
-              if (e.target.value) design.logo = e.target.value;
+              if (url) design.logo = url;
               else delete design.logo;
               update({ ...content, design });
-            }} /></label>
+            }} />
             <label className={labelClass}>Color corporativo<input type="color" className={inputClass} value={content.design.color} onChange={e => changeDesign({ color: e.target.value })} /></label>
             <label className={labelClass}>Tipografía<select className={inputClass} value={content.design.font} onChange={e => changeDesign({ font: e.target.value as CampaignDesign["font"] })}><option value="system">Sistema</option><option value="serif">Serif</option></select></label>
             <label className={labelClass}>Estilo<select className={inputClass} value={content.design.style} onChange={e => changeDesign({ style: e.target.value as CampaignDesign["style"] })}><option value="clean">Limpio</option><option value="bold">Destacado</option></select></label>

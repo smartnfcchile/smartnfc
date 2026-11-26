@@ -10,7 +10,7 @@
  * Revisar y respaldar el manifiesto de salida antes de descartar las imágenes originales.
  */
 import { PrismaClient } from "@prisma/client";
-import sharp from "sharp";
+import { optimizeWebp } from "../../lib/optimize-webp";
 import { put } from "@vercel/blob";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -66,25 +66,6 @@ async function readRemote(url: string, hosts: readonly string[]): Promise<Buffer
   } finally {
     clearTimeout(timeout);
   }
-}
-async function optimize(buffer: Buffer, field: CardImageField): Promise<Buffer> {
-  const meta = await sharp(buffer, { limitInputPixels: 100_000_000, failOn: "error" }).metadata();
-  if (!meta.width || !meta.height || !["png", "jpeg", "webp", "avif", "heif", "tiff"].includes(meta.format || "")) {
-    throw new Error("Formato de imagen desconocido o incompatible.");
-  }
-  const { width, height } = limits[field];
-  const base = sharp(buffer, { limitInputPixels: 100_000_000, failOn: "error" })
-    .rotate().resize({ width, height, fit: "inside", withoutEnlargement: true });
-  let best: Buffer | undefined;
-  for (const quality of [84, 76, 67, 57]) {
-    const candidate = await base.clone().webp({ quality, effort: 4 }).toBuffer();
-    if (!best || candidate.length < best.length) best = candidate;
-    if (candidate.length <= limits[field].target) break;
-  }
-  if (!best) throw new Error("Conversión sin resultado.");
-  const checked = await sharp(best).metadata();
-  if (checked.format !== "webp" || !checked.width || !checked.height) throw new Error("Imagen generada no válida.");
-  return best;
 }
 function ensureManifest(path: string, apply: boolean) {
   const full = resolve(path);
@@ -142,7 +123,7 @@ async function main() {
     }
     try {
       const original = await readRemote(originalUrl, hosts);
-      const output = await optimize(original, field);
+      const output = await optimizeWebp(original, limits[field]);
       const savedPercent = Math.round((1 - output.length / original.length) * 100);
       console.log(`${field}: ${original.length} -> ${output.length} bytes (${savedPercent}% menos)`);
       if (output.length >= original.length || original.length < 150_000) {

@@ -1,3 +1,4 @@
+import "./helpers/test-database";
 import test from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
@@ -33,4 +34,12 @@ test("appends independent immutable objects and validates campaign scope", async
   assert.ok(belongsToCampaignImageScope(first, scope));
   assert.equal(belongsToCampaignImageScope(first, { ...scope, companyId: "foreign" }), false);
   assert.ok(belongsToCampaignImageScope("https://example.com/original.webp", scope));
+});
+
+test("honors JPEG orientation before resizing", async () => {
+  const jpeg = await sharp({ create: { width: 1500, height: 1000, channels: 3, background: "#2465ac" } })
+    .jpeg().withMetadata({ orientation: 6 }).toBuffer();
+  const output = await optimizeCampaignImage(new Blob([new Uint8Array(jpeg)], { type: "image/jpeg" }), "logo");
+  const meta = await sharp(output).metadata();
+  assert.deepEqual([meta.width, meta.height, meta.orientation], [800, 1200, undefined]);
 });

@@ -127,7 +127,7 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
     for (const failure of ["429", "503", "invalid", "large", "timeout"] as const) {
       await expire();
       mode = failure;
-      const before = calls;
+      const before: number = calls;
       const at = Date.now();
       assert.deepEqual(await forecastForCenter(-40.12345, -71.12345), first);
       assert.ok(Date.now() - at < 2300, "weather lookup must stay bounded");
@@ -150,7 +150,7 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
       lastUsedAt: new Date(), expiresAt: new Date(Date.now() + 3600000),
     })) });
     assert.equal(await prisma.campaignUvCache.count(), 500);
-    const before = calls;
+    const before: number = calls;
     assert.deepEqual(await Promise.all([forecastForCenter(-43, -72), forecastForCenter(-44, -72)]), [null, null]);
     assert.equal(calls, before);
     for (const slot of [1, 501]) {

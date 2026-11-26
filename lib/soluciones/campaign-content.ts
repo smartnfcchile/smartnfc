@@ -139,6 +139,7 @@ export function validateCampaignContent(value: unknown): CampaignContent {
     throw new Error(index < 0 ? "Revisa los identificadores duplicados o el máximo de 40 bloques." : `Bloque ${index + 1} inválido.`);
   }
   const blocks = rawBlocks;
+  if (blocks.filter(block => block.type === "uv-forecast").length > 1) throw new Error("Agrega un solo pronóstico UV por campaña.");
   if (!object(design) || !exact(design, ["name", "color", "font", "style", "logo"]) ||
       !hasText(design.name, 120) || !color(design.color) ||
       (design.font !== "system" && design.font !== "serif") ||

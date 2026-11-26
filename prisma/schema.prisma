@@ -1163,11 +1163,18 @@ model CampaignLandingSite {
 
 
 model CampaignUvCache {
-  locationKey  String   @id
+  locationKey  String   @id @db.VarChar(24)
+  slot         Int      @unique
   payload      Json?
   expiresAt    DateTime?
-  lastModified String?
-  attemptedAt  DateTime
+  lastModified String?  @db.VarChar(64)
+  lastUsedAt   DateTime
+}
 
-  @@index([attemptedAt])
+model CampaignUvProviderState {
+  id              Int      @id
+  nextRequestAt   DateTime
+  nextCleanupAt   DateTime
+  failures        Int      @default(0)
+  paused          Boolean  @default(false)
 }

@@ -35,6 +35,12 @@ function BlockFields({ scope, block, change }: { scope: { companyId: string; pro
         <CampaignImageInput scope={scope} kind="image" value={block.src} label="URL HTTPS de la imagen" onChange={src => change({ ...block, src })} />
         <label className={labelClass}>Texto alternativo<input className={inputClass} maxLength={240} value={block.alt} onChange={e => change({ ...block, alt: e.target.value })} /></label>
       </>;
+    case "video":
+      return <>
+        <label className={labelClass}>Título<input className={inputClass} maxLength={120} value={block.title} onChange={e => change({ ...block, title: e.target.value })} /></label>
+        <label className={labelClass}>Enlace HTTPS del video<input className={inputClass} maxLength={2048} type="url" value={block.href} onChange={e => change({ ...block, href: e.target.value })} /></label>
+        <CampaignImageInput scope={scope} kind="image" value={block.thumbnail} label="Miniatura HTTPS" onChange={thumbnail => change({ ...block, thumbnail })} />
+      </>;
     case "button":
       return <>
         <label className={labelClass}>Texto del botón<input className={inputClass} maxLength={120} value={block.text} onChange={e => change({ ...block, text: e.target.value })} /></label>

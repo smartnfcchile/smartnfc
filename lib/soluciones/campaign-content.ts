@@ -33,6 +33,7 @@ function card(value: Record<string, unknown>) {
 
 export type CampaignBlock =
   | CampaignRichBlock
+  | { id: string; hidden: boolean; type: "video"; title: string; href: string; thumbnail: string }
   | { id: string; hidden: boolean; type: "hero"; text: string; subtitle?: string }
   | { id: string; hidden: boolean; type: "text"; text: string }
   | { id: string; hidden: boolean; type: "image"; src: string; alt: string }
@@ -83,6 +84,9 @@ function validBlock(value: unknown): value is CampaignBlock {
       return exact(value, [...common, "text"]) && hasText(value.text, 4000);
     case "image":
       return exact(value, [...common, "src", "alt"]) && https(value.src) && hasText(value.alt, 240);
+    case "video":
+      return exact(value, [...common, "title", "href", "thumbnail"]) && hasText(value.title, 120) &&
+        https(value.href) && https(value.thumbnail);
     case "button":
       return exact(value, [...common, "text", "href"]) && hasText(value.text, 120) && https(value.href);
     case "list":
@@ -106,10 +110,27 @@ function validBlocks(value: unknown): value is CampaignBlock[] {
 
 export function validateCampaignContent(value: unknown): CampaignContent {
   if (!object(value) || !exact(value, ["schemaVersion", "design", "blocks", "variants", "protectedBlockIds"]) ||
-      value.schemaVersion !== 1 || !validBlocks(value.blocks) || !Array.isArray(value.variants) ||
+      value.schemaVersion !== 1 || !Array.isArray(value.blocks) || !Array.isArray(value.variants) ||
       value.variants.length > 50) throw new Error("Contenido de campaña inválido");
 
-  const { design, blocks, variants } = value;
+  const { design, variants } = value;
+  const rawBlocks = value.blocks;
+  if (!validBlocks(rawBlocks)) {
+    const index = rawBlocks.findIndex(block => !validBlock(block));
+    const block: unknown = rawBlocks[index];
+    if (object(block)) {
+      const invalid = block.type === "image" ? (!https(block.src) ? "URL HTTPS de la imagen" : "texto alternativo")
+        : block.type === "video" ? (!https(block.thumbnail) ? "miniatura HTTPS" : !https(block.href) ? "enlace HTTPS" : "título")
+        : block.type === "button" ? (!https(block.href) ? "destino HTTPS" : "texto del botón")
+        : block.type === "indicator" && object(block.action) && !https(block.action.href) ? "destino HTTPS del botón"
+        : block.type === "risk-scale" ? "título, nota y tramos de la escala"
+        : block.type === "card-group" ? "título y campos de las tarjetas"
+        : "campos obligatorios y límites de texto";
+      throw new Error(`Bloque ${index + 1}: revisa ${invalid}.`);
+    }
+    throw new Error(index < 0 ? "Revisa los identificadores duplicados o el máximo de 40 bloques." : `Bloque ${index + 1} inválido.`);
+  }
+  const blocks = rawBlocks;
   if (!object(design) || !exact(design, ["name", "color", "font", "style", "logo"]) ||
       !hasText(design.name, 120) || !color(design.color) ||
       (design.font !== "system" && design.font !== "serif") ||

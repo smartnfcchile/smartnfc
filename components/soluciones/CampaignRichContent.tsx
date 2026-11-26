@@ -4,14 +4,14 @@ import { safeDestination } from "../../lib/local/safe-url";
 
 const icons = { sun: Sun, shield: Shield, eye: Eye, shirt: Shirt, shade: Umbrella, info: Info };
 const tones = {
-  green: "bg-emerald-200 text-emerald-950", yellow: "bg-yellow-200 text-yellow-950",
-  orange: "bg-orange-200 text-orange-950", red: "bg-rose-200 text-rose-950", violet: "bg-violet-200 text-violet-950",
+  green: "bg-[#289500] text-slate-950", yellow: "bg-[#f7e400] text-slate-950",
+  orange: "bg-[#f85900] text-slate-950", red: "bg-[#d8001d] text-white", violet: "bg-[#6b49c8] text-white",
 };
 
 function InfoCard({ card }: { card: CampaignCard }) {
   const Icon = icons[card.icon];
-  return <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-    <Icon aria-hidden="true" className="mb-3 h-6 w-6 text-sky-800" />
+  return <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <Icon aria-hidden="true" className="mb-1 h-5 w-5 text-sky-800" />
     <h3 className="break-words font-bold">{card.title}</h3>
     <p className="mt-1 break-words text-sm text-slate-600">{card.text}</p>
   </div>;
@@ -26,9 +26,9 @@ export default function CampaignRichContent({ block, preview }: { block: Campaig
     </section>;
     case "risk-scale": return <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="break-words font-bold">{block.title}</h2>
-      <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">{block.bands.map((band, index) =>
-        <li key={index} className={`min-w-0 break-words rounded-lg p-2 text-center ${tones[band.tone]}`}>
-          <strong className="block text-base">{band.range}</strong><span className="block text-xs">{band.label}</span>
+      <ul className="flex flex-wrap gap-1">{block.bands.map((band, index) =>
+        <li key={index} className={`min-w-[3.6rem] flex-1 rounded-md px-1 py-1.5 text-center ${tones[band.tone]}`}>
+          <strong className="block text-base">{band.range}</strong><span className="block text-[0.625rem] font-semibold leading-tight">{band.label}</span>
         </li>)}</ul>
       <p className="break-words text-xs text-slate-600">{block.text}</p>
     </section>;

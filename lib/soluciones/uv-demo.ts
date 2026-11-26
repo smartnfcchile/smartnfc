@@ -22,7 +22,7 @@ export const uvDemo = {
       { title: "Vestimenta", text: "Usa ropa de manga larga y protege tu cabeza y cuello.", icon: "shirt" },
       { title: "Sombra", text: "Busca sombra para las pausas y organiza las tareas para reducir la exposición.", icon: "shade" },
     ] },
-    { id: "video", hidden: false, type: "button", text: "Ver video preventivo", href: "https://www.youtube.com/watch?v=EPZ0m4W2MiE" },
+    { id: "video", hidden: false, type: "video", title: "Ver video preventivo", thumbnail: uvImage, href: "https://www.youtube.com/watch?v=EPZ0m4W2MiE" },
     { id: "faq", hidden: false, type: "faq", items: [
       { question: "¿Necesito protegerme si está nublado?", answer: "Sí. Consulta el índice UV de tu zona y sigue las medidas de tu lugar de trabajo." },
       { question: "¿Dónde encuentro el índice UV de mi zona?", answer: "En el pronóstico de la Dirección Meteorológica de Chile, enlazado al inicio de esta página." },

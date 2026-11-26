@@ -1,12 +1,21 @@
 import type { CampaignBlock, CampaignContent } from "./campaign-content";
 
 export const blockNames = {
+  card: "Tarjeta informativa", indicator: "Indicador destacado", "risk-scale": "Escala de riesgo", alert: "Alerta preventiva", "card-group": "Grupo de tarjetas",
   hero: "Hero", text: "Texto", image: "Imagen", list: "Lista", faq: "Preguntas frecuentes", button: "Botón HTTPS",
 } as const;
 
 export function newCampaignBlock(type: CampaignBlock["type"], id: string): CampaignBlock {
   const common = { id, hidden: false };
   switch (type) {
+    case "card": case "alert": case "indicator":
+      return { ...common, type, title: "Título", text: "Descripción", icon: "info" };
+    case "risk-scale":
+      return { ...common, type, title: "Escala de riesgo", text: "Escala de referencia", bands: [
+        { range: "1", label: "Bajo", tone: "green" }, { range: "2", label: "Alto", tone: "red" },
+      ] };
+    case "card-group":
+      return { ...common, type, title: "Medidas recomendadas", cards: [{ title: "Tarjeta", text: "Descripción", icon: "shield" }] };
     case "hero": return { ...common, type, text: "Título de la campaña" };
     case "text": return { ...common, type, text: "Texto del bloque" };
     case "image": return { ...common, type, src: "", alt: "" };

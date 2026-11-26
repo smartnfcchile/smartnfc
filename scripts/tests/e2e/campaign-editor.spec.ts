@@ -274,3 +274,34 @@ test("uploads and replaces campaign media with disposable storage", async ({ bro
     await Promise.all([desktopContext.close(), mobileContext.close(), anonymousContext.close(), db.$disconnect()]);
   }
 });
+
+
+test("UV demo renders at desktop and mobile widths and new blocks are editable", async ({ browser }) => {
+  const context = await browser.newContext({ baseURL: origin, viewport: desktop });
+  try {
+    const page = await context.newPage();
+    await page.goto("/demo/uv-2");
+    await expect(page.getByText("El sol también es un riesgo laboral", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Consultar índice UV de mi zona" })).toHaveAttribute("href", /meteochile\.gob\.cl/);
+    await expect(page.getByText("Escala informativa. No muestra una medición actual.")).toBeVisible();
+    await expect.poll(() => page.getByAltText(/centro acuícola/).evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await page.getByText("¿Necesito protegerme si está nublado?").click();
+    await expect(page.getByText(/Sí. Consulta el índice UV/)).toBeVisible();
+    await page.screenshot({ path: join(art!, "uv-2-escritorio.png"), fullPage: true });
+    await page.setViewportSize(mobile);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(mobile.width);
+    await page.screenshot({ path: join(art!, "uv-2-movil.png"), fullPage: true });
+    await login(page, "admin");
+    await page.setViewportSize(desktop);
+    await openEditor(page);
+    await page.getByRole("button", { name: "+ Indicador destacado", exact: true }).click();
+    const controls = page.getByRole("region", { name: "Configuración" });
+    await controls.getByLabel("Título", { exact: true }).fill("Indicador de prueba UV");
+    await expect(page.getByRole("region", { name: "Vista previa del borrador" }).getByText("Indicador de prueba UV")).toBeVisible();
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await expect(page.getByText("Borrador guardado.", { exact: true })).toBeVisible();
+    await page.screenshot({ path: join(art!, "uv-2-editor.png"), fullPage: true });
+  } finally {
+    await context.close();
+  }
+});

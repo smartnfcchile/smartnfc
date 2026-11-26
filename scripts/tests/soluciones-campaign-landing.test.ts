@@ -5,6 +5,9 @@ import test from "node:test";
 import { randomUUID } from "node:crypto";
 import { validateCampaignContent, type CampaignContent } from "../../lib/soluciones/campaign-content";
 
+import { uvDemo } from "../../lib/soluciones/uv-demo";
+import { newCampaignBlock } from "../../lib/soluciones/campaign-editor";
+
 const content: CampaignContent = {
   schemaVersion: 1,
   design: { name: "Campaña ficticia", color: "#123456", font: "system", style: "clean" },
@@ -191,4 +194,19 @@ test("ciclo de campaña, aislamiento y resolución anterior", {
   } finally {
     await prisma.$disconnect();
   }
+});
+
+
+test("accepts additive UV demo blocks and enforces safe actions and protected variants", () => {
+  assert.deepEqual(validateCampaignContent(uvDemo), uvDemo);
+  for (const type of ["card", "indicator", "risk-scale", "alert", "card-group"] as const) {
+    const block = newCampaignBlock(type, "custom");
+    assert.doesNotThrow(() => validateCampaignContent({ ...content, blocks: [block] }));
+  }
+  const indicator = uvDemo.blocks.find(block => block.type === "indicator")!;
+  assert.throws(() => validateCampaignContent({ ...uvDemo, protectedBlockIds: [], blocks: [
+    { ...indicator, action: { label: "Unsafe", href: "javascript:alert(1)" } },
+  ] }));
+  const reference = uvDemo.blocks.find(block => block.id === "reference")!;
+  assert.throws(() => validateCampaignContent({ ...uvDemo, variants: [{ siteId: "site", blocks: [reference] }] }));
 });

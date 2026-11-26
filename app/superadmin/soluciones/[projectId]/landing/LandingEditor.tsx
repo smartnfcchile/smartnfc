@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { CampaignBlock, CampaignContent, CampaignDesign } from "../../../../../lib/soluciones/campaign-content";
 import { blockNames, campaignForSite, newCampaignBlock, removeBlockOverrides, updateSiteVariant } from "../../../../../lib/soluciones/campaign-editor";
 import { addLandingSite, saveLanding } from "./actions";
+import CampaignRichFields from "./CampaignRichFields";
 import CampaignPreview from "./CampaignPreview";
 import CampaignImageInput from "./CampaignImageInput";
 
@@ -15,9 +16,20 @@ const panelClass = "min-w-0 rounded-xl border border-slate-200 p-4 dark:border-s
 
 function BlockFields({ scope, block, change }: { scope: { companyId: string; projectId: string }; block: CampaignBlock; change: (block: CampaignBlock) => void }) {
   switch (block.type) {
+    case "card": case "alert": case "indicator": case "risk-scale": case "card-group":
+      return <CampaignRichFields block={block} change={change} />;
     case "hero":
+      return <>
+        <label className={labelClass}>Título<textarea className={inputClass} rows={4} maxLength={4000} value={block.text} onChange={e => change({ ...block, text: e.target.value })} /></label>
+        <label className={labelClass}>Subtítulo opcional<input className={inputClass} maxLength={300} value={block.subtitle ?? ""} onChange={e => {
+          const next = { ...block };
+          if (e.target.value) next.subtitle = e.target.value;
+          else delete next.subtitle;
+          change(next);
+        }} /></label>
+      </>;
     case "text":
-      return <label className={labelClass}>{block.type === "hero" ? "Título" : "Texto"}<textarea className={inputClass} rows={4} maxLength={4000} value={block.text} onChange={e => change({ ...block, text: e.target.value })} /></label>;
+      return <label className={labelClass}>Texto<textarea className={inputClass} rows={4} maxLength={4000} value={block.text} onChange={e => change({ ...block, text: e.target.value })} /></label>;
     case "image":
       return <>
         <CampaignImageInput scope={scope} kind="image" value={block.src} label="URL HTTPS de la imagen" onChange={src => change({ ...block, src })} />
@@ -201,7 +213,7 @@ export default function LandingEditor({ scope, sites: initialSites, initial, ini
             }} />
             <label className={labelClass}>Color corporativo<input type="color" className={inputClass} value={content.design.color} onChange={e => changeDesign({ color: e.target.value })} /></label>
             <label className={labelClass}>Tipografía<select className={inputClass} value={content.design.font} onChange={e => changeDesign({ font: e.target.value as CampaignDesign["font"] })}><option value="system">Sistema</option><option value="serif">Serif</option></select></label>
-            <label className={labelClass}>Estilo<select className={inputClass} value={content.design.style} onChange={e => changeDesign({ style: e.target.value as CampaignDesign["style"] })}><option value="clean">Limpio</option><option value="bold">Destacado</option></select></label>
+            <label className={labelClass}>Estilo<select className={inputClass} value={content.design.style} onChange={e => changeDesign({ style: e.target.value as CampaignDesign["style"] })}><option value="clean">Limpio</option><option value="bold">Destacado</option><option value="editorial">Editorial</option></select></label>
             <div className="flex items-end gap-2 border-t pt-3">
               <label className={`${labelClass} flex-1`}>Nueva sede<input className={inputClass} maxLength={120} value={siteName} onChange={e => setSiteName(e.target.value)} /></label>
               <button type="button" className={actionClass} disabled={!siteName.trim()} onClick={createSite}>Crear sede</button>

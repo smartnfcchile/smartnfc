@@ -14,8 +14,27 @@ const color = (value: unknown): value is string =>
 const blockId = (value: unknown): value is string =>
   typeof value === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(value);
 
+export const campaignIcons = ["sun", "shield", "eye", "shirt", "shade", "info"] as const;
+export const riskTones = ["green", "yellow", "orange", "red", "violet"] as const;
+export type CampaignIcon = typeof campaignIcons[number];
+export type RiskTone = typeof riskTones[number];
+export type CampaignCard = { title: string; text: string; icon: CampaignIcon };
+export type CampaignRiskBand = { range: string; label: string; tone: RiskTone };
+export type CampaignRichBlock =
+  | ({ type: "card" | "alert"; id: string; hidden: boolean } & CampaignCard)
+  | { type: "indicator"; id: string; hidden: boolean; title: string; text: string; icon: CampaignIcon; action?: { label: string; href: string } }
+  | { type: "risk-scale"; id: string; hidden: boolean; title: string; text: string; bands: CampaignRiskBand[] }
+  | { type: "card-group"; id: string; hidden: boolean; title: string; cards: CampaignCard[] };
+
+function card(value: Record<string, unknown>) {
+  return hasText(value.title, 120) && hasText(value.text, 600) &&
+    campaignIcons.includes(value.icon as CampaignIcon);
+}
+
 export type CampaignBlock =
-  | { id: string; hidden: boolean; type: "hero" | "text"; text: string }
+  | CampaignRichBlock
+  | { id: string; hidden: boolean; type: "hero"; text: string; subtitle?: string }
+  | { id: string; hidden: boolean; type: "text"; text: string }
   | { id: string; hidden: boolean; type: "image"; src: string; alt: string }
   | { id: string; hidden: boolean; type: "button"; text: string; href: string }
   | { id: string; hidden: boolean; type: "list"; items: string[] }
@@ -25,7 +44,7 @@ export type CampaignDesign = {
   name: string;
   color: string;
   font: "system" | "serif";
-  style: "clean" | "bold";
+  style: "clean" | "bold" | "editorial";
   logo?: string;
 };
 
@@ -41,7 +60,25 @@ function validBlock(value: unknown): value is CampaignBlock {
   if (!object(value) || !blockId(value.id) || typeof value.hidden !== "boolean") return false;
   const common = ["id", "type", "hidden"];
   switch (value.type) {
+    case "card":
+    case "alert":
+      return exact(value, [...common, "title", "text", "icon"]) && card(value);
+    case "indicator":
+      return exact(value, [...common, "title", "text", "icon", "action"]) && card(value) &&
+        (!("action" in value) || (object(value.action) && exact(value.action, ["label", "href"]) &&
+          hasText(value.action.label, 120) && https(value.action.href)));
+    case "risk-scale":
+      return exact(value, [...common, "title", "text", "bands"]) && hasText(value.title, 120) &&
+        hasText(value.text, 600) && Array.isArray(value.bands) && value.bands.length >= 2 && value.bands.length <= 8 &&
+        value.bands.every(band => object(band) && exact(band, ["range", "label", "tone"]) &&
+          hasText(band.range, 20) && hasText(band.label, 40) && riskTones.includes(band.tone as RiskTone));
+    case "card-group":
+      return exact(value, [...common, "title", "cards"]) && hasText(value.title, 120) &&
+        Array.isArray(value.cards) && value.cards.length > 0 && value.cards.length <= 8 &&
+        value.cards.every(item => object(item) && exact(item, ["title", "text", "icon"]) && card(item));
     case "hero":
+      return exact(value, [...common, "text", "subtitle"]) && hasText(value.text, 4000) &&
+        (!("subtitle" in value) || hasText(value.subtitle, 300));
     case "text":
       return exact(value, [...common, "text"]) && hasText(value.text, 4000);
     case "image":
@@ -76,7 +113,7 @@ export function validateCampaignContent(value: unknown): CampaignContent {
   if (!object(design) || !exact(design, ["name", "color", "font", "style", "logo"]) ||
       !hasText(design.name, 120) || !color(design.color) ||
       (design.font !== "system" && design.font !== "serif") ||
-      (design.style !== "clean" && design.style !== "bold") ||
+      (design.style !== "clean" && design.style !== "bold" && design.style !== "editorial") ||
       ("logo" in design && !https(design.logo))) throw new Error("Identidad de campaña inválida");
 
   const base = new Map(blocks.map(block => [block.id, block.type]));

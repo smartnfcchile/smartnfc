@@ -33,6 +33,7 @@ function card(value: Record<string, unknown>) {
 
 export type CampaignBlock =
   | CampaignRichBlock
+  | { id: string; hidden: boolean; type: "uv-forecast"; title: string; latitude?: number; longitude?: number; timezone: "America/Santiago" | "America/Coyhaique" | "America/Punta_Arenas" }
   | { id: string; hidden: boolean; type: "video"; title: string; href: string; thumbnail: string }
   | { id: string; hidden: boolean; type: "hero"; text: string; subtitle?: string }
   | { id: string; hidden: boolean; type: "text"; text: string }
@@ -84,6 +85,12 @@ function validBlock(value: unknown): value is CampaignBlock {
       return exact(value, [...common, "text"]) && hasText(value.text, 4000);
     case "image":
       return exact(value, [...common, "src", "alt"]) && https(value.src) && hasText(value.alt, 240);
+    case "uv-forecast":
+      return exact(value, [...common, "title", "latitude", "longitude", "timezone"]) &&
+        hasText(value.title, 120) && ["America/Santiago", "America/Coyhaique", "America/Punta_Arenas"].includes(String(value.timezone)) &&
+        (value.latitude === undefined && value.longitude === undefined ||
+          typeof value.latitude === "number" && Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 &&
+          typeof value.longitude === "number" && Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180);
     case "video":
       return exact(value, [...common, "title", "href", "thumbnail"]) && hasText(value.title, 120) &&
         https(value.href) && https(value.thumbnail);
@@ -120,6 +127,7 @@ export function validateCampaignContent(value: unknown): CampaignContent {
     const block: unknown = rawBlocks[index];
     if (object(block)) {
       const invalid = block.type === "image" ? (!https(block.src) ? "URL HTTPS de la imagen" : "texto alternativo")
+        : block.type === "uv-forecast" ? "título, latitud, longitud y zona horaria"
         : block.type === "video" ? (!https(block.thumbnail) ? "miniatura HTTPS" : !https(block.href) ? "enlace HTTPS" : "título")
         : block.type === "button" ? (!https(block.href) ? "destino HTTPS" : "texto del botón")
         : block.type === "indicator" && object(block.action) && !https(block.action.href) ? "destino HTTPS del botón"

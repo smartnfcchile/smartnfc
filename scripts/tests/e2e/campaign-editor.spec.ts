@@ -301,6 +301,10 @@ test("UV demo renders at desktop and mobile widths and new blocks are editable",
     for (const type of ["Tarjeta informativa", "Escala de riesgo", "Alerta preventiva", "Grupo de tarjetas"]) {
       await page.getByRole("button", { name: "+ " + type, exact: true }).click();
     }
+    await page.getByRole("button", { name: "+ Pronóstico UV", exact: true }).click();
+    await controls.getByLabel("Latitud", { exact: true }).fill("-41.88");
+    await controls.getByLabel("Longitud", { exact: true }).fill("-72.92");
+    await expect(page.getByText("Pronóstico UV no disponible para este centro.", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "+ Video", exact: true }).click();
     await controls.getByLabel("Enlace HTTPS del video").fill("https://example.com/capacitacion");
     await controls.getByText("Usar URL HTTPS", { exact: true }).click();
@@ -310,7 +314,7 @@ test("UV demo renders at desktop and mobile widths and new blocks are editable",
     await expect(page.getByText("Borrador guardado.", { exact: true })).toBeVisible();
     await page.reload();
     const library = page.getByRole("region", { name: "Biblioteca de bloques" });
-    for (const type of ["Indicador destacado", "Tarjeta informativa", "Escala de riesgo", "Alerta preventiva", "Grupo de tarjetas", "Video"]) {
+    for (const type of ["Indicador destacado", "Tarjeta informativa", "Escala de riesgo", "Alerta preventiva", "Grupo de tarjetas", "Video", "Pronóstico UV"]) {
       await expect(library.locator("ol").getByRole("button", { name: new RegExp(type + "$") })).toBeVisible();
     }
     await page.screenshot({ path: join(art!, "uv-21-editor.png"), fullPage: true });

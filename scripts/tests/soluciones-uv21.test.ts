@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeUvForecast, uvSiteKey } from "../../lib/soluciones/uv-forecast";
 import { validateCampaignContent } from "../../lib/soluciones/campaign-content";
+import { parseMetUv, summarizeMetUv } from "../../lib/soluciones/met-uv";
 import { uvDemo } from "../../lib/soluciones/uv-demo";
 
 test("keeps the current hourly estimate separate from the daily maximum and preserves zero", () => {
@@ -24,4 +25,27 @@ test("pinpoints missing image alt text and invalid video thumbnails", () => {
   ] as const) {
     assert.throws(() => validateCampaignContent({ ...uvDemo, protectedBlockIds: [], blocks: [block] }), message);
   }
+});
+
+test("MET clear-sky parser keeps zero and summarizes only hours in the local day", () => {
+  const met = parseMetUv({ properties: { meta: { updated_at: "2026-11-26T11:00:00Z" }, timeseries: [
+    { time: "2026-11-26T19:00:00Z", data: { instant: { details: { ultraviolet_index_clear_sky: 0 } } } },
+    { time: "2026-11-26T20:00:00Z", data: { instant: { details: { ultraviolet_index_clear_sky: 7.1 } } } },
+    { time: "2026-11-27T04:00:00Z", data: { instant: { details: { ultraviolet_index_clear_sky: 9 } } } },
+    { time: "2026-11-27T05:00:00Z", data: { instant: { details: {} } } },
+  ] } });
+  const result = summarizeMetUv(met, "America/Coyhaique", new Date("2026-11-26T19:30:00Z"));
+  assert.equal(result.current, 0);
+  assert.equal(result.max, 7.1);
+  assert.equal(result.chart.length, 2);
+  assert.throws(() => parseMetUv({ properties: { meta: { updated_at: "2026-11-26T11:00:00Z" }, timeseries: [] } }));
+});
+
+test("allows center coordinates per site and rejects invalid pairs", () => {
+  const block = { id: "uv", hidden: false, type: "uv-forecast", title: "Centro", latitude: -41.88, longitude: -72.92, timezone: "America/Santiago" };
+  const input = { ...uvDemo, protectedBlockIds: [], blocks: [block], variants: [
+    { siteId: "aysen", blocks: [{ ...block, latitude: -45.4, longitude: -72.69, timezone: "America/Coyhaique" }] },
+  ] };
+  assert.doesNotThrow(() => validateCampaignContent(input));
+  assert.throws(() => validateCampaignContent({ ...input, blocks: [{ ...block, latitude: 91 }] }), /latitud/);
 });

@@ -20,3 +20,10 @@ Open-Meteo fue el único proveedor con datos de pronóstico comprobados en las d
 One Call 4.0 requiere clave y alta del servicio. La tarifa pública muestra 1.000 llamadas diarias incluidas y USD 0,0015 por llamada adicional. Validar con credencial autorizada la forma del máximo diario y condiciones comerciales antes de seleccionarlo. La DMC publica observaciones por estación (documentación histórica de cinco minutos), sin prueba de una API de pronóstico por coordenadas, SLA o cuota para este uso.
 
 Ejemplo conservador sin aciertos de caché adicionales: 20 centros × 24 renovaciones = 480 consultas/día si basta una consulta por centro, o 960 si la hora y el día exigen dos endpoints. No se crearon suscripciones ni claves. Los costos reales dependen del contrato, cuota y tráfico.
+
+
+## MET Norway · integración sin suscripción meteorológica
+
+MET Locationforecast 2.0 complete respondió HTTP 200 para Chiloé, Queullín y el fiordo de Aysén, con 60 muestras UV de cielo despejado por punto. Atribución visible a MET Norway, CC BY 4.0. El adaptador usa un User-Agent identificable, cuatro decimales, Expires e If-Modified-Since. La caché usa PostgreSQL existente y agrupa por coordenadas de centro, nunca por trabajador. Un bloqueo transaccional y un intervalo global de al menos un segundo limitan las consultas; los fallos tienen espera antes de reintentar. Datos antiguos solo se muestran con su hora de actualización, por un periodo acotado. Un máximo se etiqueta como máximo entre las horas disponibles del día.
+
+El editor permite configurar un bloque Pronóstico UV y adaptar sus coordenadas por sede. El render público consulta únicamente bloques de una versión publicada vigente. Se requiere autorizar y aplicar la migración aditiva de caché antes de habilitar SMARTNFC_MET_UV_ENABLED=1. El Preview estático ilustra el bloque con una respuesta archivada del ensayo, identificada como tal. Sin clave, cobros meteorológicos ni uso de ubicación del teléfono.

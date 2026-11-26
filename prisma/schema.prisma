@@ -1160,3 +1160,14 @@ model CampaignLandingSite {
   @@unique([id, projectId, companyId])
   @@unique([projectId, name])
 }
+
+
+model CampaignUvCache {
+  locationKey  String   @id
+  payload      Json?
+  expiresAt    DateTime?
+  lastModified String?
+  attemptedAt  DateTime
+
+  @@index([attemptedAt])
+}

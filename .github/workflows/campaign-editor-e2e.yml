@@ -28,6 +28,7 @@ jobs:
       E2E_DATABASE_URL: postgresql://campaign_e2e:ci-loopback-only@127.0.0.1:5432/campaign_e2e_disposable
       NEXTAUTH_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      SMARTNFC_MET_UV_ENABLED: "1"
       NEXT_TELEMETRY_DISABLED: '1'
       LOCAL_REPORT_EMAIL_MODE: disabled
       RESEND_API_KEY: ''

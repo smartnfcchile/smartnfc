@@ -163,9 +163,15 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
       SELECT pg_total_relation_size('"CampaignUvCache"')::int + pg_total_relation_size('"CampaignUvProviderState"')::int AS physical_bytes,
         max(octet_length("payload"::text))::int AS max_payload_bytes, count(*)::int AS rows FROM "CampaignUvCache"
     `;
+    const [explain] = await prisma.$queryRaw<{ "QUERY PLAN": [{ Plan: { "Shared Hit Blocks": number; "Shared Read Blocks": number } }] }[]>`
+      EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+      SELECT payload, "expiresAt", "lastUsedAt" FROM "CampaignUvCache" WHERE "locationKey" = ${key}
+    `;
+    const plan = explain["QUERY PLAN"][0].Plan;
     warm.sort((a, b) => a - b);
     console.log("MET_CACHE_MEASUREMENT " + JSON.stringify({
-      ...metrics, providerCallsOnWarmHits: 0, warmHits: warm.length, warmP95Ms: Number(warm[28].toFixed(2)),
+      ...metrics, indexedLookupBufferHits: plan["Shared Hit Blocks"], indexedLookupBufferReads: plan["Shared Read Blocks"],
+      providerCallsOnWarmHits: 0, warmHits: warm.length, warmP95Ms: Number(warm[28].toFixed(2)),
       coldConcurrentMs: Number(coldConcurrentMs.toFixed(2)), concurrentColdLookups: starts.length,
     }));
 

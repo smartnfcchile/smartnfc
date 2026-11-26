@@ -49,3 +49,49 @@ test("allows center coordinates per site and rejects invalid pairs", () => {
   assert.doesNotThrow(() => validateCampaignContent(input));
   assert.throws(() => validateCampaignContent({ ...input, blocks: [{ ...block, latitude: 91 }] }), /latitud/);
 });
+
+test("MET uses a shared PostgreSQL cache and conditionally refreshes expired forecasts", {
+  skip: !process.env.CAMPAIGN_TEST_DATABASE_URL,
+}, async () => {
+  const { selectDisposableDatabase } = await import("./helpers/test-database");
+  selectDisposableDatabase(process.env.CAMPAIGN_TEST_DATABASE_URL);
+  const { prisma } = await import("../../lib/prisma");
+  const { forecastForCenter } = await import("../../lib/soluciones/met-uv-server");
+  const oldFlag = process.env.SMARTNFC_MET_UV_ENABLED;
+  const oldFetch = globalThis.fetch;
+  process.env.SMARTNFC_MET_UV_ENABLED = "1";
+  let calls = 0;
+  const modified = "Thu, 26 Nov 2026 17:00:00 GMT";
+  globalThis.fetch = (async (url, init) => {
+    calls++;
+    assert.match(String(url), /api\.met\.no.*lat=-40\.1234.*lon=-71\.1234/);
+    const headers = new Headers(init?.headers);
+    assert.match(headers.get("User-Agent") ?? "", /SmartNFC/);
+    if (calls === 2) {
+      assert.equal(headers.get("If-Modified-Since"), modified);
+      return new Response(null, { status: 304, headers: { expires: new Date(Date.now() + 600000).toUTCString() } });
+    }
+    return Response.json({ properties: { meta: { updated_at: "2026-11-26T17:00:00Z" }, timeseries: [{
+      time: "2026-11-26T19:00:00Z", data: { instant: { details: { ultraviolet_index_clear_sky: 7 } } },
+    }] } }, { headers: { expires: new Date(Date.now() + 600000).toUTCString(), "last-modified": modified } });
+  }) as typeof fetch;
+  const locationKey = "-40.1234,-71.1234";
+  try {
+    const first = await forecastForCenter(-40.12349, -71.12349);
+    assert.equal(first?.samples[0].value, 7);
+    assert.deepEqual(await forecastForCenter(-40.12345, -71.12345), first);
+    assert.equal(calls, 1);
+    await prisma.campaignUvCache.update({
+      where: { locationKey }, data: { expiresAt: new Date(Date.now() - 3000), attemptedAt: new Date(Date.now() - 180000) },
+    });
+    assert.deepEqual(await forecastForCenter(-40.12345, -71.12345), first);
+    assert.equal(calls, 2);
+    assert.ok((await prisma.campaignUvCache.findUnique({ where: { locationKey } }))?.expiresAt! > new Date());
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldFlag === undefined) delete process.env.SMARTNFC_MET_UV_ENABLED;
+    else process.env.SMARTNFC_MET_UV_ENABLED = oldFlag;
+    await prisma.campaignUvCache.deleteMany({ where: { locationKey } });
+    await prisma.$disconnect();
+  }
+});

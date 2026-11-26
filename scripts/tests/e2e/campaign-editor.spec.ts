@@ -1,3 +1,6 @@
+import sharp from "sharp";
+import { PrismaClient } from "@prisma/client";
+import { selectDisposableDatabase } from "../helpers/test-database";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
@@ -106,6 +109,7 @@ test("SUPERADMIN edits six blocks, site identity, and drafts across desktop and 
     ];
     for (const [index, item] of cases.entries()) {
       await library.getByRole("button", { name: "+ " + item.name, exact: true }).click();
+      if (item.name === "Imagen") await settings.getByText("Usar URL HTTPS", { exact: true }).click();
       const input = item.name === "Hero" || item.name === "Texto" ? settings.locator("textarea") : settings.getByLabel(item.field, { exact: true });
       await input.fill(item.text);
       if (item.name === "Imagen") await settings.getByLabel("Texto alternativo").fill("Viñeta UV ficticia");
@@ -125,6 +129,7 @@ test("SUPERADMIN edits six blocks, site identity, and drafts across desktop and 
     }
 
     await library.getByRole("button", { name: "Identidad y sedes" }).click();
+    await settings.getByText("Usar URL HTTPS", { exact: true }).click();
     await settings.getByLabel("Logo (URL HTTPS)", { exact: true }).fill("https://example.com/uv-logo.svg");
     await settings.getByLabel("Color corporativo").fill("#104050");
     await settings.getByLabel("Tipografía").selectOption("serif");
@@ -183,5 +188,89 @@ test("SUPERADMIN edits six blocks, site identity, and drafts across desktop and 
     } finally {
       await Promise.all([desktopContext.close(), mobileContext.close()]);
     }
+  }
+});
+
+test("uploads and replaces campaign media with disposable storage", async ({ browser }) => {
+  const desktopContext = await browser.newContext({ baseURL: origin, viewport: desktop });
+  const mobileContext = await browser.newContext({ baseURL: origin, viewport: mobile, isMobile: true, hasTouch: true });
+  const anonymousContext = await browser.newContext({ baseURL: origin });
+  const db = new PrismaClient({
+    datasourceUrl: selectDisposableDatabase(process.env.E2E_DATABASE_URL, { requireNameIncludes: "campaign_e2e_disposable" }),
+  });
+  try {
+    const page = await desktopContext.newPage();
+    const phone = await mobileContext.newPage();
+    await login(page, "admin");
+    await login(phone, "admin");
+    const uploadPath = "/api/soluciones/campaign-image?companyId=campaign-e2e-org&projectId=demo-campana&kind=image";
+    const file = await sharp({ create: { width: 1800, height: 900, channels: 3, background: "#2465ac" } }).png().toBuffer();
+    const headers = { Origin: origin };
+    const multipart = { file: { name: "demo.png", mimeType: "image/png", buffer: file } };
+    expect((await anonymousContext.request.post(uploadPath, { headers, multipart })).status()).toBe(403);
+    const collaborator = await anonymousContext.newPage();
+    await login(collaborator, "collab");
+    expect((await anonymousContext.request.post(uploadPath, { headers, multipart })).status()).toBe(403);
+    await db.company.create({ data: { id: "campaign-image-foreign", name: "Otra organización ficticia", isActive: true } });
+    const mismatched = await page.request.post(uploadPath.replace("companyId=campaign-e2e-org", "companyId=campaign-image-foreign"), { headers, multipart });
+    expect(mismatched.status()).toBe(404);
+    const invalid = await page.request.post(uploadPath, { headers, multipart: { file: { name: "invalid.png", mimeType: "image/png", buffer: Buffer.from("fake") } } });
+    expect(invalid.status()).toBe(422);
+    const foreign = await page.request.post(uploadPath.replace("companyId=campaign-e2e-org", "companyId=wrong-org"), { headers, multipart: { file: { name: "demo.png", mimeType: "image/png", buffer: file } } });
+    expect(foreign.status()).toBe(403);
+    await openEditor(page);
+    const preview = page.getByRole("region", { name: "Vista previa del borrador" });
+    const settings = page.getByRole("region", { name: "Configuración" });
+    const optimized = await sharp(file).resize(1600).webp().toBuffer();
+    const stored = "https://fictional.public.blob.vercel-storage.com/soluciones-campaign/campaign-e2e-org/demo-campana/";
+    const ids = ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"];
+    for (const ctx of [desktopContext, mobileContext]) {
+      await ctx.route(stored + "**", route => route.fulfill({ contentType: "image/webp", body: optimized }));
+    }
+    let uploads = 0;
+    await page.route("**/api/soluciones/campaign-image?*", async route => {
+      const real = await route.fetch();
+      // The real server validates and optimizes the file, but CI has no Blob token.
+      expect(real.status()).toBe(503);
+      await route.fulfill({ json: { url: stored + ids[uploads++] + ".webp", bytes: optimized.length } });
+    });
+    await page.getByRole("button", { name: "+ Imagen", exact: true }).click();
+    await settings.getByLabel("Texto alternativo").fill("Carga ficticia");
+    const selection = { name: "demo.png", mimeType: "image/png", buffer: file };
+    await settings.locator('input[type="file"]').setInputFiles(selection);
+    await expect(preview.getByAltText("Carga ficticia")).toHaveAttribute("src", stored + ids[0] + ".webp");
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await expect(page.getByText("Borrador guardado.", { exact: true })).toBeVisible();
+    const scope = { projectId: "demo-campana", companyId: "campaign-e2e-org" };
+    const snapshot = await db.campaignLanding.findUniqueOrThrow({ where: { projectId: scope.projectId } });
+    const actor = await db.user.findUniqueOrThrow({ where: { email: credentials.admin.email } });
+    const approved = await db.campaignLandingVersion.create({
+      data: { ...scope, content: snapshot.draft!, revision: snapshot.revision, approvedById: actor.id },
+    });
+    await db.solutionProject.update({ where: { id: scope.projectId }, data: { status: "ACTIVE" } });
+    await db.campaignLanding.update({
+      where: { projectId: scope.projectId }, data: { destination: "LANDING", publishedVersionId: approved.id },
+    });
+    const tag = await db.solutionTag.create({
+      data: { ...scope, status: "ACTIVE", publicToken: "media-fixture-token-00000000000000000001" },
+    });
+    await settings.locator('input[type="file"]').setInputFiles(selection);
+    await expect(preview.getByAltText("Carga ficticia")).toHaveAttribute("src", stored + ids[1] + ".webp");
+    await page.getByRole("button", { name: "Guardar borrador" }).click();
+    await expect(page.getByText("Borrador guardado.", { exact: true })).toBeVisible();
+    await page.screenshot({ path: join(art!, "carga-imagen-desktop.png"), fullPage: true });
+    await openEditor(phone);
+    const image = phone.getByRole("region", { name: "Vista previa del borrador" }).getByAltText("Carga ficticia");
+    await expect(image).toHaveAttribute("src", stored + ids[1] + ".webp");
+    await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(1600);
+    await phone.screenshot({ path: join(art!, "carga-imagen-mobile.png"), fullPage: true });
+    await anonymousContext.route(stored + "**", route => route.fulfill({ contentType: "image/webp", body: optimized }));
+    const publicPage = await anonymousContext.newPage();
+    await publicPage.goto("/s/" + tag.publicToken);
+    const publishedImage = publicPage.getByAltText("Carga ficticia");
+    await expect(publishedImage).toHaveAttribute("src", stored + ids[0] + ".webp");
+    await expect.poll(() => publishedImage.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(1600);
+  } finally {
+    await Promise.all([desktopContext.close(), mobileContext.close(), anonymousContext.close(), db.$disconnect()]);
   }
 });

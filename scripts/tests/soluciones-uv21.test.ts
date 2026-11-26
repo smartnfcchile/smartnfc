@@ -86,7 +86,8 @@ test("MET uses a shared PostgreSQL cache and conditionally refreshes expired for
     });
     assert.deepEqual(await forecastForCenter(-40.12345, -71.12345), first);
     assert.equal(calls, 2);
-    assert.ok((await prisma.campaignUvCache.findUnique({ where: { locationKey } }))?.expiresAt! > new Date());
+    const refreshed = await prisma.campaignUvCache.findUnique({ where: { locationKey } });
+    assert.ok(refreshed?.expiresAt && refreshed.expiresAt > new Date());
   } finally {
     globalThis.fetch = oldFetch;
     if (oldFlag === undefined) delete process.env.SMARTNFC_MET_UV_ENABLED;

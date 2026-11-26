@@ -82,7 +82,7 @@ jobs:
       - name: Campaign editor and draft integration
         env:
           CAMPAIGN_TEST_DATABASE_URL: ${{ env.BLOCK2_TEST_DATABASE_URL }}
-        run: node --import tsx --test --test-concurrency=1 scripts/tests/soluciones-campaign-editor.test.ts scripts/tests/soluciones-campaign-landing.test.ts scripts/tests/soluciones-publication-expiry.test.ts scripts/tests/soluciones-campaign-image.test.ts
+        run: node --import tsx --test --test-concurrency=1 scripts/tests/soluciones-campaign-editor.test.ts scripts/tests/soluciones-campaign-landing.test.ts scripts/tests/soluciones-publication-expiry.test.ts scripts/tests/soluciones-campaign-image.test.ts scripts/tests/soluciones-campaign-activation.test.ts
 
       - name: H-4 sweep — LocalCampaign/LocalLocation reconciliation
         run: npm run test:sweep:local-location

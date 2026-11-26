@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "../../../../../lib/prisma";
 import { requireSuperAdmin } from "../../../../../lib/permissions";
 import { transferableCampaignTag } from "../../../../../lib/soluciones/campaign-landing";
-import { validateCampaignContent } from "../../../../../lib/soluciones/campaign-content";
+import { campaignPublication } from "../../../../../lib/soluciones/campaign-activation";
+import { campaignDestination } from "../../../../../lib/soluciones/destination";
+import CampaignStatus from "../CampaignStatus";
 import { isPublicationExpired } from "../../../../../lib/soluciones/publication-expiry";
 import { Operation, PointUrl } from "./Controls";
 
@@ -50,7 +52,7 @@ export default async function CampaignOperations({ params, searchParams }: {
   const landing = project.campaignLanding;
   const publishedId = landing?.publishedVersionId;
   const recentVersions = landing?.versions ?? [];
-  const [history, everPublished, publication, candidates] = await Promise.all([
+  const [history, everPublished, publication, candidates, pointCount, activePoint] = await Promise.all([
     prisma.solutionOperation.findMany({ where: { ...scope, kind: { in: lifecycle } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 30 }),
     prisma.solutionOperation.findMany({ where: { ...scope, kind: "landing-publish", targetId: { in: recentVersions.map(v => v.id) } }, select: { targetId: true }, distinct: ["targetId"] }),
     publishedId ? prisma.solutionOperation.findFirst({
@@ -71,21 +73,32 @@ export default async function CampaignOperations({ params, searchParams }: {
         batch: { select: { name: true } }, campaignSite: { select: { name: true } },
       },
     }),
+    prisma.solutionTag.count({ where: { ...scope, status: "ACTIVE", recordId: null } }),
+    prisma.solutionTag.findFirst({
+      where: { ...scope, status: "ACTIVE", recordId: null }, select: { publicToken: true },
+    }),
   ]);
   const prior = new Set(everPublished.map(x => x.targetId));
   const approved = recentVersions.find(v => v.revision === landing?.revision);
   const expired = isPublicationExpired(landing?.expiresAt);
-  let variants = new Set<string>();
-  let validPublished = false;
-  if (landing?.publishedVersion) {
-    try {
-      const published = validateCampaignContent(landing.publishedVersion.content);
-      variants = new Set(published.variants.map(v => v.siteId));
-      validPublished = true;
-    } catch { /* Match the public resolver's unavailable state. */ }
+  const publicationState = campaignPublication(landing);
+  const state = publicationState.state;
+  const variants = new Set(state === "published" ? publicationState.content.variants.map(variant => variant.siteId) : []);
+  const landingMode = state !== "external";
+  const live = state === "published" && project.status === "ACTIVE";
+  let externalAvailable = false;
+  if (!landingMode) {
+    try { externalAvailable = !!campaignDestination(project.destinationUrl ?? ""); } catch { /* Missing or invalid destination. */ }
   }
-  const live = !!publishedId && validPublished && !expired && project.status === "ACTIVE";
-  const landingMode = landing?.destination === "LANDING";
+  const canPublish = !!approved && !prior.has(approved.id);
+  const next = state === "published" && project.status !== "ACTIVE" ? {
+    label: "Ir a la activación", href: href + "#configuracion",
+    note: "La landing ya está publicada. Solo falta activar el proyecto para habilitar su acceso desde los puntos activos.",
+  } : state === "published" ? undefined
+    : !landing ? { label: "Preparar y guardar borrador", href: href + "/landing" }
+    : canPublish ? { label: "Ir a publicar la versión", href: "#aprobar-publicar" }
+    : !approved && !landingMode ? { label: "Ir a aprobar la versión", href: "#aprobar-publicar" }
+    : { label: "Revisar versiones", href: "#versiones" };
   const origin = process.env.VERCEL_ENV === "preview" && process.env.VERCEL_BRANCH_URL
     ? `https://${process.env.VERCEL_BRANCH_URL}`
     : process.env.NEXT_PUBLIC_APP_URL || "https://www.smartnfc.cl";
@@ -98,16 +111,14 @@ export default async function CampaignOperations({ params, searchParams }: {
       <div className="flex flex-wrap gap-4"><Link className={link} href={`/superadmin/soluciones?companyId=${encodeURIComponent(project.companyId)}`}>Ver proyectos</Link>
         <Link className={link} href={href}>Ver campaña</Link><Link className={link} href={href + "/landing"}>Editar landing</Link></div>
     </header>
-    <section className={card} aria-label="Estado de publicación">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">Estado de publicación</h2>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-800">{!landingMode ? "Redirección HTTPS" : expired && publishedId ? "Vencida" : live ? "Vigente" : publishedId ? "No disponible" : "Retirada o sin publicar"}</span></div>
-      <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div><dt>Proyecto</dt><dd className="font-semibold">{({ ACTIVE: "Activo", DRAFT: "Borrador", INACTIVE: "Suspendido" } as Record<string, string>)[project.status] ?? project.status}</dd></div>
-        <div><dt>Versión seleccionada</dt><dd className="font-semibold">{landing?.publishedVersion ? `v${landing.publishedVersion.revision}` : "—"}</dd></div>
+    <CampaignStatus project={project.status} landing={state} version={landing?.publishedVersion?.revision}
+      pointCount={pointCount} activeToken={activePoint?.publicToken} externalAvailable={externalAvailable} next={next} />
+    <section id="aprobar-publicar" className={card} aria-label="Estado de publicación">
+      <h2 className="text-lg font-semibold">Aprobación y publicación</h2>
+      <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
         <div><dt>Publicada o restaurada</dt><dd>{formatDate(publication?.createdAt)}</dd></div>
         <div><dt>Vencimiento</dt><dd>{formatDate(landing?.expiresAt)}</dd></div>
       </dl>
-      {project.status !== "ACTIVE" && <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">El proyecto debe estar activo para que sus puntos estén disponibles.</p>}
       {!landing && <p className="mt-3 text-sm">Guarda un borrador en el editor para habilitar la aprobación.</p>}
       {landing && <div className="mt-4 grid gap-3 md:grid-cols-2">
         {!approved && <Operation scope={scope} revision={landing.revision} action="approve" label="Aprobar borrador" />}
@@ -119,7 +130,7 @@ export default async function CampaignOperations({ params, searchParams }: {
         </Operation>}
       </div>}
     </section>
-    <section className={card} aria-label="Historial de versiones">
+    <section id="versiones" className={card} aria-label="Historial de versiones">
       <h2 className="text-lg font-semibold">Versiones recientes</h2>
       <div className="mt-3 grid gap-3 md:grid-cols-2">{recentVersions.map(version => <div key={version.id} className="space-y-2 rounded border p-3 text-sm">
         <p className="font-semibold">v{version.revision} · {version.id === publishedId ? "Seleccionada" : prior.has(version.id) ? "Publicada anteriormente" : "Aprobada"}</p>

@@ -7,6 +7,9 @@ import QRCode from "qrcode";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { updateSolution } from "../project-actions";
+import CampaignStatus from "./CampaignStatus";
+import { campaignPublication } from "../../../../lib/soluciones/campaign-activation";
+import { campaignDestination } from "../../../../lib/soluciones/destination";
 import CsvImportForm from "./CsvImportForm";
 
   function Editor({ project, operation, targetId, children }: {
@@ -48,7 +51,7 @@ import CsvImportForm from "./CsvImportForm";
 export const dynamic = "force-dynamic";
 export default async function SolutionProjectAdmin({ params, searchParams }: {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ error?: string; qr?: string; location?: string; template?: string }>
+  searchParams: Promise<{ error?: string; saved?: string; qr?: string; location?: string; template?: string }>
 }) {
   await requireSuperAdmin();
   const { projectId } = await params;
@@ -58,6 +61,7 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
     where: { id: projectId, company: { isActive: true } },
     select: {
       id:true, name:true, companyId:true, mode:true, status:true, revision:true, destinationUrl:true,
+      campaignLanding: { select: { destination: true, expiresAt: true, publishedVersion: { select: { content: true, revision: true } } } },
       batches: { orderBy:{createdAt:"desc"}, take:50 },
       tags: { select:{ id:true, publicToken:true, status:true, batchId:true, record:{ select:{ externalCode:true } } }, orderBy:[{createdAt:"desc"}, {id:"asc"}], take:500 },
       templates: { select: { id:true, code:true, name:true, version:true, fields:true }, orderBy:{ createdAt:"desc" }, take:50 },
@@ -66,7 +70,21 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
     }
   });
   if (!project) notFound();
-  const { error } = filters;
+  const { error, saved } = filters;
+  const campaign = project.mode === "CAMPAIGN";
+  const { state } = campaignPublication(project.campaignLanding);
+  const internal = state !== "external";
+  const canActivate = !internal || state === "published";
+  const projectHref = `/superadmin/soluciones/${projectId}`;
+  const where = { projectId, companyId: project.companyId, status: "ACTIVE" as const, recordId: null };
+  const [pointCount, activePoint] = campaign ? await Promise.all([
+    prisma.solutionTag.count({ where }),
+    prisma.solutionTag.findFirst({ where, select: { publicToken: true } }),
+  ]) : [0, null];
+  let externalAvailable = false;
+  if (campaign && !internal) {
+    try { externalAvailable = !!campaignDestination(project.destinationUrl ?? ""); } catch { /* Missing or invalid destination. */ }
+  }
   const qrTag = project.tags.find(tag => tag.id === filters.qr);
   const previewHost = process.env.VERCEL_ENV === "preview" ? process.env.VERCEL_BRANCH_URL : undefined;
   const requestHost = (await headers()).get("host");
@@ -92,15 +110,24 @@ export default async function SolutionProjectAdmin({ params, searchParams }: {
       <span>{project._count.records} registros</span><span>{project._count.tags} etiquetas NFC</span>
     </div>
     {error && <p role="alert" className="rounded border border-red-500 p-3">{error}</p>}
-    <section className="space-y-3 rounded-lg border p-4">
+    {!error && (saved === "activated" || saved === "settings") && <p role="status" className="rounded border border-green-600 p-3">{saved === "activated" ? "Proyecto activado." : "Configuración guardada."}</p>}
+    {campaign && <CampaignStatus project={project.status} landing={state} version={project.campaignLanding?.publishedVersion?.revision}
+      pointCount={pointCount} activeToken={activePoint?.publicToken} externalAvailable={externalAvailable}
+      next={internal && !canActivate ? { label: "Revisar publicación", href: projectHref + "/publicacion" }
+        : project.status !== "ACTIVE" ? { label: "Ir a la activación", href: "#configuracion", note: internal
+          ? "La landing ya está publicada. Solo falta activar el proyecto para habilitar su acceso desde los puntos activos."
+          : "Configura una dirección HTTPS y activa el proyecto cuando esté listo." } : undefined} />}
+    <section id="configuracion" className="space-y-3 rounded-lg border p-4">
       <h2 className="font-bold">Configuración del proyecto</h2>
+      {campaign && internal && <p className="text-sm">Los puntos usarán la landing publicada de SmartNFC.</p>}
       <Editor project={project} operation="settings">
         <input aria-label="Nombre" name="name" required maxLength={120} defaultValue={project.name} className={fieldClass}/>
         <select aria-label="Estado del proyecto" name="status" defaultValue={project.status} className={fieldClass}>
-          <option value="DRAFT">Borrador</option><option value="ACTIVE">Activo</option><option value="INACTIVE">Suspendido</option>
+          <option value="DRAFT">Borrador</option>{(!campaign || project.status === "ACTIVE") && <option value="ACTIVE">Activo</option>}<option value="INACTIVE">Suspendido</option>
         </select>
-        {project.mode === "CAMPAIGN" && <input aria-label="Destino HTTPS" type="url" name="destination" placeholder="https://…" defaultValue={project.destinationUrl ?? ""} className={fieldClass}/>}
+        {campaign && !internal && <input aria-label="Destino HTTPS" type="url" name="destination" placeholder="https://…" defaultValue={project.destinationUrl ?? ""} className={fieldClass}/>}
         <button className={button}>Guardar proyecto</button>
+        {campaign && project.status !== "ACTIVE" && canActivate && <button className={button} name="activate" value="yes">Activar proyecto</button>}
       </Editor>
     </section>
     {project.mode === "CAMPAIGN" && <section className="space-y-3 rounded-lg border p-4">

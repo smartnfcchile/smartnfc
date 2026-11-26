@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../../../lib/prisma";
 import { requireSolutionsOperator } from "../../../lib/soluciones/access";
-import { campaignDestination } from "../../../lib/soluciones/destination";
+import { campaignSettingsDestination } from "../../../lib/soluciones/campaign-activation";
 import { generateSolutionToken } from "../../../lib/soluciones/tags";
 
 export async function updateSolution(form: FormData) {
@@ -28,14 +28,21 @@ export async function updateSolution(form: FormData) {
         data: { revision: { increment: 1 } },
       });
       if (!lock.count) throw new Error("El proyecto cambió. Recarga la página.");
-      const project = await tx.solutionProject.findFirstOrThrow({ where: projectScope });
+      const project = await tx.solutionProject.findFirstOrThrow({
+        where: projectScope,
+        include: { campaignLanding: { select: {
+          destination: true, expiresAt: true, publishedVersion: { select: { content: true } },
+        } } },
+      });
       if (operation === "settings") {
         const name = read("name");
-        const status = read("status");
+        const status = project.mode === "CAMPAIGN" && read("activate") === "yes" ? "ACTIVE" : read("status");
         if (name.length < 3 || name.length > 120 ||
             !["DRAFT", "ACTIVE", "INACTIVE"].includes(status)) throw new Error("Nombre o estado inválido.");
-        const destinationUrl = project.mode === "CAMPAIGN" && (read("destination") || status === "ACTIVE")
-          ? campaignDestination(read("destination")) : null;
+        const destinationUrl = project.mode === "CAMPAIGN" ? campaignSettingsDestination({
+          landing: project.campaignLanding, active: status === "ACTIVE",
+          requested: read("destination"), previous: project.destinationUrl,
+        }) : null;
         await tx.solutionProject.update({ where: { id: projectId }, data: { name, status, destinationUrl } });
       } else if (operation === "batch" && project.mode === "CAMPAIGN") {
         const name = read("name");
@@ -131,5 +138,9 @@ export async function updateSolution(form: FormData) {
   }
   revalidatePath(path);
   revalidatePath("/superadmin/soluciones");
+  if (operation === "settings") {
+    revalidatePath(path + "/publicacion");
+    redirect(path + (read("activate") === "yes" ? "?saved=activated" : "?saved=settings"));
+  }
   redirect(path);
 }

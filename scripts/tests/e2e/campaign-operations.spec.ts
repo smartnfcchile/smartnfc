@@ -66,6 +66,12 @@ test("SUPERADMIN publishes, assigns a site, withdraws and restores from the oper
     await expect(page.getByText("Publicada y vigente", { exact: true })).toBeVisible();
     expect(await publicStatus()).toBe(404);
     await page.screenshot({ path: join(evidence, "antes-activar-campana.png"), fullPage: true });
+    await prisma.campaignLanding.update({ where: { projectId }, data: { expiresAt: new Date(0) } });
+    await page.goto(route.replace("/publicacion", ""));
+    await expect(page.getByText("Vencida", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Activar proyecto" })).toHaveCount(0);
+    await prisma.campaignLanding.update({ where: { projectId }, data: { expiresAt: null } });
+    await page.goto(route);
     await page.getByRole("link", { name: "Ir a la activación" }).click();
     await expect(page.getByRole("heading", { name: "Destino: Landing SmartNFC" })).toBeVisible();
     await expect(page.getByLabel("Destino HTTPS")).toHaveCount(0);
@@ -108,6 +114,29 @@ test("SUPERADMIN publishes, assigns a site, withdraws and restores from the oper
     for (const label of ["Aprobación", "Publicación", "Asignación de sede", "Retirada", "Restauración"]) {
       await expect(page.getByRole("listitem").filter({ hasText: new RegExp("· " + label + "$") })).toBeVisible();
     }
+
+    const redirectProject = await prisma.solutionProject.create({
+      data: { companyId, mode: "CAMPAIGN", name: "Redirección ficticia", status: "DRAFT" },
+    });
+    const redirectTag = await prisma.solutionTag.create({
+      data: { companyId, projectId: redirectProject.id, status: "ACTIVE", publicToken: "redirect-activation-test-00000000000001" },
+    });
+    const redirectPath = "/s/" + redirectTag.publicToken;
+    await page.goto("/superadmin/soluciones/" + redirectProject.id);
+    await expect(page.getByRole("heading", { name: "Destino: Sitio web externo" })).toBeVisible();
+    await page.getByRole("button", { name: "Activar proyecto" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "dirección web HTTPS válida" })).toBeVisible();
+    expect((await request.get(redirectPath, { maxRedirects: 0 })).status()).toBe(404);
+    await page.getByLabel("Destino HTTPS").fill("http://example.com/unsafe");
+    await page.getByRole("button", { name: "Activar proyecto" }).click();
+    await expect(page.getByLabel("Destino HTTPS")).toHaveValue("");
+    await expect(page.getByRole("alert").filter({ hasText: "dirección web HTTPS válida" })).toBeVisible();
+    await page.getByLabel("Destino HTTPS").fill("https://example.com/redirect-ficticio");
+    await page.getByRole("button", { name: "Activar proyecto" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Proyecto activado." })).toBeVisible();
+    const response = await request.get(redirectPath, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(response.headers().location).toBe("https://example.com/redirect-ficticio");
   } finally {
     await context.close().catch(() => {});
   }

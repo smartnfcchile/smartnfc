@@ -1,0 +1,176 @@
+name: Neon Production PR 48
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Read-only diagnosis or application of the single pinned UV migration
+        required: true
+        type: choice
+        options: [diagnose, migrate]
+permissions:
+  contents: read
+concurrency:
+  group: neon-production-migrations
+  cancel-in-progress: false
+jobs:
+  production:
+    if: github.ref == 'refs/heads/main' && github.repository == 'smartnfcchile/smartnfc'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: neon-production-pr48
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: aa0dfedb6dfe4c4b4c07fc4e52521d0328bf6876
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Prepare pinned Prisma CLI without production credentials
+        run: |
+          test "$(git rev-parse HEAD)" = aa0dfedb6dfe4c4b4c07fc4e52521d0328bf6876
+          npm ci --no-audit --no-fund
+          ./node_modules/.bin/prisma generate
+      - name: Verify recovery and migrate only on explicit request
+        env:
+          OPERATION: ${{ inputs.operation }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          RECOVERY_DIRECT_URL: ${{ secrets.RECOVERY_DIRECT_URL }}
+          RECOVERY_HOST: ${{ vars.RECOVERY_HOST }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { createHash } = require('node:crypto');
+          const { spawnSync } = require('node:child_process');
+          const { PrismaClient } = require('@prisma/client');
+          const migration = '20261126193000_campaign_uv_cache';
+          const source = 'aa0dfedb6dfe4c4b4c07fc4e52521d0328bf6876';
+          const checksum = 'cf6cb2469baafccef59a456818cf71c116b9628241634eddee59a2ab8d86f37c';
+          const productionHost = 'ep-long-cloud-aqt2my7m.c-8.us-east-1.aws.neon.tech';
+          const sha256 = value => createHash('sha256').update(value).digest('hex');
+          let stage = 'inputs';
+
+          function direct(value, host) {
+            const url = new URL(value ?? '');
+            if (url.protocol !== 'postgresql:' || url.hostname !== host ||
+                url.pathname !== '/neondb' || (url.port && url.port !== '5432') ||
+                !url.username || !url.password || url.hash || url.searchParams.getAll('sslmode').length !== 1 ||
+                url.searchParams.get('sslmode') !== 'require' ||
+                [...url.searchParams.keys()].some(key => !['sslmode', 'channel_binding'].includes(key))) {
+              throw new Error('unexpected direct destination');
+            }
+            url.searchParams.set('connect_timeout', '8');
+            url.searchParams.set('options', '-c lock_timeout=5s -c statement_timeout=30s -c search_path=public');
+            return url.href;
+          }
+
+          function expectedHistory() {
+            if (spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout?.trim() !== source) {
+              throw new Error('source mismatch');
+            }
+            const dirs = fs.readdirSync('prisma/migrations', { withFileTypes: true }).filter(x => x.isDirectory());
+            const files = new Map(dirs.map(entry => {
+              const bytes = fs.readFileSync('prisma/migrations/' + entry.name + '/migration.sql');
+              const lf = bytes.toString('utf8').replace(/\r\n/g, '\n');
+              return [entry.name, new Set([sha256(bytes), sha256(lf), sha256(lf.replace(/\n/g, '\r\n'))])];
+            }));
+            if (dirs.length !== 29 || sha256(fs.readFileSync('prisma/migrations/' + migration + '/migration.sql')) !== checksum) {
+              throw new Error('migration manifest mismatch');
+            }
+            return files;
+          }
+
+          async function verify(url, files, applied, writePermissions = false) {
+            const client = new PrismaClient({ datasourceUrl: url, log: [] });
+            try {
+              return await client.$transaction(async tx => {
+                await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+                const [identity] = await tx.$queryRaw`
+                  SELECT current_database() = 'neondb' AND current_setting('transaction_read_only') = 'on'
+                    AND current_setting('lock_timeout') = '5s' AND current_setting('statement_timeout') = '30s'
+                    AND to_regclass('public."CampaignLanding"') IS NOT NULL AS valid,
+                    has_schema_privilege('public','CREATE')
+                    AND has_table_privilege('public._prisma_migrations','INSERT')
+                    AND has_table_privilege('public._prisma_migrations','UPDATE') AS can_write
+                `;
+                if (!identity?.valid || (writePermissions && !identity.can_write)) throw new Error('unexpected database identity');
+                const rows = await tx.$queryRaw`
+                  SELECT migration_name, checksum, finished_at IS NOT NULL AS finished,
+                    rolled_back_at IS NOT NULL AS rolled_back, applied_steps_count
+                  FROM public."_prisma_migrations" ORDER BY migration_name
+                `;
+                const seen = new Set();
+                for (const row of rows) {
+                  if (!row.finished || row.rolled_back || seen.has(row.migration_name) ||
+                      !files.get(row.migration_name)?.has(row.checksum)) throw new Error('unexpected migration history');
+                  seen.add(row.migration_name);
+                }
+                const pending = [...files.keys()].filter(name => !seen.has(name));
+                if (applied ? pending.length !== 0 || rows.length !== 29 :
+                    pending.length !== 1 || pending[0] !== migration || rows.length !== 28) {
+                  throw new Error('unexpected pending migrations');
+                }
+                const [schema] = await tx.$queryRaw`
+                  SELECT to_regclass('public."CampaignUvCache"') IS NOT NULL AS cache,
+                    to_regclass('public."CampaignUvProviderState"') IS NOT NULL AS state
+                `;
+                if (schema.cache !== applied || schema.state !== applied) throw new Error('unexpected UV schema');
+                if (applied) {
+                  const registered = rows.find(row => row.migration_name === migration);
+                  if (registered?.checksum !== checksum || registered.applied_steps_count !== 1) throw new Error('unexpected Prisma record');
+                  const constraints = await tx.$queryRaw`
+                    SELECT conname FROM pg_constraint
+                    WHERE convalidated AND conname IN ('CampaignUvCache_slot_range', 'CampaignUvCache_payload_limit',
+                      'CampaignUvProviderState_singleton', 'CampaignUvCache_pkey', 'CampaignUvProviderState_pkey')
+                      AND conrelid IN ('public."CampaignUvCache"'::regclass, 'public."CampaignUvProviderState"'::regclass)
+                  `;
+                  const [index] = await tx.$queryRaw`
+                    SELECT EXISTS (
+                      SELECT 1 FROM pg_index WHERE indexrelid = to_regclass('public."CampaignUvCache_slot_key"')
+                        AND indrelid = 'public."CampaignUvCache"'::regclass AND indisunique AND indisvalid
+                        AND pg_get_indexdef(indexrelid, 1, true) = 'slot'
+                    ) AS valid
+                  `;
+                  if (constraints.length !== 5 || !index?.valid) throw new Error('UV constraints or index verification failed');
+                }
+                return rows;
+              }, { maxWait: 8000, timeout: 12000 });
+            } finally {
+              await client.$disconnect();
+            }
+          }
+
+          async function main() {
+            if (!['diagnose', 'migrate'].includes(process.env.OPERATION)) throw new Error('unsupported operation');
+            const host = process.env.RECOVERY_HOST ?? '';
+            // The environment reviewer must verify that this host belongs to br-rapid-mode-aq02006r.
+            if (!/^ep-[a-z0-9-]+(?:\.[a-z0-9-]+)+\.neon\.tech$/.test(host) || host.includes('-pooler') || host === productionHost) {
+              throw new Error('invalid recovery host');
+            }
+            const production = direct(process.env.DIRECT_URL, productionHost);
+            const recovery = direct(process.env.RECOVERY_DIRECT_URL, host);
+            const files = expectedHistory();
+            stage = 'recovery read-only validation';
+            const snapshot = await verify(recovery, files, false);
+            stage = 'production read-only validation';
+            const before = await verify(production, files, false, true);
+            if (JSON.stringify(snapshot) !== JSON.stringify(before)) throw new Error('recovery history differs');
+            console.log('Recovery and production have the same 28 completed migrations; only UV cache is pending');
+            if (process.env.OPERATION !== 'migrate') return;
+
+            stage = 'pinned Prisma migration';
+            const childEnv = { ...process.env, DATABASE_URL: production, DIRECT_URL: production };
+            delete childEnv.RECOVERY_DIRECT_URL;
+            const applied = spawnSync('./node_modules/.bin/prisma', ['migrate', 'deploy'], {
+              env: childEnv, encoding: 'utf8', timeout: 65000,
+            });
+            if (applied.status !== 0) throw new Error('Prisma deploy failed');
+            stage = 'post-migration read-only validation';
+            await verify(production, files, true);
+            console.log('Authorized UV migration recorded; both tables, constraints and unique slot index verified; zero pending migrations');
+          }
+          main().catch(() => {
+            console.error('PR 48 stopped at ' + stage + '. Inspect state before retrying.');
+            process.exitCode = 1;
+          });
+          NODE

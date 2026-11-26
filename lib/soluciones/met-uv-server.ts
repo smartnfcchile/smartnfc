@@ -52,9 +52,9 @@ async function lookup(latitude: number, longitude: number, signal: AbortSignal):
   // Round upward to avoid deleting a row that was actually used within seven days.
   const usedThrough = new Date((Math.floor(now / hour) + 1) * hour);
   const [snapshot] = await prisma.$queryRaw<{
-    paused: boolean | null; payload: Prisma.JsonValue; expiresAt: Date | null; lastUsedAt: Date | null;
+    paused: boolean | null; nextRequestAt: Date | null; nextCleanupAt: Date | null; payload: Prisma.JsonValue; expiresAt: Date | null; lastUsedAt: Date | null;
   }[]>`
-    SELECT state."paused", cache."payload", cache."expiresAt", cache."lastUsedAt"
+    SELECT state."paused", state."nextRequestAt", state."nextCleanupAt", cache."payload", cache."expiresAt", cache."lastUsedAt"
     FROM (VALUES (1)) AS singleton(id)
     LEFT JOIN "CampaignUvProviderState" state ON state."id" = singleton.id
     LEFT JOIN "CampaignUvCache" cache ON cache."locationKey" = ${locationKey}
@@ -66,7 +66,10 @@ async function lookup(latitude: number, longitude: number, signal: AbortSignal):
       where: { locationKey, lastUsedAt: { lt: usedThrough } }, data: { lastUsedAt: usedThrough },
     }).catch(() => {});
   }
-  if (signal.aborted || (current?.expiresAt && current.expiresAt.getTime() > now)) return usable(current, now);
+  if (signal.aborted || (current?.expiresAt && current.expiresAt.getTime() > now) ||
+      (snapshot?.nextRequestAt && snapshot.nextRequestAt.getTime() > now && snapshot.nextCleanupAt && snapshot.nextCleanupAt.getTime() > now)) {
+    return usable(current, now);
+  }
 
   try {
     return await prisma.$transaction(async tx => {

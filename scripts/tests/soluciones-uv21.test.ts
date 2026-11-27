@@ -115,6 +115,7 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
     assert.equal(calls, 1);
     const cached = await prisma.campaignUvCache.findUniqueOrThrow({ where: { locationKey: key } });
     assert.ok(cached.expiresAt && cached.expiresAt.getTime() >= Date.parse(providerExpires));
+    assert.ok(cached.expiresAt!.getTime() >= Date.now() + 3 * 3600000, "honor Chile's minimum refresh interval");
 
     await expire();
     mode = "304";

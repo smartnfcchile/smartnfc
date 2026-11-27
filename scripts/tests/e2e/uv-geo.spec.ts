@@ -116,3 +116,40 @@ for (const width of [320, 375, 390, 430]) {
     expect(baseline.overflows).toBe(false);
   });
 }
+
+
+test("hybrid content renders before a forecast and sends only the coarse phone cell", async ({ page, context }, info) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: -39.814235, longitude: -73.245912, accuracy: 30 });
+  let release!: () => void;
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  const sent: unknown[] = [];
+  await page.route("**/api/uv/forecast", async route => {
+    const body = route.request().postDataJSON() as { token: string; cell?: string };
+    sent.push(body);
+    if (!body.cell) await ready;
+    const now = new Date();
+    const at = new Date(now.getTime() - now.getTime() % 3600000).toISOString();
+    await route.fulfill({ json: {
+      status: "available", source: body.cell ? "phone" : "center",
+      series: { updatedAt: at, samples: [{ at, value: body.cell ? 7.2 : 4.3 }] },
+    } });
+  });
+  try {
+    await page.goto(path + "?mode=hybrid&transport=1");
+    await expect.poll(() => sent.length).toBe(1);
+    await expect(page.getByText("Contenido preventivo disponible.")).toBeVisible();
+    await expect(page.getByText("Sin datos de pronóstico para mostrar.")).toHaveCount(0);
+  } finally {
+    release();
+  }
+  const card = page.getByRole("region", { name: "Pronóstico UV" });
+  await expect(card.locator("strong").first()).toHaveText("4,3");
+  await page.getByRole("button", { name: "Usar mi ubicación" }).click();
+  await expect(card.locator("strong").first()).toHaveText("7,2");
+  await expect(card.getByRole("status")).toContainText("zona aproximada del teléfono");
+  await expect(card.getByText("SIMULADO", { exact: true })).toBeVisible();
+  expect(sent).toEqual([{ token: "x".repeat(32) }, { token: "x".repeat(32), cell: "v1:-3981:-7325" }]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await card.screenshot({ path: info.outputPath("stage3-simulated-phone-390.png") });
+});

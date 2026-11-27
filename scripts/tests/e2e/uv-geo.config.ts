@@ -5,10 +5,11 @@ export default defineConfig({
   testMatch: "uv-geo.spec.ts",
   outputDir: "../../../playwright-evidence",
   projects: [{ name: "chromium", use: { browserName: "chromium" } }, { name: "webkit", use: { browserName: "webkit" } }],
-  use: { baseURL: "http://127.0.0.1:3338" },
+  use: { baseURL: "https://127.0.0.1:3338", ignoreHTTPSErrors: true },
   webServer: {
-    command: "npm run start -- --hostname 127.0.0.1 --port 3338",
-    url: "http://127.0.0.1:3338/s/geo-fixture",
+    command: "node scripts/tests/e2e/uv-geo-https.mjs",
+    ignoreHTTPSErrors: true,
+    url: "https://127.0.0.1:3338/s/geo-fixture",
     timeout: 60000,
   },
 });

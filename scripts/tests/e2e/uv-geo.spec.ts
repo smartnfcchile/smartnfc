@@ -45,7 +45,9 @@ test("fixed, mobile and hybrid, with actual browser geolocation after a click", 
     await page.goto(path + "?mode=" + mode);
     await expect(page.getByRole("status")).toContainText("solo si lo autorizas");
     await page.getByRole("button", { name: "Usar mi ubicación" }).click();
-    await expect(page.getByRole("status")).toContainText("Ubicación obtenida");
+    await expect(page.getByRole("status")).toContainText("Ubicación obtenida. El pronóstico para el teléfono aún no está disponible.");
+    await expect(page.getByText("Origen: datos simulados para demostración.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "MET Norway" })).toHaveCount(0);
     await expect(page.getByText("Contenido preventivo disponible.")).toBeVisible();
     if (mode === "hybrid") await expect(page.getByText(/Centro de respaldo/)).toBeVisible();
     expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
@@ -73,6 +75,15 @@ for (const width of [320, 375, 390, 430]) {
     await expect(card).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     expect(await card.locator("svg path").count()).toBeGreaterThan(4);
+    await expect(card.getByText("7,2", { exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath(`uv-${width}.png`), fullPage: true });
+    await card.screenshot({ path: info.outputPath(`stage2-card-${width}.png`) });
+
+    await page.goto("/uv-stage1/index.html?estado=fallback");
+    const approved = page.locator(".uv");
+    await expect(approved.locator("#value")).toHaveText("7,2");
+    await expect(approved.locator(".gauge svg path")).toHaveCount(5);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    await approved.screenshot({ path: info.outputPath(`stage1-card-${width}.png`) });
   });
 }

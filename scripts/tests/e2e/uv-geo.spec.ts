@@ -75,7 +75,25 @@ for (const width of [320, 375, 390, 430]) {
     await expect(card).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     expect(await card.locator("svg path").count()).toBeGreaterThan(4);
-    await expect(card.getByText("7,2", { exact: true })).toBeVisible();
+    await expect(card.locator("strong").first()).toHaveText("7,2");
+    const inspectCard = (node: Element) => {
+      const gauge = node.querySelector("svg")!;
+      const value = node.querySelector("strong, #value")!;
+      const button = node.querySelector("button")!;
+      const box = node.getBoundingClientRect();
+      return {
+        background: getComputedStyle(node).backgroundImage,
+        foreground: getComputedStyle(node).color,
+        bands: [...gauge.querySelectorAll("path")].map(segment => segment.getAttribute("stroke")),
+        font: getComputedStyle(value).fontFamily,
+        valueSize: parseFloat(getComputedStyle(value).fontSize),
+        buttonSize: button.getBoundingClientRect().height,
+        buttonColor: getComputedStyle(button).color,
+        buttonBackground: getComputedStyle(button).backgroundColor,
+        overflows: node.scrollWidth > node.clientWidth || box.left < 0 || box.right > innerWidth,
+      };
+    };
+    const actual = await card.evaluate(inspectCard);
     await page.screenshot({ path: info.outputPath(`uv-${width}.png`), fullPage: true });
     await card.screenshot({ path: info.outputPath(`stage2-card-${width}.png`) });
 
@@ -85,5 +103,16 @@ for (const width of [320, 375, 390, 430]) {
     await expect(approved.locator(".gauge svg path")).toHaveCount(5);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     await approved.screenshot({ path: info.outputPath(`stage1-card-${width}.png`) });
+    const baseline = await approved.evaluate(inspectCard);
+    await info.attach("visual-comparison", { body: JSON.stringify({ width, baseline, actual }, null, 2), contentType: "application/json" });
+    expect(actual.background).toBe(baseline.background);
+    expect(actual.foreground).toBe(baseline.foreground);
+    expect(actual.bands).toEqual(baseline.bands);
+    expect(actual.buttonColor).toBe(baseline.buttonColor);
+    expect(actual.buttonBackground).toBe(baseline.buttonBackground);
+    expect(actual.buttonSize).toBeGreaterThanOrEqual(44);
+    expect(actual.valueSize).toBeGreaterThanOrEqual(44);
+    expect(actual.overflows).toBe(false);
+    expect(baseline.overflows).toBe(false);
   });
 }

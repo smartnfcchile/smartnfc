@@ -5,6 +5,7 @@ import { parseMetUv, type MetUvSeries } from "./met-uv";
 const hour = 60 * 60 * 1000;
 const retention = 7 * 24 * hour;
 const maxStale = 3 * hour;
+const minimumRefreshInterval = 3 * hour;
 const contact = "SmartNFC-UV/2.1 (+https://www.smartnfc.cl/)";
 const round = (value: number) => (Math.trunc(value * 10000) / 10000).toFixed(4);
 const payloadLimit = 16 * 1024;
@@ -118,7 +119,7 @@ async function lookup(latitude: number, longitude: number, signal: AbortSignal):
         if (bytes <= payloadLimit) {
           const data = {
             payload: model as Prisma.InputJsonValue,
-            expiresAt: new Date(Math.max(finished + 120000, Number.isFinite(expires) ? expires : finished + hour) + 60000),
+            expiresAt: new Date(Math.max(finished + minimumRefreshInterval, Number.isFinite(expires) ? expires : 0) + 60000),
             lastModified: lastModified && lastModified.length <= 64 && Number.isFinite(Date.parse(lastModified))
               ? lastModified : response.status === 304 ? entry?.lastModified ?? null : null,
             lastUsedAt: usedThrough,

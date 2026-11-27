@@ -2,6 +2,32 @@ import { expect, test } from "@playwright/test";
 
 const path = "/s/geo-fixture";
 
+test.beforeEach(async ({ page }, info) => {
+  const report = (kind: string, detail: string) => console.log(`[${info.project.name}] ${kind}: ${detail}`);
+  page.on("console", message => {
+    if (message.type() === "error" || message.text().startsWith("UV native click")) report("console", message.text());
+  });
+  page.on("pageerror", error => report("pageerror", error.message));
+  page.on("requestfailed", request => {
+    if (request.resourceType() === "script") report("script failed", `${request.url()} ${request.failure()?.errorText}`);
+  });
+  page.on("response", response => {
+    if (response.request().resourceType() === "script" && response.status() >= 400) {
+      report("script HTTP error", `${response.status()} ${response.url()}`);
+    }
+  });
+  await page.addInitScript(() => {
+    document.addEventListener("click", event => {
+      if (!(event.target instanceof Element) || !event.target.closest("button")) return;
+      console.info("UV native click", JSON.stringify({
+        secure: window.isSecureContext,
+        geolocation: typeof navigator.geolocation?.getCurrentPosition,
+        scripts: performance.getEntriesByType("resource").filter(entry => entry.name.includes("/_next/")).length,
+      }));
+    }, true);
+  });
+});
+
 test("policy headers limit geolocation to the public token route", async ({ request }) => {
   expect((await request.get(path)).headers()["permissions-policy"]).toContain("geolocation=(self)");
   expect((await request.get("/login")).headers()["permissions-policy"]).toContain("geolocation=()");

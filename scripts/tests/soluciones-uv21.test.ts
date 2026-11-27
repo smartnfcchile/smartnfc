@@ -177,7 +177,7 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
     }));
 
     await prisma.campaignUvCache.update({
-      where: { locationKey: "lab:2" }, data: { lastUsedAt: new Date(Date.now() - 8 * 24 * 3600000) },
+      where: { locationKey: "lab:2" }, data: { lastUsedAt: new Date(Date.now() - 8 * 24 * 3600000), expiresAt: new Date(0) },
     });
     await prisma.campaignUvProviderState.update({ where: state, data: { nextCleanupAt: new Date(0) } });
     mode = "ok";
@@ -187,6 +187,10 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
     assert.equal(calls, before + 1);
     await prisma.campaignUvCache.deleteMany({ where: { slot: { gt: 300 } } });
     await prisma.campaignUvProviderState.update({ where: state, data: { nextRequestAt: new Date(0) } });
+    await prisma.campaignUvCache.update({
+      where: { locationKey: "lab:3" }, data: { lastUsedAt: new Date(Date.now() - 8 * 24 * 3600000) },
+    });
+    await prisma.campaignUvProviderState.update({ where: state, data: { nextCleanupAt: new Date(0) } });
     const callsBeforeReserve = calls;
     assert.equal(await forecastForCell("v1:-4400:-7200", true), null);
     assert.equal(calls, callsBeforeReserve);
@@ -196,6 +200,7 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
     assert.equal(calls, callsBeforeReserve + 1);
     assert.equal((await prisma.campaignUvCache.findUniqueOrThrow({ where: { locationKey: "v1:-4400:-7200" } })).slot, 301);
     assert.equal(await prisma.campaignUvCache.count(), 301);
+    assert.ok(await prisma.campaignUvCache.findUnique({ where: { locationKey: "lab:3" } }), "an early eviction would bypass the forecast refresh window");
     delete process.env.SMARTNFC_MET_UV_ENABLED;
     assert.equal(await forecastForCenter(-43, -72), null);
   } finally {

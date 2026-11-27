@@ -84,7 +84,10 @@ async function lookup(latitude: number, longitude: number, signal: AbortSignal, 
       });
       if (state.paused) return null;
       if (state.nextCleanupAt.getTime() <= at) {
-        await tx.campaignUvCache.deleteMany({ where: { lastUsedAt: { lte: new Date(at - retention) } } });
+        await tx.campaignUvCache.deleteMany({ where: {
+          lastUsedAt: { lte: new Date(at - retention) },
+          OR: [{ expiresAt: null }, { expiresAt: { lte: new Date(at) } }],
+        } });
         await tx.campaignUvProviderState.update({ where: { id: 1 }, data: { nextCleanupAt: new Date(at + hour) } });
       }
 

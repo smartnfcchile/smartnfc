@@ -1,0 +1,72 @@
+name: UV MET approved laboratory probe
+on:
+  push:
+    branches: [feature/uv-2-2-smartnfc-geo]
+    paths: ['.github/workflows/uv-met-approved-lab.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    if: github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Query each public cell once and verify local file cache
+        run: |
+          mkdir evidence
+          node --input-type=module <<'JS'
+          import {readFileSync, writeFileSync} from 'node:fs';
+          const points = [
+            ['Valdivia','-39.81','-73.25','America/Santiago'],
+            ['Queullin','-41.90','-72.91','America/Santiago'],
+            ['Puerto Aysen','-45.40','-72.69','America/Coyhaique'],
+            ['Antofagasta','-23.65','-70.40','America/Santiago'],
+          ];
+          const results = [];
+          let attempts=0;
+          for (const [name,lat,lon,timezone] of points) {
+            const result={name,lat,lon,timezone,attemptedAt:new Date().toISOString()};
+            try {
+              attempts++;
+              const res=await fetch('https://api.met.no/weatherapi/locationforecast/2.0/complete?'+new URLSearchParams({lat,lon}), {
+                redirect:'manual', signal:AbortSignal.timeout(15000),
+                headers:{'User-Agent':'SmartNFC-UV-Lab/2.2 (+https://www.smartnfc.cl/; smartnfcchile@gmail.com)','Accept':'application/json'},
+              });
+              result.http=res.status;
+              result.expires=res.headers.get('expires');
+              result.lastModified=res.headers.get('last-modified');
+              result.retryAfter=res.headers.get('retry-after');
+              if(res.ok){
+                const body=await res.json();
+                const path='evidence/'+name+'.json';
+                writeFileSync(path,JSON.stringify(body));
+                const cached=JSON.parse(readFileSync(path,'utf8'));
+                result.localCacheVerified=JSON.stringify(body)===JSON.stringify(cached);
+                result.updatedAt=cached.properties?.meta?.updated_at ?? null;
+                result.attribution=cached.properties?.meta?.units?.ultraviolet_index_clear_sky ? 'MET Norway / CC BY 4.0' : null;
+                const rows=cached.properties?.timeseries ?? [];
+                const date=new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'});
+                const today=date.format(new Date(result.attemptedAt));
+                const samples=rows.filter(row=>Number.isFinite(row.data?.instant?.details?.ultraviolet_index_clear_sky)&&row.data.instant.details.ultraviolet_index_clear_sky>=0).map(row=>({at:row.time,value:row.data.instant.details.ultraviolet_index_clear_sky}));
+                const daily=samples.filter(row=>date.format(new Date(row.at))===today);
+                result.forecastRows=rows.length;
+                result.uvRows=samples.length;
+                result.today=today;
+                result.todaySamples=daily;
+                result.todayMax=daily.length?Math.max(...daily.map(row=>row.value)):null;
+                result.current=samples.find(row=>Date.parse(row.at)<=Date.parse(result.attemptedAt)&&Date.parse(result.attemptedAt)-Date.parse(row.at)<3600000)??null;
+              }
+            }catch(error){result.error=error.name; result.cause=error.cause?.code;}
+            results.push(result);
+            if(result.http===429 || result.http===503 && result.retryAfter) break;
+          }
+          const report={attempts,source:'MET Norway Locationforecast 2.0 complete',license:'CC BY 4.0',results};
+          writeFileSync('evidence/report.json',JSON.stringify(report,null,2));
+          console.log(JSON.stringify(report));
+          JS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: uv-met-approved-lab-evidence
+          path: evidence
+          retention-days: 7

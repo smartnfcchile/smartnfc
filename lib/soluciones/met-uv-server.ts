@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
+import { parseForecastCell } from "./forecast-cell";
 import { parseMetUv, type MetUvSeries } from "./met-uv";
 
 const hour = 60 * 60 * 1000;
@@ -46,9 +47,9 @@ async function readMetResponse(response: Response) {
   }
 }
 
-async function lookup(latitude: number, longitude: number, signal: AbortSignal): Promise<MetUvSeries | null> {
+async function lookup(latitude: number, longitude: number, signal: AbortSignal, cell?: { key: string; mobile: boolean }): Promise<MetUvSeries | null> {
   const lat = round(latitude), lon = round(longitude);
-  const locationKey = lat + "," + lon;
+  const locationKey = cell?.key ?? lat + "," + lon;
   const now = Date.now();
   // Round upward to avoid deleting a row that was actually used within seven days.
   const usedThrough = new Date((Math.floor(now / hour) + 1) * hour);
@@ -92,9 +93,9 @@ async function lookup(latitude: number, longitude: number, signal: AbortSignal):
         return usable(entry, at);
       }
       const slot = entry?.slot ?? (await tx.$queryRaw<{ slot: number }[]>`
-        SELECT candidate AS slot FROM generate_series(1, 500) AS candidate
+        SELECT candidate AS slot FROM generate_series(1, ${cell?.mobile ? 300 : 500}) AS candidate
         WHERE NOT EXISTS (SELECT 1 FROM "CampaignUvCache" c WHERE c."slot" = candidate)
-        ORDER BY candidate LIMIT 1
+        ORDER BY CASE WHEN ${cell !== undefined && !cell.mobile} AND candidate > 300 THEN 0 ELSE 1 END, candidate LIMIT 1
       `)[0]?.slot;
       if (slot === undefined) return null;
 
@@ -144,13 +145,22 @@ async function lookup(latitude: number, longitude: number, signal: AbortSignal):
   }
 }
 
-export async function forecastForCenter(latitude: number, longitude: number): Promise<MetUvSeries | null> {
+export function forecastForCenter(latitude: number, longitude: number): Promise<MetUvSeries | null> {
+  return forecast(latitude, longitude);
+}
+
+export async function forecastForCell(key: string, mobile: boolean): Promise<MetUvSeries | null> {
+  const point = parseForecastCell(key);
+  return point ? forecast(point.latitude, point.longitude, { key, mobile }) : null;
+}
+
+async function forecast(latitude: number, longitude: number, cell?: { key: string; mobile: boolean }): Promise<MetUvSeries | null> {
   if (process.env.SMARTNFC_MET_UV_ENABLED !== "1") return null;
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      lookup(latitude, longitude, controller.signal),
+      lookup(latitude, longitude, controller.signal, cell),
       new Promise<null>(resolve => {
         timer = setTimeout(() => { controller.abort(); resolve(null); }, 2000);
       }),

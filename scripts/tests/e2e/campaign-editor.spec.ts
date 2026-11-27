@@ -304,7 +304,9 @@ test("UV demo renders at desktop and mobile widths and new blocks are editable",
     await page.getByRole("button", { name: "+ Pronóstico UV", exact: true }).click();
     await controls.getByLabel("Latitud", { exact: true }).fill("-41.88");
     await controls.getByLabel("Longitud", { exact: true }).fill("-72.92");
-    await expect(page.getByText("Pronóstico UV no disponible para este centro.", { exact: false })).toBeVisible();
+    const forecastPreview = page.getByRole("region", { name: "Pronóstico UV" });
+    await expect(forecastPreview.getByText("SIMULADO", { exact: true })).toBeVisible();
+    await expect(forecastPreview.getByText("Origen: datos simulados para demostración.", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "+ Video", exact: true }).click();
     await controls.getByLabel("Enlace HTTPS del video").fill("https://example.com/capacitacion");
     await controls.getByText("Usar URL HTTPS", { exact: true }).click();

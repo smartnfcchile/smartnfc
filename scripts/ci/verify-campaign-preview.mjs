@@ -3,7 +3,12 @@ const origins = new Map([
   ["feature/campaign-landing-stage-1", "https://smartnfc-git-feature-campaign-la-eae2ec-smartnfcchiles-projects.vercel.app"],
   ["feature/campaign-landing-editor-v1", "https://smartnfc-git-feature-campaign-la-993022-smartnfcchiles-projects.vercel.app"],
 ]);
-const origin = origins.get(branch);
+const uvPreview = branch === "feature/uv-2-2-smartnfc-geo";
+const branchHost = process.env.VERCEL_BRANCH_URL ?? "";
+const uvOrigin = /^smartnfc-git-[a-z0-9-]+-smartnfcchiles-projects\.vercel\.app$/.test(branchHost)
+  ? "https://" + branchHost
+  : undefined;
+const origin = uvPreview ? uvOrigin : origins.get(branch);
 const db = "smartnfc_laboratorio";
 const hosts = {
   DATABASE_URL: "ep-square-king-bflga6pu-pooler.c-5.us-west-2.aws.neon.tech",
@@ -42,7 +47,11 @@ async function diagnose() {
           SELECT current_database() = 'smartnfc_laboratorio'
             AND current_setting('transaction_read_only') = 'on'
             AND EXISTS (SELECT 1 FROM "Company" WHERE id = 'preview-fixture-a')
-            AND to_regclass('public."CampaignLanding"') IS NOT NULL AS verified
+            AND to_regclass('public."CampaignLanding"') IS NOT NULL
+            AND (NOT ${uvPreview} OR (
+              to_regclass('public."CampaignUvCache"') IS NOT NULL
+              AND to_regclass('public."CampaignUvProviderState"') IS NOT NULL
+            )) AS verified
         `;
         return row?.verified === true;
       }, { maxWait: 11000, timeout: 12000 });
@@ -59,7 +68,9 @@ async function diagnose() {
 }
 
 const disabled = ["RESEND_API_KEY", "EMAIL_FROM", "BLOB_READ_WRITE_TOKEN", "BLOB_STORE_ID", "BLOB_WEBHOOK_PUBLIC_KEY"];
-if (disabled.some(key => process.env[key] !== "") ||
+if (uvPreview) disabled.push("NEXT_PUBLIC_SALES_WHATSAPP");
+if ((uvPreview && process.env.SMARTNFC_MET_UV_ENABLED !== "0") ||
+    disabled.some(key => process.env[key] !== "") ||
     process.env.LOCAL_REPORT_EMAIL_MODE !== "disabled" ||
     !/^[A-Za-z0-9_-]{64}$/.test(process.env.NEXTAUTH_SECRET ?? "") ||
     !origin || process.env.NEXTAUTH_URL !== origin ||

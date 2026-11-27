@@ -1,0 +1,72 @@
+name: UV MET approved laboratory probe
+on:
+  push:
+    branches: [feature/uv-2-2-smartnfc-geo]
+    paths: ['.github/workflows/uv-met-approved-lab.yml']
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SMARTNFC_MET_UV_ENABLED: '0'
+      NEXT_TELEMETRY_DISABLED: '1'
+      DATABASE_URL: postgresql://fixture@127.0.0.1:1/disposable
+      DIRECT_URL: postgresql://fixture@127.0.0.1:1/disposable
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Replay captured MET data locally on the approved production card
+        run: |
+          secret="$(openssl rand -hex 32)"
+          printf '::add-mask::%s\n' "$secret"
+          printf 'NEXTAUTH_SECRET=%s\n' "$secret" >> "$GITHUB_ENV"
+          export NEXTAUTH_SECRET="$secret"
+          mkdir -p app/s/geo-fixture
+          cat > app/s/geo-fixture/page.tsx <<'EOF'
+          import CampaignUvPremium from "../../../components/soluciones/CampaignUvPremium";
+          const zones = {"Valdivia":"America/Santiago","Queullin":"America/Santiago","Puerto Aysen":"America/Coyhaique","Antofagasta":"America/Santiago"};
+          export default async function Page({searchParams}:{searchParams:Promise<{place?:string}>}) {
+            const {place}=await searchParams;
+            const name=place && Object.hasOwn(zones,place) ? place as keyof typeof zones : "Valdivia";
+            return <main className="mx-auto max-w-xl p-4"><CampaignUvPremium mode="fixed" title={name + " · Laboratorio"} token={"x".repeat(32)} timezone={zones[name]} /></main>;
+          }
+          EOF
+          cat > scripts/tests/e2e/uv-geo.spec.ts <<'EOF'
+          import { test, expect } from "@playwright/test";
+          const cases = [{"name":"Valdivia","tz":"America/Santiago","samples":[{"at":"2026-11-27T14:00:00Z","value":7},{"at":"2026-11-27T15:00:00Z","value":9.4},{"at":"2026-11-27T16:00:00Z","value":10.8},{"at":"2026-11-27T17:00:00Z","value":10.9},{"at":"2026-11-27T18:00:00Z","value":9.5},{"at":"2026-11-27T19:00:00Z","value":7.2},{"at":"2026-11-27T20:00:00Z","value":4.6},{"at":"2026-11-27T21:00:00Z","value":2.4},{"at":"2026-11-27T22:00:00Z","value":0.9},{"at":"2026-11-27T23:00:00Z","value":0.2},{"at":"2026-11-28T00:00:00Z","value":0},{"at":"2026-11-28T01:00:00Z","value":0},{"at":"2026-11-28T02:00:00Z","value":0}],"updatedAt":"2026-11-27T13:16:50Z","at":"2026-11-27T14:57:50.111Z","max":10.9,"current":7},{"name":"Queullin","tz":"America/Santiago","samples":[{"at":"2026-11-27T14:00:00Z","value":7},{"at":"2026-11-27T15:00:00Z","value":9.2},{"at":"2026-11-27T16:00:00Z","value":10.4},{"at":"2026-11-27T17:00:00Z","value":10.4},{"at":"2026-11-27T18:00:00Z","value":9.1},{"at":"2026-11-27T19:00:00Z","value":7},{"at":"2026-11-27T20:00:00Z","value":4.5},{"at":"2026-11-27T21:00:00Z","value":2.3},{"at":"2026-11-27T22:00:00Z","value":0.9},{"at":"2026-11-27T23:00:00Z","value":0.2},{"at":"2026-11-28T00:00:00Z","value":0},{"at":"2026-11-28T01:00:00Z","value":0},{"at":"2026-11-28T02:00:00Z","value":0}],"updatedAt":"2026-11-27T13:16:35Z","at":"2026-11-27T14:57:50.805Z","max":10.4,"current":7},{"name":"Puerto Aysen","tz":"America/Coyhaique","samples":[{"at":"2026-11-27T14:00:00Z","value":6.8},{"at":"2026-11-27T15:00:00Z","value":8.9},{"at":"2026-11-27T16:00:00Z","value":10.2},{"at":"2026-11-27T17:00:00Z","value":10.3},{"at":"2026-11-27T18:00:00Z","value":9.1},{"at":"2026-11-27T19:00:00Z","value":7},{"at":"2026-11-27T20:00:00Z","value":4.6},{"at":"2026-11-27T21:00:00Z","value":2.5},{"at":"2026-11-27T22:00:00Z","value":1},{"at":"2026-11-27T23:00:00Z","value":0.3},{"at":"2026-11-28T00:00:00Z","value":0},{"at":"2026-11-28T01:00:00Z","value":0},{"at":"2026-11-28T02:00:00Z","value":0}],"updatedAt":"2026-11-27T13:16:51Z","at":"2026-11-27T14:57:50.973Z","max":10.3,"current":6.8},{"name":"Antofagasta","tz":"America/Santiago","samples":[{"at":"2026-11-27T14:00:00Z","value":9.4},{"at":"2026-11-27T15:00:00Z","value":12.7},{"at":"2026-11-27T16:00:00Z","value":14.4},{"at":"2026-11-27T17:00:00Z","value":14.1},{"at":"2026-11-27T18:00:00Z","value":11.8},{"at":"2026-11-27T19:00:00Z","value":8.3},{"at":"2026-11-27T20:00:00Z","value":4.7},{"at":"2026-11-27T21:00:00Z","value":1.9},{"at":"2026-11-27T22:00:00Z","value":0.5},{"at":"2026-11-27T23:00:00Z","value":0},{"at":"2026-11-28T00:00:00Z","value":0},{"at":"2026-11-28T01:00:00Z","value":0},{"at":"2026-11-28T02:00:00Z","value":0}],"updatedAt":"2026-11-27T13:16:50Z","at":"2026-11-27T14:57:51.139Z","max":14.4,"current":9.4}];
+          for (const point of cases) test(point.name, async ({page}, info) => {
+            await page.setViewportSize({width:390,height:844});
+            await page.route("**/*", async route => {
+              if (new URL(route.request().url()).hostname !== "127.0.0.1") return route.abort();
+              if (route.request().url().endsWith("/api/uv/forecast")) return route.fulfill({json:{
+                status:"available",source:"center",series:{updatedAt:point.updatedAt,samples:point.samples},
+              }});
+              await route.continue();
+            });
+            await page.clock.setFixedTime(new Date(point.at));
+            await page.goto("/s/geo-fixture?place="+encodeURIComponent(point.name));
+            const card=page.getByRole("region",{name:"Pronóstico UV"});
+            await expect(card.locator("strong").first()).toHaveText(new Intl.NumberFormat("es-CL",{maximumFractionDigits:1}).format(point.current));
+            await expect(card.getByText(new Intl.NumberFormat("es-CL",{maximumFractionDigits:1}).format(point.max),{exact:true}).first()).toBeVisible();
+            await expect(card.getByRole("link",{name:"MET Norway"})).toBeVisible();
+            await expect(card.getByText("SIMULADO",{exact:true})).toHaveCount(0);
+            await card.screenshot({path:info.outputPath(point.name.replaceAll(" ","-")+".png")});
+          });
+          EOF
+          npm run build
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npx --no-install playwright test --config scripts/tests/e2e/uv-geo.config.ts --project chromium --workers=1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: uv-met-real-data-card-screenshots
+          path: playwright-evidence
+          retention-days: 7

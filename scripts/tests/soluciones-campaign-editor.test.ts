@@ -1,11 +1,11 @@
 import "./helpers/test-database";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from "node:module";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { validateCampaignContent, type CampaignContent } from "../../lib/soluciones/campaign-content";
 import { campaignForSite, newCampaignBlock, removeBlockOverrides, updateSiteVariant } from "../../lib/soluciones/campaign-editor";
-import CampaignPreview from "../../app/superadmin/soluciones/[projectId]/landing/CampaignPreview";
 
 const hero = newCampaignBlock("hero", "hero");
 const text = { id: "text", type: "text", hidden: false, text: "Base" } as const;
@@ -38,7 +38,17 @@ test("mobile preview omits hidden blocks and renders text without navigation or 
       { id: "btn", type: "button", text: "Más", href: "https://example.com", hidden: false },
     ],
   };
-  const html = renderToStaticMarkup(createElement(CampaignPreview, { content, siteId: "" }));
+  const requireForTest = createRequire(import.meta.url);
+  const previousCssLoader = requireForTest.extensions[".css"];
+  requireForTest.extensions[".css"] = module => { module.exports = {}; };
+  let html: string;
+  try {
+    const CampaignPreview = requireForTest("../../app/superadmin/soluciones/[projectId]/landing/CampaignPreview").default;
+    html = renderToStaticMarkup(createElement(CampaignPreview, { content, siteId: "" }));
+  } finally {
+    if (previousCssLoader) requireForTest.extensions[".css"] = previousCssLoader;
+    else delete requireForTest.extensions[".css"];
+  }
   assert.match(html, /&lt;script&gt;visible/);
   assert.doesNotMatch(html, /Never render me|<script|<a |http:\/\/example\.com/);
   assert.match(html, /Vista previa móvil|Vista previa del borrador/);

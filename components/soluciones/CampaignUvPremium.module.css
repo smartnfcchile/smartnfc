@@ -1,0 +1,24 @@
+.card{min-width:0;overflow-wrap:anywhere;border-radius:23px;padding:15px;color:white;background:radial-gradient(ellipse at 55% 7%,#214666,#102743 64%);box-shadow:0 12px 30px #10274340}
+.top{display:flex;justify-content:space-between;align-items:start;gap:8px}
+.top h2{font-size:23px;font-weight:800;line-height:1.08}
+.top small,.card p[role="status"],.legal,.values dt{font-size:11px;color:#dbe8f2}
+.top span{flex:none;font-size:9px;letter-spacing:.06em;font-weight:800;border:1px solid #8ba1b9;border-radius:20px;padding:4px 6px}
+.gauge{position:relative;width:min(100%,230px);margin:8px auto 0}
+.gauge svg{display:block;width:100%}
+.gauge div{position:absolute;inset:24% 0 auto;text-align:center}
+.gauge strong{display:block;font-size:clamp(44px,14vw,66px);letter-spacing:-.075em;line-height:1}
+.gauge small{font-size:9px;letter-spacing:.08em;font-weight:800}
+.risk{background:var(--risk,#315571);color:var(--risk-ink,#fff);text-align:center;font-weight:800;padding:6px;border-radius:8px;margin:0 0 8px}
+.values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.values div,.tip{background:#203b57;border-radius:9px;padding:7px 8px}
+.values dd{font-size:20px;font-weight:800}
+.chart{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.chart li{display:flex;flex:1 1 31px;flex-direction:column;align-items:center;justify-content:end;font-size:10px;font-variant-numeric:tabular-nums}
+.chart i{width:12px;border-radius:4px 4px 0 0;background:#f9b546}
+.card button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin-top:9px;border-radius:10px;background:#fff;color:#102743;font-weight:750}
+.card button:disabled{opacity:.7}
+.card button:focus-visible{outline:3px solid #ffcf56;outline-offset:2px}
+.card p[role="status"],.tip,.legal{margin-top:7px}
+.tip{border-left:3px solid #ffcf56;font-size:12px}
+.legal a{text-decoration:underline}
+

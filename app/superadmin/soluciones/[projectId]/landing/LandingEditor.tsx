@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { CampaignBlock, CampaignContent, CampaignDesign } from "../../../../../lib/soluciones/campaign-content";
 import { blockNames, campaignForSite, newCampaignBlock, removeBlockOverrides, updateSiteVariant } from "../../../../../lib/soluciones/campaign-editor";
+import type { LocationMode } from "../../../../../lib/soluciones/smartnfc-geo";
 import { addLandingSite, saveLanding } from "./actions";
 import CampaignRichFields from "./CampaignRichFields";
 import CampaignPreview from "./CampaignPreview";
@@ -38,8 +39,22 @@ function BlockFields({ scope, block, change }: { scope: { companyId: string; pro
     case "uv-forecast":
       return <>
         <label className={labelClass}>Nombre del centro<input className={inputClass} maxLength={120} value={block.title} onChange={e => change({ ...block, title: e.target.value })} /></label>
-        <p className="text-sm">Configura las coordenadas del centro. Puedes usar coordenadas distintas en cada variante de sede.</p>
-        {(["latitude", "longitude"] as const).map(key => <label key={key} className={labelClass}>{key === "latitude" ? "Latitud" : "Longitud"}
+        <label className={labelClass}>Modo de ubicación<select className={inputClass} value={block.locationMode ?? "fixed"} onChange={e => {
+          const next = { ...block, locationMode: e.target.value as LocationMode };
+          if (next.locationMode === "mobile") {
+            delete next.latitude;
+            delete next.longitude;
+          }
+          change(next);
+        }}>
+          <option value="fixed">Fijo · ubicación del centro</option>
+          <option value="mobile">Móvil · ubicación del teléfono</option>
+          <option value="hybrid">Híbrido · teléfono con respaldo del centro</option>
+        </select></label>
+        <p className="text-sm">{block.locationMode === "mobile"
+          ? "Se solicita permiso cuando el visitante pulsa el botón."
+          : "Puedes configurar coordenadas por sede. El modo híbrido requiere ambas coordenadas."}</p>
+        {block.locationMode !== "mobile" && (["latitude", "longitude"] as const).map(key => <label key={key} className={labelClass}>{key === "latitude" ? "Latitud" : "Longitud"}
           <input className={inputClass} type="number" step="any" min={key === "latitude" ? -90 : -180} max={key === "latitude" ? 90 : 180} value={block[key] ?? ""} onChange={e => {
             const next = { ...block };
             if (e.target.value === "") delete next[key];

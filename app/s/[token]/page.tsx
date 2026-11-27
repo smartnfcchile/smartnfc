@@ -1,5 +1,3 @@
-import { forecastForCenter } from "../../../lib/soluciones/met-uv-server";
-import type { MetUvSeries } from "../../../lib/soluciones/met-uv";
 import CampaignLandingContent from "../../../components/soluciones/CampaignLandingContent";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
@@ -19,14 +17,8 @@ export default async function PublicSolutionPage({ params }: {
   if (!record) notFound();
   if (record.kind === "campaign") redirect(record.destination);
   if (record.kind === "campaignLanding") {
-    const forecasts: Record<string, MetUvSeries> = {};
-    for (const block of record.blocks) {
-      if (block.type !== "uv-forecast" || block.latitude === undefined || block.longitude === undefined) continue;
-      const forecast = await forecastForCenter(block.latitude, block.longitude);
-      if (forecast) forecasts[block.id] = forecast;
-    }
     return <main className="min-h-screen bg-slate-50 p-4 sm:p-8">
-    <div className="mx-auto max-w-xl"><CampaignLandingContent design={record.design} blocks={record.blocks} forecasts={forecasts} forecastAt={new Date().toISOString()} /></div>
+    <div className="mx-auto max-w-xl"><CampaignLandingContent design={record.design} blocks={record.blocks} uvToken={process.env.SMARTNFC_MET_UV_ENABLED === "1" ? token : undefined} /></div>
   </main>;
   }
   return <main className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8">

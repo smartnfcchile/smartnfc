@@ -1,3 +1,4 @@
+import { LOCATION_MODES, type LocationMode } from "./smartnfc-geo";
 import { safeDestination } from "../local/safe-url";
 
 const hasText = (value: unknown, max: number): value is string =>
@@ -33,7 +34,7 @@ function card(value: Record<string, unknown>) {
 
 export type CampaignBlock =
   | CampaignRichBlock
-  | { id: string; hidden: boolean; type: "uv-forecast"; title: string; latitude?: number; longitude?: number; timezone: "America/Santiago" | "America/Coyhaique" | "America/Punta_Arenas" }
+  | { id: string; hidden: boolean; type: "uv-forecast"; title: string; locationMode?: LocationMode; latitude?: number; longitude?: number; timezone: "America/Santiago" | "America/Coyhaique" | "America/Punta_Arenas" }
   | { id: string; hidden: boolean; type: "video"; title: string; href: string; thumbnail: string }
   | { id: string; hidden: boolean; type: "hero"; text: string; subtitle?: string }
   | { id: string; hidden: boolean; type: "text"; text: string }
@@ -86,7 +87,10 @@ function validBlock(value: unknown): value is CampaignBlock {
     case "image":
       return exact(value, [...common, "src", "alt"]) && https(value.src) && hasText(value.alt, 240);
     case "uv-forecast":
-      return exact(value, [...common, "title", "latitude", "longitude", "timezone"]) &&
+      return exact(value, [...common, "title", "latitude", "longitude", "timezone", "locationMode"]) &&
+        (value.locationMode === undefined || LOCATION_MODES.some(mode => mode === value.locationMode)) &&
+        (value.locationMode !== "hybrid" || value.latitude !== undefined && value.longitude !== undefined) &&
+        (value.locationMode !== "mobile" || value.latitude === undefined && value.longitude === undefined) &&
         hasText(value.title, 120) && ["America/Santiago", "America/Coyhaique", "America/Punta_Arenas"].includes(String(value.timezone)) &&
         (value.latitude === undefined && value.longitude === undefined ||
           typeof value.latitude === "number" && Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90 &&
@@ -127,7 +131,7 @@ export function validateCampaignContent(value: unknown): CampaignContent {
     const block: unknown = rawBlocks[index];
     if (object(block)) {
       const invalid = block.type === "image" ? (!https(block.src) ? "URL HTTPS de la imagen" : "texto alternativo")
-        : block.type === "uv-forecast" ? "título, latitud, longitud y zona horaria"
+        : block.type === "uv-forecast" ? "título, modo de ubicación, latitud, longitud y zona horaria"
         : block.type === "video" ? (!https(block.thumbnail) ? "miniatura HTTPS" : !https(block.href) ? "enlace HTTPS" : "título")
         : block.type === "button" ? (!https(block.href) ? "destino HTTPS" : "texto del botón")
         : block.type === "indicator" && object(block.action) && !https(block.action.href) ? "destino HTTPS del botón"

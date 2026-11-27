@@ -16,7 +16,7 @@ export async function resolvePublicSolutionTag(token: string) {
   const tag = await prisma.solutionTag.findUnique({
     where: { publicToken: token },
     select: {
-      status: true, recordId: true, campaignSiteId: true,
+      status: true, recordId: true, campaignSiteId: true, companyId: true,
       project: { select: {
         name: true, mode: true, status: true, destinationUrl: true,
         campaignLanding: { select: { destination: true, expiresAt: true, publishedVersion: { select: { content: true } } } },
@@ -40,7 +40,7 @@ export async function resolvePublicSolutionTag(token: string) {
         const { design, blocks } = campaignForSite(approved, tag.campaignSiteId ?? "");
         const visible = blocks.filter(block => !block.hidden)
           .map((block, index) => ({ ...block, id: String(index) }));
-        return { kind: "campaignLanding" as const, design, blocks: visible };
+        return { kind: "campaignLanding" as const, companyId: tag.companyId, design, blocks: visible };
       } catch {
         return null;
       }

@@ -55,7 +55,7 @@ export default function CampaignUvPremium({ title, mode, reading, preview = fals
   return <section className={styles.card} aria-label="Pronóstico UV">
     <div className={styles.top}>
       <div><h2>Índice UV</h2><small>{title} · {mode === "mobile" ? "Teléfono" : mode === "hybrid" ? "Centro de respaldo" : "Ubicación del centro"}</small></div>
-      <span>{simulated ? "SIMULADO" : "PRONÓSTICO"}</span>
+      <span>{simulated ? "SIMULADO" : reading ? "PRONÓSTICO" : "SIN DATOS"}</span>
     </div>
     <div className={styles.gauge}>
       <svg viewBox="0 0 240 116" aria-hidden="true">
@@ -68,7 +68,7 @@ export default function CampaignUvPremium({ title, mode, reading, preview = fals
       </svg>
       <div><strong>{value === null ? "-" : format.format(value)}</strong><small>UV para esta hora</small></div>
     </div>
-    <p className={styles.risk} style={{ "--risk": band?.color, "--risk-ink": band?.ink } as CSSProperties}>{band ? `Riesgo ${band.label.toLowerCase()}` : "Pronóstico UV no disponible para este centro."}</p>
+    <p className={styles.risk} style={{ "--risk": band?.color, "--risk-ink": band?.ink } as CSSProperties}>{band ? `Riesgo ${band.label.toLowerCase()}` : mode === "mobile" ? "Pronóstico UV del teléfono no disponible." : "Pronóstico UV no disponible para este centro."}</p>
     <dl className={styles.values}>
       <div><dt>Hora local de referencia</dt><dd>{reading?.hour ?? "-"}</dd></div>
       <div><dt>Máximo diario previsto</dt><dd>{reading?.max == null ? "-" : format.format(reading.max)}</dd></div>
@@ -81,8 +81,9 @@ export default function CampaignUvPremium({ title, mode, reading, preview = fals
       {status === "located" ? "Actualizar mi ubicación" : "Usar mi ubicación"}
     </button><p role="status">{preview ? "La ubicación se solicita en la landing pública." : messages[status]}</p></>}
     <p className={styles.tip}>{tip}</p>
-    <p className={styles.legal}>Cielo despejado · Pronóstico, no medición real{simulated ? " · Valores simulados" : ""}. {reading?.updated && `Actualización: ${reading.updated}. `}
+    <p className={styles.legal}>{simulated ? "Origen: datos simulados para demostración." : reading ? <>
+      Cielo despejado · Pronóstico, no medición real. {reading.updated && `Actualización: ${reading.updated}. `}
       Fuente: <a href="https://www.met.no/en" rel="noreferrer">MET Norway</a> · <a href="https://creativecommons.org/licenses/by/4.0/" rel="noreferrer">CC BY 4.0</a>.
-    </p>
+    </> : "Sin datos de pronóstico para mostrar."}</p>
   </section>;
 }

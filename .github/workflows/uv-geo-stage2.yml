@@ -40,6 +40,8 @@ jobs:
       - run: |
           mkdir -p app/s/geo-fixture
           cp scripts/tests/e2e/uv-geo-fixture.tsx.txt app/s/geo-fixture/page.tsx
+          mkdir -p public/uv-stage1
+          cp -R demos/uv22/. public/uv-stage1/
           npm run build
       - run: npm run typecheck
       - run: npx --no-install eslint components/soluciones/CampaignUv*.tsx lib/soluciones/smartnfc-geo.ts scripts/tests/e2e/uv-geo*.ts scripts/tests/soluciones-uv-geo.test.ts

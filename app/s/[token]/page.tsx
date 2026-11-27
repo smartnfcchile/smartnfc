@@ -21,7 +21,7 @@ export default async function PublicSolutionPage({ params }: {
   if (record.kind === "campaignLanding") {
     const forecasts: Record<string, MetUvSeries> = {};
     for (const block of record.blocks) {
-      if (block.type !== "uv-forecast" || block.latitude === undefined || block.longitude === undefined) continue;
+      if (block.type !== "uv-forecast" || block.hidden || block.locationMode === "mobile" || block.latitude === undefined || block.longitude === undefined) continue;
       const forecast = await forecastForCenter(block.latitude, block.longitude);
       if (forecast) forecasts[block.id] = forecast;
     }

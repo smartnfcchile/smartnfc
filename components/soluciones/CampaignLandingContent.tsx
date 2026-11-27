@@ -33,7 +33,7 @@ export default function CampaignLandingContent({ design, blocks, preview = false
                 {block.subtitle && <p className="mt-2 break-words text-sm font-medium text-sky-200 sm:text-base">{block.subtitle}</p>}
               </section> : block.subtitle ? <section key={index} className="space-y-2"><Hero className="break-words text-2xl font-bold">{block.text}</Hero><p className="break-words text-sm text-slate-600">{block.subtitle}</p></section> : <Hero key={index} className={`whitespace-pre-wrap break-words border-l-4 pl-3 ${bold ? "text-3xl font-extrabold" : "text-2xl font-bold"}`} style={{ borderColor: design.color }}>{block.text}</Hero>;
               case "card": case "alert": case "indicator": case "risk-scale": case "card-group": return <CampaignRichContent key={index} block={block} preview={preview} />;
-              case "uv-forecast": return <CampaignUvForecast key={index} block={block} forecast={forecasts?.[block.id]} asOf={forecastAt} />;
+              case "uv-forecast": return <CampaignUvForecast key={index} block={block} forecast={forecasts?.[block.id]} asOf={forecastAt} preview={preview} />;
               case "video": return <section key={index} className="relative overflow-hidden rounded-2xl bg-slate-950">
                 <LandingImage src={block.thumbnail} demoSrc={demoMedia?.[block.thumbnail]} alt="" className="aspect-video w-full object-cover opacity-70" preview={preview} />
                 {preview ? <span className="absolute inset-x-3 bottom-3 rounded-lg bg-slate-950 p-2 text-center font-bold text-white">▶ {block.title}</span>

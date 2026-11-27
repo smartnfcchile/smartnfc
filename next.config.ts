@@ -54,6 +54,7 @@ const nextConfig: NextConfig = {
         { key: "Cache-Control", value: "private, no-store, max-age=0" },
         { key: "Referrer-Policy", value: "no-referrer" },
       ] },
+      { source: "/s/:token", headers: [{ key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=()" }] },
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }] },
       ...["/dashboard/:path*", "/superadmin/:path*"].map(source => ({
         source,

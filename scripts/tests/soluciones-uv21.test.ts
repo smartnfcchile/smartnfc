@@ -57,7 +57,7 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
   const { selectDisposableDatabase } = await import("./helpers/test-database");
   selectDisposableDatabase(process.env.CAMPAIGN_TEST_DATABASE_URL);
   const { prisma } = await import("../../lib/prisma");
-  const { forecastForCenter } = await import("../../lib/soluciones/met-uv-server");
+  const { forecastForCenter, forecastForCell } = await import("../../lib/soluciones/met-uv-server");
   const oldFlag = process.env.SMARTNFC_MET_UV_ENABLED;
   const oldFetch = globalThis.fetch;
   process.env.SMARTNFC_MET_UV_ENABLED = "1";
@@ -185,6 +185,17 @@ test("MET enforces capacity, retention and cross-request backoff on disposable P
     assert.equal(await prisma.campaignUvCache.count(), 500);
     assert.equal(await prisma.campaignUvCache.count({ where: { locationKey: "lab:2" } }), 0);
     assert.equal(calls, before + 1);
+    await prisma.campaignUvCache.deleteMany({ where: { slot: { gt: 300 } } });
+    await prisma.campaignUvProviderState.update({ where: state, data: { nextRequestAt: new Date(0) } });
+    const callsBeforeReserve = calls;
+    assert.equal(await forecastForCell("v1:-4400:-7200", true), null);
+    assert.equal(calls, callsBeforeReserve);
+    const center = await forecastForCell("v1:-4400:-7200", false);
+    assert.ok(center);
+    assert.deepEqual(await forecastForCell("v1:-4400:-7200", true), center);
+    assert.equal(calls, callsBeforeReserve + 1);
+    assert.equal((await prisma.campaignUvCache.findUniqueOrThrow({ where: { locationKey: "v1:-4400:-7200" } })).slot, 301);
+    assert.equal(await prisma.campaignUvCache.count(), 301);
     delete process.env.SMARTNFC_MET_UV_ENABLED;
     assert.equal(await forecastForCenter(-43, -72), null);
   } finally {

@@ -2,11 +2,11 @@
 import CampaignUvPremium from "../../../components/soluciones/CampaignUvPremium";
 import type { LocationMode } from "../../../lib/soluciones/smartnfc-geo";
 
-export default async function GeoFixture({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
-  const { mode } = await searchParams;
+export default async function GeoFixture({ searchParams }: { searchParams: Promise<{ mode?: string; transport?: string }> }) {
+  const { mode, transport } = await searchParams;
   const locationMode: LocationMode = mode === "fixed" || mode === "hybrid" ? mode : "mobile";
   return <main className="mx-auto max-w-xl p-4">
-    <CampaignUvPremium mode={locationMode} title="Centro ficticio" simulated reading={locationMode === "mobile" ? undefined : {
+    <CampaignUvPremium mode={locationMode} title="Centro ficticio" simulated token={transport ? "x".repeat(32) : undefined} reading={transport || locationMode === "mobile" ? undefined : {
       current: 7.2, max: 9.4, hour: "13:00", updated: "", chart: [{ at: "13:00", hour: "13:00", value: 7.2 }],
     }} />
     <p>Contenido preventivo disponible.</p>

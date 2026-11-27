@@ -31,6 +31,7 @@ function content(title: string) {
       { id: "place", type: "text", hidden: false, text: "Información corporativa" },
       { id: "hidden", type: "text", hidden: true, text: "HIDDEN_SECRET_CP2" },
       { id: "button", type: "button", hidden: false, text: "Guía ficticia", href: "https://example.com/uv" },
+      { id: "forecast", type: "uv-forecast", hidden: false, title: "Pronóstico del centro ficticio", latitude: -40, longitude: -72, timezone: "America/Santiago" },
     ],
     variants: [
       { siteId: a, color: "#047857", blocks: [{ id: "place", type: "text", hidden: false, text: "Punto de sombra · Sede Norte" }] },
@@ -64,6 +65,10 @@ test("anonymous public landing, stable token, isolated payload, revocation and l
   const record = await prisma.solutionRecord.create({ data: { ...assetScope, externalCode: "ASSET-CP2", templateId: template.id, status: "ACTIVE", data: { area: "Área ficticia", internal: "PRIVATE_ASSET_CP2" } } });
   await prisma.solutionTag.create({ data: { ...assetScope, recordId: record.id, publicToken: assetToken, status: "ACTIVE" } });
 
+  // A persisted cooldown simulates an outage without giving CI access to an external provider.
+  await prisma.campaignUvProviderState.create({
+    data: { id: 1, nextRequestAt: new Date(Date.now() + 600000), nextCleanupAt: new Date(Date.now() + 600000), failures: 3 },
+  });
   const points = prisma.campaignLanding;
   const setVersion = (id: string | null, expiresAt: Date | null = null) =>
     points.update({ where: { projectId }, data: { publishedVersionId: id, expiresAt } });
@@ -72,6 +77,20 @@ test("anonymous public landing, stable token, isolated payload, revocation and l
 
   const publicHtml = await request.get(route(landingToken));
   expect(publicHtml.status()).toBe(200);
+  expect(await publicHtml.text()).toContain("Pronóstico UV no disponible para este centro.");
+  await prisma.campaignUvCache.create({ data: {
+    locationKey: "-40.0000,-72.0000", slot: 1,
+    payload: { updatedAt: new Date().toISOString(), samples: [{ at: new Date().toISOString(), value: 5 }] },
+    expiresAt: new Date(Date.now() + 600000), lastUsedAt: new Date(),
+  } });
+  const available = await request.get(route(landingToken));
+  expect(available.status()).toBe(200);
+  expect(await available.text()).toContain("UV para esta hora");
+  await prisma.campaignUvProviderState.update({ where: { id: 1 }, data: { paused: true } });
+  const paused = await request.get(route(landingToken));
+  expect(paused.status()).toBe(200);
+  expect(await paused.text()).toContain("Pronóstico UV no disponible para este centro.");
+
   expect(publicHtml.headers()["cache-control"]).toContain("no-store");
   const html = await publicHtml.text();
   for (const privateValue of [companyId, projectId, a, b, v1, v2, "private-hero-id", "PRIVATE_APPROVER_CP2", "DRAFT_SECRET_CP2", "HIDDEN_SECRET_CP2", "OTHER_SITE_SECRET_CP2", "Protección UV · V2"]) {

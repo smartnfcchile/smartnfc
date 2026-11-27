@@ -113,7 +113,7 @@ export function saveCampaignDraft(input: DraftChange) {
   return campaignOperation(input, "landing-draft-save", async (tx, scope) => {
     const content = validateCampaignContent(input.content);
     const media = [...content.blocks, ...content.variants.flatMap(variant => variant.blocks)]
-      .flatMap(block => block.type === "image" ? [block.src] : []);
+      .flatMap(block => block.type === "image" ? [block.src] : block.type === "video" ? [block.thumbnail] : []);
     if (content.design.logo) media.push(content.design.logo);
     if (media.some(url => !belongsToCampaignImageScope(url, scope))) throw new Error("Imagen de otra campaña.");
 

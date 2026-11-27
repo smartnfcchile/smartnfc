@@ -2,6 +2,8 @@ import type { CampaignBlock, CampaignContent } from "./campaign-content";
 
 export const blockNames = {
   card: "Tarjeta informativa", indicator: "Indicador destacado", "risk-scale": "Escala de riesgo", alert: "Alerta preventiva", "card-group": "Grupo de tarjetas",
+  "uv-forecast": "Pronóstico UV",
+  video: "Video",
   hero: "Hero", text: "Texto", image: "Imagen", list: "Lista", faq: "Preguntas frecuentes", button: "Botón HTTPS",
 } as const;
 
@@ -21,6 +23,8 @@ export function newCampaignBlock(type: CampaignBlock["type"], id: string): Campa
     case "image": return { ...common, type, src: "", alt: "" };
     case "list": return { ...common, type, items: ["Nuevo elemento"] };
     case "faq": return { ...common, type, items: [{ question: "Nueva pregunta", answer: "Respuesta" }] };
+    case "uv-forecast": return { ...common, type, title: "Pronóstico UV del centro", timezone: "America/Santiago" };
+    case "video": return { ...common, type, title: "Ver video", href: "", thumbnail: "" };
     case "button": return { ...common, type, text: "Más información", href: "" };
   }
 }

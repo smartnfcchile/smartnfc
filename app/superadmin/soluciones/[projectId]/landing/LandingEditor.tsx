@@ -35,6 +35,28 @@ function BlockFields({ scope, block, change }: { scope: { companyId: string; pro
         <CampaignImageInput scope={scope} kind="image" value={block.src} label="URL HTTPS de la imagen" onChange={src => change({ ...block, src })} />
         <label className={labelClass}>Texto alternativo<input className={inputClass} maxLength={240} value={block.alt} onChange={e => change({ ...block, alt: e.target.value })} /></label>
       </>;
+    case "uv-forecast":
+      return <>
+        <label className={labelClass}>Nombre del centro<input className={inputClass} maxLength={120} value={block.title} onChange={e => change({ ...block, title: e.target.value })} /></label>
+        <p className="text-sm">Configura las coordenadas del centro. Puedes usar coordenadas distintas en cada variante de sede.</p>
+        {(["latitude", "longitude"] as const).map(key => <label key={key} className={labelClass}>{key === "latitude" ? "Latitud" : "Longitud"}
+          <input className={inputClass} type="number" step="any" min={key === "latitude" ? -90 : -180} max={key === "latitude" ? 90 : 180} value={block[key] ?? ""} onChange={e => {
+            const next = { ...block };
+            if (e.target.value === "") delete next[key];
+            else next[key] = Number(e.target.value);
+            change(next);
+          }} />
+        </label>)}
+        <label className={labelClass}>Hora local<select className={inputClass} value={block.timezone} onChange={e => change({ ...block, timezone: e.target.value as typeof block.timezone })}>
+          <option value="America/Santiago">Chile continental</option><option value="America/Coyhaique">Aysén</option><option value="America/Punta_Arenas">Magallanes</option>
+        </select></label>
+      </>;
+    case "video":
+      return <>
+        <label className={labelClass}>Título<input className={inputClass} maxLength={120} value={block.title} onChange={e => change({ ...block, title: e.target.value })} /></label>
+        <label className={labelClass}>Enlace HTTPS del video<input className={inputClass} maxLength={2048} type="url" value={block.href} onChange={e => change({ ...block, href: e.target.value })} /></label>
+        <CampaignImageInput scope={scope} kind="image" value={block.thumbnail} label="Miniatura HTTPS" onChange={thumbnail => change({ ...block, thumbnail })} />
+      </>;
     case "button":
       return <>
         <label className={labelClass}>Texto del botón<input className={inputClass} maxLength={120} value={block.text} onChange={e => change({ ...block, text: e.target.value })} /></label>

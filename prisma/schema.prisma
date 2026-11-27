@@ -1160,3 +1160,21 @@ model CampaignLandingSite {
   @@unique([id, projectId, companyId])
   @@unique([projectId, name])
 }
+
+
+model CampaignUvCache {
+  locationKey  String   @id @db.VarChar(24)
+  slot         Int      @unique
+  payload      Json?
+  expiresAt    DateTime?
+  lastModified String?  @db.VarChar(64)
+  lastUsedAt   DateTime
+}
+
+model CampaignUvProviderState {
+  id              Int      @id
+  nextRequestAt   DateTime
+  nextCleanupAt   DateTime
+  failures        Int      @default(0)
+  paused          Boolean  @default(false)
+}

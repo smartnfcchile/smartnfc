@@ -212,7 +212,7 @@ test("accepts additive UV demo blocks and enforces safe actions and protected va
 });
 
 
-test("UV forecast POST denies manipulated cells and enforces one shared PostgreSQL budget", {
+test("UV forecast POST traverses published points, cache and simulated provider with company budgets", {
   skip: !process.env.CAMPAIGN_TEST_DATABASE_URL,
 }, async () => {
   selectDisposableDatabase(process.env.CAMPAIGN_TEST_DATABASE_URL);
@@ -232,23 +232,78 @@ test("UV forecast POST denies manipulated cells and enforces one shared PostgreS
   for (const cell of ["v1:-03981:-7324", "v1:9001:0", "v1:0:18001"]) {
     assert.equal((await call({ token, cell })).status, 400);
   }
-  const scope = { keyHash: "shared", action: "uv-forecast", windowStart: new Date(0) };
+  async function publishPoint(companyId: string) {
+    const project = await prisma.solutionProject.create({
+      data: { name: "Laboratorio UV", companyId, mode: "CAMPAIGN", status: "ACTIVE" },
+    });
+    const draft = validateCampaignContent({ ...content, blocks: [...content.blocks, {
+      id: "uv", type: "uv-forecast", hidden: false, title: "Centro laboratorio",
+      latitude: -39.81, longitude: -73.25, timezone: "America/Santiago", locationMode: "hybrid",
+    }] });
+    await prisma.campaignLanding.create({ data: { projectId: project.id, companyId, draft } });
+    const version = await prisma.campaignLandingVersion.create({
+      data: { projectId: project.id, companyId, revision: 1, content: draft, approvedById: "ci-fixture" },
+    });
+    await prisma.campaignLanding.update({
+      where: { projectId: project.id }, data: { publishedVersionId: version.id, destination: "LANDING" },
+    });
+    return prisma.solutionTag.create({
+      data: { companyId, projectId: project.id, status: "ACTIVE", publicToken: generateSolutionToken() },
+    });
+  }
   const previousFlag = process.env.SMARTNFC_MET_UV_ENABLED;
+  const oldFetch = globalThis.fetch;
+  let providerCalls = 0;
+  const at = new Date().toISOString();
+  globalThis.fetch = async url => {
+    assert.equal(new URL(String(url)).hostname, "api.met.no");
+    providerCalls++;
+    return Response.json({ properties: { meta: { updated_at: at }, timeseries: [
+      { time: at, data: { instant: { details: { ultraviolet_index_clear_sky: 7.2 } } } },
+    ] } });
+  };
   try {
     process.env.SMARTNFC_MET_UV_ENABLED = "0";
     assert.equal((await call({ token })).status, 503);
-    // Prime the disposable counter in the future so this test cannot straddle a window rollover.
-    await prisma.publicRateLimit.create({ data: {
-      ...scope, count: 179, updatedAt: new Date(Date.now() + 60_000),
-    } });
-    // This route has no provider integration. The flag only exercises its admission checks.
+    const [owner, other] = await Promise.all([
+      prisma.company.create({ data: { name: "Laboratorio UV A" } }),
+      prisma.company.create({ data: { name: "Laboratorio UV B" } }),
+    ]);
+    const [point, secondPoint, otherPoint] = await Promise.all([
+      publishPoint(owner.id), publishPoint(owner.id), publishPoint(other.id),
+    ]);
     process.env.SMARTNFC_MET_UV_ENABLED = "1";
-    const responses = await Promise.all([call({ token }), call({ token })]);
-    assert.deepEqual(responses.map(response => response.status).sort(), [404, 429]);
-    assert.equal(await prisma.publicRateLimit.count({ where: { ...scope, count: 180 } }), 1);
+    assert.equal((await call({ token })).status, 404);
+    assert.equal(await prisma.publicRateLimit.count({ where: { action: "uv-forecast" } }), 0);
+
+    const centerResponse = await call({ token: point.publicToken });
+    assert.equal(centerResponse.status, 200);
+    assert.deepEqual(await centerResponse.json(), {
+      status: "available", source: "center", series: { updatedAt: at, samples: [{ at, value: 7.2 }] },
+    });
+    const key = "v1:-3981:-7325";
+    const cached = await prisma.campaignUvCache.findUniqueOrThrow({ where: { locationKey: key } });
+    assert.ok(cached.expiresAt && cached.expiresAt.getTime() >= Date.now() + 3 * 3600000);
+    const mobile = await call({ token: point.publicToken, cell: key });
+    assert.equal((await mobile.json()).source, "phone");
+    assert.equal(providerCalls, 1);
+
+    const ownerCounters = await prisma.publicRateLimit.findMany({ where: { action: "uv-forecast", keyHash: { not: "shared" } } });
+    assert.equal(ownerCounters.length, 1);
+    await prisma.publicRateLimit.update({ where: { id: ownerCounters[0].id }, data: { count: 29, updatedAt: new Date(Date.now() + 60_000) } });
+    const concurrent = await Promise.all([call({ token: point.publicToken }), call({ token: secondPoint.publicToken })]);
+    assert.deepEqual(concurrent.map(response => response.status).sort(), [200, 429]);
+    assert.equal((await call({ token: otherPoint.publicToken })).status, 200);
+    assert.equal(providerCalls, 1);
+    const shared = await prisma.publicRateLimit.findFirstOrThrow({ where: { action: "uv-forecast", keyHash: "shared" } });
+    assert.equal(shared.count, 4);
   } finally {
+    globalThis.fetch = oldFetch;
     if (previousFlag === undefined) delete process.env.SMARTNFC_MET_UV_ENABLED;
     else process.env.SMARTNFC_MET_UV_ENABLED = previousFlag;
-    await prisma.publicRateLimit.deleteMany({ where: scope });
+    await prisma.publicRateLimit.deleteMany({ where: { action: "uv-forecast" } });
+    await prisma.campaignUvCache.deleteMany();
+    await prisma.campaignUvProviderState.deleteMany();
+    await prisma.$disconnect();
   }
 });

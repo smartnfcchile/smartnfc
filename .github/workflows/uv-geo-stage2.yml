@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      DATABASE_URL: postgresql://fixture@127.0.0.1:1/disposable
-      DIRECT_URL: postgresql://fixture@127.0.0.1:1/disposable
+      DATABASE_URL: postgresql://uv_geo:ci-loopback-only@127.0.0.1:5432/uv_geo_disposable
+      DIRECT_URL: postgresql://uv_geo:ci-loopback-only@127.0.0.1:5432/uv_geo_disposable
       SMARTNFC_MET_UV_ENABLED: '0'
       NEXT_TELEMETRY_DISABLED: '1'
       LOCAL_REPORT_EMAIL_MODE: disabled
@@ -26,6 +26,12 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Prepare schema on disposable loopback PostgreSQL
+        run: |
+          expected='postgresql://uv_geo:ci-loopback-only@127.0.0.1:5432/uv_geo_disposable'
+          test "$DATABASE_URL" = "$expected"
+          test "$DIRECT_URL" = "$expected"
+          npm run db:migrate
       - name: Generate temporary authentication secret
         run: |
           secret="$(openssl rand -hex 32)"
@@ -37,9 +43,12 @@ jobs:
           npm run build
       - run: npm run typecheck
       - run: npx --no-install eslint components/soluciones/CampaignUv*.tsx lib/soluciones/smartnfc-geo.ts scripts/tests/e2e/uv-geo*.ts scripts/tests/soluciones-uv-geo.test.ts
-      - run: node --import tsx --test scripts/tests/soluciones-uv-geo.test.ts scripts/tests/soluciones-uv21.test.ts scripts/tests/soluciones-campaign-editor.test.ts scripts/tests/soluciones-campaign-landing.test.ts
+      - name: Run unit and PostgreSQL integration tests
+        env:
+          CAMPAIGN_TEST_DATABASE_URL: postgresql://uv_geo:ci-loopback-only@127.0.0.1:5432/uv_geo_disposable
+        run: node --import tsx --test scripts/tests/soluciones-uv-geo.test.ts scripts/tests/soluciones-uv21.test.ts scripts/tests/soluciones-campaign-editor.test.ts scripts/tests/soluciones-campaign-landing.test.ts
       - run: npx --no-install playwright install --with-deps chromium webkit
-      - run: npx --no-install playwright test --config scripts/tests/e2e/uv-geo.config.ts --workers=1
+      - run: npx --no-install playwright test --config scripts/tests/e2e/uv-geo.config.ts --workers=1 --trace=retain-on-failure
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

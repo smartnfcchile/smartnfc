@@ -33,8 +33,8 @@ const messages = {
 const format = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
 const point = (angle: number) => [120 - 96 * Math.cos(angle), 110 - 96 * Math.sin(angle)];
 
-export default function CampaignUvPremium({ title, mode, reading, preview = false }: {
-  title: string; mode: LocationMode; reading?: UvReading; preview?: boolean;
+export default function CampaignUvPremium({ title, mode, reading, preview = false, simulated = preview }: {
+  title: string; mode: LocationMode; reading?: UvReading; preview?: boolean; simulated?: boolean;
 }) {
   const [status, setStatus] = useState<GeoResult["status"] | "idle" | "locating">("idle");
   const value = reading?.current ?? null;
@@ -53,10 +53,10 @@ export default function CampaignUvPremium({ title, mode, reading, preview = fals
     setStatus(result);
   }
   return <section className={styles.card} aria-label="Pronóstico UV">
-    <header className={styles.top}>
+    <div className={styles.top}>
       <div><h2>Índice UV</h2><small>{title} · {mode === "mobile" ? "Teléfono" : mode === "hybrid" ? "Centro de respaldo" : "Ubicación del centro"}</small></div>
-      <span>{preview ? "SIMULADO" : "PRONÓSTICO"}</span>
-    </header>
+      <span>{simulated ? "SIMULADO" : "PRONÓSTICO"}</span>
+    </div>
     <div className={styles.gauge}>
       <svg viewBox="0 0 240 116" aria-hidden="true">
         {bands.map(({ color }, index) => {
@@ -81,7 +81,7 @@ export default function CampaignUvPremium({ title, mode, reading, preview = fals
       {status === "located" ? "Actualizar mi ubicación" : "Usar mi ubicación"}
     </button><p role="status">{preview ? "La ubicación se solicita en la landing pública." : messages[status]}</p></>}
     <p className={styles.tip}>{tip}</p>
-    <p className={styles.legal}>Cielo despejado · Pronóstico, no medición real{preview ? " · Valores simulados" : ""}. {reading?.updated && `Actualización: ${reading.updated}. `}
+    <p className={styles.legal}>Cielo despejado · Pronóstico, no medición real{simulated ? " · Valores simulados" : ""}. {reading?.updated && `Actualización: ${reading.updated}. `}
       Fuente: <a href="https://www.met.no/en" rel="noreferrer">MET Norway</a> · <a href="https://creativecommons.org/licenses/by/4.0/" rel="noreferrer">CC BY 4.0</a>.
     </p>
   </section>;

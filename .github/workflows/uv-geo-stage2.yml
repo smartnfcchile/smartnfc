@@ -9,6 +9,18 @@ jobs:
   isolated:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: uv_geo
+          POSTGRES_PASSWORD: ci-loopback-only
+          POSTGRES_DB: uv_geo_disposable
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U uv_geo -d uv_geo_disposable"
+          --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       DATABASE_URL: postgresql://uv_geo:ci-loopback-only@127.0.0.1:5432/uv_geo_disposable
       DIRECT_URL: postgresql://uv_geo:ci-loopback-only@127.0.0.1:5432/uv_geo_disposable

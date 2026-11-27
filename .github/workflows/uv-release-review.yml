@@ -64,6 +64,35 @@ jobs:
             expect((await page.goto("/superadmin"))?.status()).toBe(200);
             await expect(page.locator('input[type="password"]')).toBeVisible();
           });
+          
+          for (const [i,mode] of ["fixed","mobile","hybrid"].entries()) {
+            test(`published historical MET journey: ${mode}`, async ({page,context},info) => {
+              await context.grantPermissions(["geolocation"]);
+              await context.setGeolocation({latitude:-23.65094,longitude:-70.39752,accuracy:20});
+              await page.clock.setFixedTime(new Date("2026-11-27T16:05:00Z"));
+              const observations: string[] = [];
+              page.on("request", request => {
+                if (request.url().endsWith("/api/uv/forecast")) observations.push(request.postData() ?? "");
+              });
+              await page.goto("/s/"+String(i+1).repeat(32));
+              await expect(page.getByText("Contenido preventivo de laboratorio")).toBeVisible();
+              const card=page.getByRole("region",{name:"Pronóstico UV"});
+              await expect(card.getByText("27/11/2026",{exact:false})).toBeVisible();
+              if(mode!=="mobile") {
+                await expect(card.locator("strong").first()).toHaveText("14,4");
+                await expect(card.getByText(/Ubicación del centro|Centro de respaldo/)).toBeVisible();
+              }
+              if(mode!=="fixed"){
+                await card.getByRole("button",{name:"Usar mi ubicación"}).click();
+                await expect(card.getByRole("status")).toContainText("zona aproximada del teléfono");
+                expect(JSON.parse(observations.at(-1) ?? "{}").cell).toBe("v1:-2365:-7040");
+              }
+              await expect(card.locator("strong").first()).toHaveText("14,4");
+              await expect(card.getByText("Riesgo extremo",{exact:true})).toBeVisible();
+              await expect(card.getByRole("link",{name:"MET Norway"})).toBeVisible();
+              await card.screenshot({path:info.outputPath("historical-"+mode+".png")});
+            });
+          }
           EOF
           npm run build
       - run: npm run typecheck
@@ -74,7 +103,37 @@ jobs:
           CAMPAIGN_TEST_DATABASE_URL: postgresql://uv_geo:ci-loopback-only@127.0.0.1:5432/uv_geo_disposable
         run: node --import tsx --test --test-concurrency=1 scripts/tests/soluciones-uv-geo.test.ts scripts/tests/soluciones-uv21.test.ts scripts/tests/soluciones-campaign-editor.test.ts scripts/tests/soluciones-campaign-landing.test.ts
       - run: npx --no-install playwright install --with-deps chromium webkit
+      - name: Seed published laboratory points and install local historical MET replay
+        run: |
+          cat > uv-release-seed.mts <<'EOF'
+          import { prisma } from "./lib/prisma";
+          const company=await prisma.company.create({data:{name:"Laboratorio UV histórico"}});
+          for(const [i, mode] of ["fixed","mobile","hybrid"].entries()){
+            const project=await prisma.solutionProject.create({data:{name:mode,companyId:company.id,mode:"CAMPAIGN",status:"ACTIVE"}});
+            const block={id:"uv",type:"uv-forecast",hidden:false,title:"Antofagasta · demostración histórica 27/11/2026",timezone:"America/Santiago",locationMode:mode,...(mode==="mobile"?{}:{latitude:-23.65,longitude:-70.40})};
+            const draft={schemaVersion:1,design:{name:"Laboratorio UV",color:"#123456",font:"system",style:"clean"},blocks:[{id:"hero",type:"hero",hidden:false,text:"Contenido preventivo de laboratorio"},block],variants:[]};
+            const scope={projectId:project.id,companyId:company.id};
+            await prisma.campaignLanding.create({data:{...scope,draft}});
+            const version=await prisma.campaignLandingVersion.create({data:{...scope,revision:1,content:draft,approvedById:"ci-fixture"}});
+            await prisma.campaignLanding.update({where:{projectId:project.id},data:{publishedVersionId:version.id,destination:"LANDING"}});
+            await prisma.solutionTag.create({data:{...scope,status:"ACTIVE",publicToken:String(i+1).repeat(32)}});
+          }
+          await prisma.$disconnect();
+          EOF
+          node --import tsx uv-release-seed.mts
+          cat >> scripts/tests/e2e/uv-geo-https.mjs <<'EOF'
+
+          const labFetch=globalThis.fetch;
+          globalThis.fetch=async (input, init) => {
+            const url=new URL(input instanceof Request ? input.url : String(input));
+            if(url.hostname==="api.met.no") return Response.json({"properties":{"meta":{"updated_at":"2026-11-27T13:16:50Z"},"timeseries":[{"time":"2026-11-27T14:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":9.4}}}},{"time":"2026-11-27T15:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":12.7}}}},{"time":"2026-11-27T16:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":14.4}}}},{"time":"2026-11-27T17:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":14.1}}}},{"time":"2026-11-27T18:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":11.8}}}},{"time":"2026-11-27T19:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":8.3}}}},{"time":"2026-11-27T20:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":4.7}}}},{"time":"2026-11-27T21:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":1.9}}}},{"time":"2026-11-27T22:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":0.5}}}},{"time":"2026-11-27T23:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":0}}}},{"time":"2026-11-28T00:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":0}}}},{"time":"2026-11-28T01:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":0}}}},{"time":"2026-11-28T02:00:00Z","data":{"instant":{"details":{"ultraviolet_index_clear_sky":0}}}}]}});
+            if(!["127.0.0.1","localhost"].includes(url.hostname)) throw new Error("External fetch blocked in UV laboratory");
+            return labFetch(input,init);
+          };
+          EOF
       - run: npx --no-install playwright test --config scripts/tests/e2e/uv-geo.config.ts --workers=1 --trace=retain-on-failure
+        env:
+          SMARTNFC_MET_UV_ENABLED: '1'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

@@ -210,3 +210,45 @@ test("accepts additive UV demo blocks and enforces safe actions and protected va
   const reference = uvDemo.blocks.find(block => block.id === "reference")!;
   assert.throws(() => validateCampaignContent({ ...uvDemo, variants: [{ siteId: "site", blocks: [reference] }] }));
 });
+
+
+test("UV forecast POST denies manipulated cells and enforces one shared PostgreSQL budget", {
+  skip: !process.env.CAMPAIGN_TEST_DATABASE_URL,
+}, async () => {
+  selectDisposableDatabase(process.env.CAMPAIGN_TEST_DATABASE_URL);
+  const { prisma } = await import("../../lib/prisma");
+  const { POST } = await import("../../app/api/uv/forecast/route");
+  const { forecastCell } = await import("../../lib/soluciones/forecast-cell");
+  const { generateSolutionToken } = await import("../../lib/soluciones/tags");
+  const token = generateSolutionToken();
+  const url = "https://uv.example.test/api/uv/forecast";
+  const call = (body: object, origin = "https://uv.example.test") => POST(new Request(url, {
+    method: "POST", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }));
+  assert.equal(forecastCell(-39.8149, -73.24), "v1:-3981:-7324");
+  assert.equal(forecastCell(-39.8151, -73.24), "v1:-3982:-7324");
+  assert.equal((await call({ token }, "https://other.example.test")).status, 403);
+  assert.equal((await call({ token, latitude: -39.81 })).status, 400);
+  for (const cell of ["v1:-03981:-7324", "v1:9001:0", "v1:0:18001"]) {
+    assert.equal((await call({ token, cell })).status, 400);
+  }
+  const scope = { keyHash: "shared", action: "uv-forecast", windowStart: new Date(0) };
+  const previousFlag = process.env.SMARTNFC_MET_UV_ENABLED;
+  try {
+    process.env.SMARTNFC_MET_UV_ENABLED = "0";
+    assert.equal((await call({ token })).status, 503);
+    // Prime the disposable counter in the future so this test cannot straddle a window rollover.
+    await prisma.publicRateLimit.create({ data: {
+      ...scope, count: 179, updatedAt: new Date(Date.now() + 60_000),
+    } });
+    // This route has no provider integration. The flag only exercises its admission checks.
+    process.env.SMARTNFC_MET_UV_ENABLED = "1";
+    const responses = await Promise.all([call({ token }), call({ token })]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [404, 429]);
+    assert.equal(await prisma.publicRateLimit.count({ where: { ...scope, count: 180 } }), 1);
+  } finally {
+    if (previousFlag === undefined) delete process.env.SMARTNFC_MET_UV_ENABLED;
+    else process.env.SMARTNFC_MET_UV_ENABLED = previousFlag;
+    await prisma.publicRateLimit.deleteMany({ where: scope });
+  }
+});

@@ -9,8 +9,8 @@ const simulatedReading: UvReading = {
   chart: [{ at: "12:00", hour: "12:00", value: 6.2 }, { at: "13:00", hour: "13:00", value: 7.2 }, { at: "14:00", hour: "14:00", value: 9.4 }, { at: "15:00", hour: "15:00", value: 8.1 }],
 };
 
-export default function CampaignUvForecast({ block, forecast, asOf, preview = false }: {
-  block: Block; forecast?: MetUvSeries; asOf?: string; preview?: boolean;
+export default function CampaignUvForecast({ block, forecast, asOf, preview = false, token }: {
+  block: Block; forecast?: MetUvSeries; asOf?: string; preview?: boolean; token?: string;
 }) {
   const mode = block.locationMode ?? "fixed";
   const view = forecast && asOf && mode !== "mobile" ? summarizeMetUv(forecast, block.timezone, new Date(asOf)) : null;
@@ -21,5 +21,5 @@ export default function CampaignUvForecast({ block, forecast, asOf, preview = fa
     updated: clock.format(new Date(forecast.updatedAt)),
     chart: view.chart.map(sample => ({ at: sample.at, hour: hour.format(new Date(sample.at)), value: sample.value })),
   } : undefined;
-  return <CampaignUvPremium title={block.title} mode={mode} reading={reading} preview={preview} />;
+  return <CampaignUvPremium title={block.title} mode={mode} reading={reading} preview={preview} token={token} timezone={block.timezone} />;
 }

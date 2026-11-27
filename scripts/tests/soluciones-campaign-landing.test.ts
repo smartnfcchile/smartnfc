@@ -297,6 +297,10 @@ test("UV forecast POST traverses published points, cache and simulated provider 
     assert.equal(providerCalls, 1);
     const shared = await prisma.publicRateLimit.findFirstOrThrow({ where: { action: "uv-forecast", keyHash: "shared" } });
     assert.equal(shared.count, 4);
+    await prisma.publicRateLimit.update({ where: { id: shared.id }, data: { count: 179, updatedAt: new Date(Date.now() + 60_000) } });
+    const global = await Promise.all([call({ token: otherPoint.publicToken }), call({ token: otherPoint.publicToken })]);
+    assert.deepEqual(global.map(response => response.status).sort(), [200, 429]);
+    assert.equal(providerCalls, 1);
   } finally {
     globalThis.fetch = oldFetch;
     if (previousFlag === undefined) delete process.env.SMARTNFC_MET_UV_ENABLED;

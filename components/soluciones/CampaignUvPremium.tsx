@@ -33,7 +33,10 @@ const messages = {
   unavailable: "El teléfono no pudo determinar su ubicación.",
 };
 const format = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 1 });
-const point = (angle: number) => [120 - 96 * Math.cos(angle), 110 - 96 * Math.sin(angle)];
+const point = (angle: number) => [
+  (120 - 96 * Math.cos(angle)).toFixed(3),
+  (110 - 96 * Math.sin(angle)).toFixed(3),
+];
 
 async function requestReading(token: string, timezone: string, signal: AbortSignal, cell?: string): Promise<UvReading | null> {
   try {

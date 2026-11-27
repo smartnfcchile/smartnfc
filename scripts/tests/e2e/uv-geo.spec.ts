@@ -179,7 +179,7 @@ test("hybrid retains the center offline and recovers without accepting an older 
     await expect(card.locator("strong").first()).toHaveText("7,2");
     releaseCenter();
     await expect.poll(() => centerResponded).toBe(true);
-    await expect(card.getByText("SIMULADO")).toBeVisible();
+    await expect(card.getByText("SIMULADO", { exact: true })).toBeVisible();
     await expect(card.locator("strong").first()).toHaveText("7,2");
 
     await page.unroute("**/api/uv/forecast");

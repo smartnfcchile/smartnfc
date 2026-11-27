@@ -26,6 +26,11 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Generate temporary authentication secret
+        run: |
+          secret="$(openssl rand -hex 32)"
+          printf '::add-mask::%s\n' "$secret"
+          printf 'NEXTAUTH_SECRET=%s\n' "$secret" >> "$GITHUB_ENV"
       - run: |
           mkdir -p app/s/geo-fixture
           cp scripts/tests/e2e/uv-geo-fixture.tsx.txt app/s/geo-fixture/page.tsx

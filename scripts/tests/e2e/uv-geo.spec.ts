@@ -153,3 +153,54 @@ test("hybrid content renders before a forecast and sends only the coarse phone c
   await page.setViewportSize({ width: 390, height: 844 });
   await card.screenshot({ path: info.outputPath("stage3-simulated-phone-390.png") });
 });
+
+
+test("hybrid retains the center offline and recovers without accepting an older center response over the phone", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: -39.814235, longitude: -73.245912, accuracy: 30 });
+  let releaseCenter!: () => void;
+  const pendingCenter = new Promise<void>(resolve => { releaseCenter = resolve; });
+  let centerResponded = false;
+  let requested = 0;
+  await page.route("**/api/uv/forecast", async route => {
+    const input = route.request().postDataJSON() as { cell?: string };
+    if (input.cell) requested++;
+    else await pendingCenter;
+    const at = new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString();
+    await route.fulfill({ json: { status: "available", source: input.cell ? "phone" : "center",
+      series: { updatedAt: at, samples: [{ at, value: input.cell ? 7.2 : 4.3 }] },
+    } });
+    if (!input.cell) centerResponded = true;
+  });
+  try {
+    await page.goto(path + "?mode=hybrid&transport=1");
+    const card = page.getByRole("region", { name: "Pronóstico UV" });
+    await card.getByRole("button", { name: "Usar mi ubicación" }).click();
+    await expect(card.locator("strong").first()).toHaveText("7,2");
+    releaseCenter();
+    await expect.poll(() => centerResponded).toBe(true);
+    await expect(card.getByText("SIMULADO")).toBeVisible();
+    await expect(card.locator("strong").first()).toHaveText("7,2");
+
+    await page.unroute("**/api/uv/forecast");
+    await context.setOffline(true);
+    await card.getByRole("button", { name: "Actualizar mi ubicación" }).click();
+    await expect(card.getByRole("status")).toContainText("aún no está disponible");
+    await expect(card.locator("strong").first()).toHaveText("4,3");
+    await expect(page.getByText("Contenido preventivo disponible.")).toBeVisible();
+    await context.setOffline(false);
+    await page.route("**/api/uv/forecast", async route => {
+      const at = new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString();
+      await route.fulfill({ json: { status: "available", source: "phone",
+        series: { updatedAt: at, samples: [{ at, value: 7.2 }] },
+      } });
+    });
+    await card.getByRole("button", { name: "Actualizar mi ubicación" }).click();
+    await expect(card.getByRole("status")).toContainText("zona aproximada del teléfono");
+    await expect(card.locator("strong").first()).toHaveText("7,2");
+    expect(requested).toBe(1);
+  } finally {
+    releaseCenter();
+    await context.setOffline(false);
+  }
+});

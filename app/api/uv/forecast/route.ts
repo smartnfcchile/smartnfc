@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "../../../../lib/prisma";
 import { forecastCell, parseForecastCell } from "../../../../lib/soluciones/forecast-cell";
 import { forecastForCell } from "../../../../lib/soluciones/met-uv-server";
@@ -10,6 +10,7 @@ const headers = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex
 const maxBodyBytes = 512;
 const minute = 60_000;
 const requestLimit = 180;
+const companyLimit = 30;
 
 function reply(status: number, code: string, retryAfter?: number) {
   return Response.json({ status: code }, {
@@ -42,18 +43,18 @@ async function readPayload(request: Request): Promise<unknown> {
   }
 }
 
-async function takeRequestSlot() {
+async function takeRequestSlot(key: string, limit: number) {
   const now = Date.now();
   const start = new Date(Math.floor(now / minute) * minute);
-  // One shared row, with no IP, user, token or location in the rate limit key.
+  // The only scoped identifier is a hash of the campaign owner.
   const rows = await prisma.$queryRaw<{ count: number }[]>`
     INSERT INTO "PublicRateLimit" ("id", "keyHash", "action", "windowStart", "count", "updatedAt")
-    VALUES (${randomUUID()}, 'shared', 'uv-forecast', ${new Date(0)}, 1, ${start})
+    VALUES (${randomUUID()}, ${key}, 'uv-forecast', ${new Date(0)}, 1, ${start})
     ON CONFLICT ("keyHash", "action", "windowStart") DO UPDATE
     SET "count" = CASE WHEN "PublicRateLimit"."updatedAt" < ${start}
       THEN 1 ELSE "PublicRateLimit"."count" + 1 END,
       "updatedAt" = GREATEST("PublicRateLimit"."updatedAt", ${start})
-    WHERE "PublicRateLimit"."updatedAt" < ${start} OR "PublicRateLimit"."count" < ${requestLimit}
+    WHERE "PublicRateLimit"."updatedAt" < ${start} OR "PublicRateLimit"."count" < ${limit}
     RETURNING "count"
   `;
   return rows.length === 1;
@@ -83,7 +84,6 @@ export async function POST(request: Request) {
   if (process.env.SMARTNFC_MET_UV_ENABLED !== "1") return reply(503, "disabled");
 
   try {
-    if (!await takeRequestSlot()) return reply(429, "rate_limited", 60);
     const record = await resolvePublicSolutionTag(input.token);
     if (record?.kind !== "campaignLanding") return reply(404, "unavailable");
     const block = record.blocks.find(block => block.type === "uv-forecast" && !block.hidden);
@@ -99,7 +99,12 @@ export async function POST(request: Request) {
       return reply(422, "outside_service_area");
     }
     const key = forecastCell(latitude, longitude);
-    const series = key && await forecastForCell(key, mobile);
+    if (!key) return reply(422, "outside_service_area");
+    const owner = createHash("sha256").update(record.companyId).digest("hex");
+    if (!await takeRequestSlot(owner, companyLimit) || !await takeRequestSlot("shared", requestLimit)) {
+      return reply(429, "rate_limited", 60);
+    }
+    const series = await forecastForCell(key, mobile);
     if (!series) return reply(503, "unavailable");
     return Response.json({
       status: "available", source: mobile ? "phone" : "center", series,

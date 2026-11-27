@@ -93,7 +93,7 @@ async function lookup(latitude: number, longitude: number, signal: AbortSignal, 
         return usable(entry, at);
       }
       const slot = entry?.slot ?? (await tx.$queryRaw<{ slot: number }[]>`
-        SELECT candidate AS slot FROM generate_series(1, ${cell?.mobile ? 300 : 500}) AS candidate
+        SELECT candidate AS slot FROM generate_series(1, ${cell?.mobile ? 300 : 500}::integer) AS candidate
         WHERE NOT EXISTS (SELECT 1 FROM "CampaignUvCache" c WHERE c."slot" = candidate)
         ORDER BY CASE WHEN ${cell !== undefined && !cell.mobile} AND candidate > 300 THEN 0 ELSE 1 END, candidate LIMIT 1
       `)[0]?.slot;

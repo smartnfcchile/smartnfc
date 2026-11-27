@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../../../../lib/prisma";
-import { parseForecastCell } from "../../../../lib/soluciones/forecast-cell";
+import { forecastCell, parseForecastCell } from "../../../../lib/soluciones/forecast-cell";
+import { forecastForCell } from "../../../../lib/soluciones/met-uv-server";
 import { resolvePublicSolutionTag } from "../../../../lib/soluciones/public-record";
 
 export const runtime = "nodejs";
@@ -79,7 +80,6 @@ export async function POST(request: Request) {
   const cell = mobile ? parseForecastCell(input.cell) : null;
   if (mobile && !cell) return reply(400, "invalid_cell");
 
-  // The provider remains disabled until the meteorological integration is reviewed.
   if (process.env.SMARTNFC_MET_UV_ENABLED !== "1") return reply(503, "disabled");
 
   try {
@@ -98,7 +98,12 @@ export async function POST(request: Request) {
         latitude < -56 || latitude > -17 || longitude < -77 || longitude > -66) {
       return reply(422, "outside_service_area");
     }
-    return reply(503, "unavailable");
+    const key = forecastCell(latitude, longitude);
+    const series = key && await forecastForCell(key, mobile);
+    if (!series) return reply(503, "unavailable");
+    return Response.json({
+      status: "available", source: mobile ? "phone" : "center", series,
+    }, { headers });
   } catch {
     return reply(503, "unavailable");
   }
